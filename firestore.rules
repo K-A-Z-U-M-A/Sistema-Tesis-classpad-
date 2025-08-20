@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Función para verificar si el usuario está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Función para verificar si el usuario es el propietario del documento
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Función para verificar si el usuario es docente
+    function isTeacher() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    // Función para verificar si el usuario es administrador
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Función para verificar si el usuario es miembro del curso
+    function isCourseMember(courseId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/courses/$(courseId)/members/$(request.auth.uid));
+    }
+    
+    // Función para verificar si el usuario es docente del curso
+    function isCourseTeacher(courseId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/courses/$(courseId)/members/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/courses/$(courseId)/members/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    // Función para verificar si el usuario es alumno del curso
+    function isCourseStudent(courseId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/courses/$(courseId)/members/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/courses/$(courseId)/members/$(request.auth.uid)).data.role == 'student';
+    }
+
+    // Reglas para usuarios
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && isOwner(userId);
+      allow delete: if isAuthenticated() && (isOwner(userId) || isAdmin());
+    }
+    
+    // Reglas para cursos
+    match /courses/{courseId} {
+      allow read: if isAuthenticated() && isCourseMember(courseId);
+      allow create: if isAuthenticated() && isTeacher();
+      allow update: if isAuthenticated() && isCourseTeacher(courseId);
+      allow delete: if isAuthenticated() && isCourseTeacher(courseId);
+      
+      // Miembros del curso
+      match /members/{memberId} {
+        allow read: if isAuthenticated() && isCourseMember(courseId);
+        allow create: if isAuthenticated() && (isCourseTeacher(courseId) || isOwner(memberId));
+        allow update: if isAuthenticated() && isCourseTeacher(courseId);
+        allow delete: if isAuthenticated() && isCourseTeacher(courseId);
+      }
+      
+      // Publicaciones del curso
+      match /posts/{postId} {
+        allow read: if isAuthenticated() && isCourseMember(courseId);
+        allow create: if isAuthenticated() && isCourseTeacher(courseId);
+        allow update: if isAuthenticated() && isCourseTeacher(courseId);
+        allow delete: if isAuthenticated() && isCourseTeacher(courseId);
+        
+        // Comentarios de publicaciones
+        match /comments/{commentId} {
+          allow read: if isAuthenticated() && isCourseMember(courseId);
+          allow create: if isAuthenticated() && isCourseMember(courseId);
+          allow update: if isAuthenticated() && isOwner(resource.data.userId);
+          allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isCourseTeacher(courseId));
+        }
+        
+        // Entregas de tareas
+        match /submissions/{submissionId} {
+          allow read: if isAuthenticated() && (isCourseTeacher(courseId) || isOwner(submissionId));
+          allow create: if isAuthenticated() && isCourseStudent(courseId) && isOwner(submissionId);
+          allow update: if isAuthenticated() && (isCourseTeacher(courseId) || isOwner(submissionId));
+          allow delete: if isAuthenticated() && isCourseTeacher(courseId);
+        }
+      }
+      
+      // Sesiones de asistencia
+      match /attendance-sessions/{sessionId} {
+        allow read: if isAuthenticated() && isCourseMember(courseId);
+        allow create: if isAuthenticated() && isCourseTeacher(courseId);
+        allow update: if isAuthenticated() && isCourseTeacher(courseId);
+        allow delete: if isAuthenticated() && isCourseTeacher(courseId);
+        
+        // Registros de asistencia
+        match /records/{recordId} {
+          allow read: if isAuthenticated() && isCourseTeacher(courseId);
+          allow create: if isAuthenticated() && isCourseTeacher(courseId);
+          allow update: if isAuthenticated() && isCourseTeacher(courseId);
+          allow delete: if isAuthenticated() && isCourseTeacher(courseId);
+        }
+      }
+      
+      // Mensajes del curso
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && isCourseMember(courseId);
+        allow create: if isAuthenticated() && isCourseMember(courseId);
+        allow update: if isAuthenticated() && isOwner(resource.data.userId);
+        allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isCourseTeacher(courseId));
+      }
+    }
+    
+    // Tokens QR (solo lectura para validación)
+    match /qr-tokens/{tokenId} {
+      allow read: if isAuthenticated();
+      allow create: if false; // Solo se crean desde Cloud Functions
+      allow update: if false; // Solo se actualizan desde Cloud Functions
+      allow delete: if false; // Solo se eliminan desde Cloud Functions
+    }
+    
+    // Notificaciones
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && isOwner(resource.data.userId);
+      allow update: if isAuthenticated() && isOwner(resource.data.userId);
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+  }
+} 
