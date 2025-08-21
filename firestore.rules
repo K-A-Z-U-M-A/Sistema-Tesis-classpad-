@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Reglas para usuarios
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && 
+        (resource.data.role == 'admin' || 
+         resource.data.role == 'teacher' || 
+         resource.data.role == 'student');
+    }
+    
+    // Reglas para cursos
+    match /courses/{courseId} {
+      allow read: if request.auth != null && 
+        (resource.data.teachers[request.auth.uid] != null || 
+         resource.data.students[request.auth.uid] != null ||
+         resource.data.ownerId == request.auth.uid);
+      allow create: if request.auth != null && 
+        (request.auth.token.role == 'teacher' || request.auth.token.role == 'admin');
+      allow update, delete: if request.auth != null && 
+        (resource.data.ownerId == request.auth.uid || 
+         resource.data.teachers[request.auth.uid] != null ||
+         request.auth.token.role == 'admin');
+    }
+    
+    // Reglas para unidades de curso
+    match /courses/{courseId}/units/{unitId} {
+      allow read: if request.auth != null && 
+        (get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null || 
+         get(/databases/$(database)/documents/courses/$(courseId)).data.students[request.auth.uid] != null);
+      allow write: if request.auth != null && 
+        (get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null ||
+         get(/databases/$(database)/documents/courses/$(courseId)).data.ownerId == request.auth.uid);
+    }
+    
+    // Reglas para tareas
+    match /courses/{courseId}/assignments/{assignmentId} {
+      allow read: if request.auth != null && 
+        (get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null || 
+         get(/databases/$(database)/documents/courses/$(courseId)).data.students[request.auth.uid] != null);
+      allow create, update, delete: if request.auth != null && 
+        (get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null ||
+         get(/databases/$(database)/documents/courses/$(courseId)).data.ownerId == request.auth.uid);
+    }
+    
+    // Reglas para entregas de tareas
+    match /courses/{courseId}/assignments/{assignmentId}/submissions/{submissionId} {
+      allow read: if request.auth != null && 
+        (get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null || 
+         (get(/databases/$(database)/documents/courses/$(courseId)).data.students[request.auth.uid] != null && 
+          resource.data.studentId == request.auth.uid));
+      allow create, update: if request.auth != null && 
+        get(/databases/$(database)/documents/courses/$(courseId)).data.students[request.auth.uid] != null &&
+        resource.data.studentId == request.auth.uid;
+      allow update: if request.auth != null && 
+        get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null;
+    }
+    
+    // Reglas para sesiones de asistencia
+    match /courses/{courseId}/attendance/{sessionId} {
+      allow read: if request.auth != null && 
+        (get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null || 
+         get(/databases/$(database)/documents/courses/$(courseId)).data.students[request.auth.uid] != null);
+      allow create, update, delete: if request.auth != null && 
+        (get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null ||
+         get(/databases/$(database)/documents/courses/$(courseId)).data.ownerId == request.auth.uid);
+    }
+    
+    // Reglas para mensajes
+    match /courses/{courseId}/messages/{messageId} {
+      allow read: if request.auth != null && 
+        (get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null || 
+         get(/databases/$(database)/documents/courses/$(courseId)).data.students[request.auth.uid] != null);
+      allow create: if request.auth != null && 
+        (get(/databases/$(database)/documents/courses/$(courseId)).data.teachers[request.auth.uid] != null || 
+         get(/databases/$(database)/documents/courses/$(courseId)).data.students[request.auth.uid] != null);
+      allow update, delete: if request.auth != null && 
+        resource.data.authorId == request.auth.uid;
+    }
+  }
+}
