@@ -51,7 +51,7 @@ const Courses = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
 
   // Filtrar cursos según el rol del usuario
-  const userCourses = userProfile?.role === 'teacher' 
+  const userCourses = userProfile?.role === 'teacher'
     ? courses.filter(c => c.teacher.uid === userProfile.uid)
     : courses.filter(c => c.students.some(s => s.uid === userProfile?.uid));
 
@@ -101,7 +101,7 @@ const Courses = () => {
         name: userProfile.fullName,
         email: userProfile.email
       });
-      
+
       toast.success('¡Te has unido al curso exitosamente!');
       setJoinDialogOpen(false);
       setJoinCode('');
@@ -137,7 +137,7 @@ const Courses = () => {
               {userProfile?.role === 'teacher' ? 'Cursos que impartes' : 'Cursos en los que participas'}
             </Typography>
           </Box>
-          
+
           <Box display="flex" gap={2}>
             <Button
               variant="outlined"
@@ -147,7 +147,7 @@ const Courses = () => {
             >
               Unirse a Curso
             </Button>
-            
+
             {userProfile?.role === 'teacher' && (
               <Button
                 variant="contained"
@@ -178,7 +178,7 @@ const Courses = () => {
             }}
             sx={{ minWidth: 300 }}
           />
-          
+
           <FormControl sx={{ minWidth: 200 }}>
             <InputLabel>Filtrar por asignatura</InputLabel>
             <Select
@@ -207,9 +207,9 @@ const Courses = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
               >
-                <Card 
-                  sx={{ 
-                    height: '100%', 
+                <Card
+                  sx={{
+                    height: '100%',
                     cursor: 'pointer',
                     '&:hover': {
                       transform: 'translateY(-4px)',
@@ -222,11 +222,11 @@ const Courses = () => {
                   <CardContent>
                     {/* Header del curso */}
                     <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                      <Box 
-                        sx={{ 
-                          width: 50, 
-                          height: 50, 
-                          borderRadius: 2, 
+                      <Box
+                        sx={{
+                          width: 50,
+                          height: 50,
+                          borderRadius: 2,
                           backgroundColor: course.color,
                           display: 'flex',
                           alignItems: 'center',
@@ -235,7 +235,7 @@ const Courses = () => {
                       >
                         <School sx={{ color: 'white', fontSize: 24 }} />
                       </Box>
-                      
+
                       <IconButton
                         size="small"
                         onClick={(e) => {
@@ -251,11 +251,11 @@ const Courses = () => {
                     <Typography variant="h6" gutterBottom fontWeight="bold">
                       {course.name}
                     </Typography>
-                    
+
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       {course.subject} • {course.grade}
                     </Typography>
-                    
+
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                       {course.description}
                     </Typography>
@@ -268,11 +268,11 @@ const Courses = () => {
                           {course.students.length} estudiantes
                         </Typography>
                       </Box>
-                      
-                      <Chip 
-                        label={course.isActive ? 'Activo' : 'Inactivo'} 
-                        color={course.isActive ? 'success' : 'default'} 
-                        size="small" 
+
+                      <Chip
+                        label={course.isActive ? 'Activo' : 'Inactivo'}
+                        color={course.isActive ? 'success' : 'default'}
+                        size="small"
                       />
                     </Box>
 
@@ -281,9 +281,9 @@ const Courses = () => {
                       <Typography variant="caption" color="text.secondary">
                         Código:
                       </Typography>
-                      <Chip 
-                        label={course.joinCode} 
-                        size="small" 
+                      <Chip
+                        label={course.joinCode}
+                        size="small"
                         variant="outlined"
                         sx={{ fontFamily: 'monospace' }}
                       />
@@ -306,14 +306,14 @@ const Courses = () => {
               {searchTerm || filterSubject ? 'No se encontraron cursos' : 'No tienes cursos aún'}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              {searchTerm || filterSubject 
+              {searchTerm || filterSubject
                 ? 'Intenta ajustar los filtros de búsqueda'
                 : userProfile?.role === 'teacher'
                   ? 'Crea tu primer curso para comenzar'
                   : 'Únete a un curso usando un código de unión'
               }
             </Typography>
-            
+
             {userProfile?.role === 'teacher' ? (
               <Button
                 variant="contained"

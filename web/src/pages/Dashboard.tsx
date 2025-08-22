@@ -121,7 +121,7 @@ const Dashboard = () => {
       <Typography variant="h4" gutterBottom>
         ¡Bienvenido, {user.displayName}! 👋
       </Typography>
-      
+
       <Grid container spacing={3}>
         {/* Resumen de estadísticas */}
         <Grid item xs={12} md={8}>
@@ -228,7 +228,7 @@ const Dashboard = () => {
                   Ver todos
                 </Button>
               </Box>
-              
+
               <List>
                 {mockCourses.map((course, index) => (
                   <Box key={course.id}>
@@ -263,14 +263,14 @@ const Dashboard = () => {
               <Typography variant="h6" gutterBottom>
                 🔔 Actividad Reciente
               </Typography>
-              
+
               <List>
                 {mockRecentPosts.map((post, index) => (
                   <Box key={post.id}>
                     <ListItem>
                       <ListItemAvatar>
                         <Avatar>
-                          {post.type === 'assignment' ? <Assignment /> : 
+                          {post.type === 'assignment' ? <Assignment /> :
                            post.type === 'material' ? <School /> : <Notifications />}
                         </Avatar>
                       </ListItemAvatar>
@@ -279,7 +279,7 @@ const Dashboard = () => {
                         secondary={`${post.authorName} • ${post.courseName} • ${post.createdAt.toLocaleDateString()}`}
                       />
                       <Chip
-                        label={post.type === 'assignment' ? 'Tarea' : 
+                        label={post.type === 'assignment' ? 'Tarea' :
                                post.type === 'material' ? 'Material' : 'Anuncio'}
                         size="small"
                         color={post.type === 'assignment' ? 'warning' : 'info'}
@@ -382,4 +382,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

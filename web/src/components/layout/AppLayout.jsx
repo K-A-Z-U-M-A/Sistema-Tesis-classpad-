@@ -261,7 +261,7 @@ export default function AppLayout({ children }) {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      
+
       {/* AppBar */}
       <AppBar
         position="fixed"
@@ -280,7 +280,7 @@ export default function AppLayout({ children }) {
           >
             <MenuIcon />
           </IconButton>
-          
+
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {menuItems.find(item => isActive(item.path))?.text || 'ClassPad'}
           </Typography>

@@ -37,6 +37,8 @@ const CreateCourse = () => {
     name: '',
     subject: '',
     grade: '',
+    semester: '',
+    code: '',
     description: '',
     maxStudents: 30,
     joinCode: '',
@@ -53,10 +55,108 @@ const CreateCourse = () => {
     '#AF52DE', '#FF2D92', '#5856D6', '#FF6B5E', '#4DA3FF'
   ];
 
+  // Malla curricular de Ingeniería en Sistemas Informáticos
+  const mallaCurricular = {
+    1: { // Primer curso
+      1: [ // Primer semestre
+        { code: 'ISI01', name: 'Matemática I', subject: 'Matemáticas' },
+        { code: 'ISI02', name: 'Computación I', subject: 'Computación' },
+        { code: 'ISI03', name: 'Informática I', subject: 'Informática' },
+        { code: 'ISI04', name: 'Algoritmia I', subject: 'Algoritmos' },
+        { code: 'ISI05', name: 'Inglés', subject: 'Idiomas' }
+      ],
+      2: [ // Segundo semestre
+        { code: 'ISI06', name: 'Matemática II', subject: 'Matemáticas' },
+        { code: 'ISI07', name: 'Computación II', subject: 'Computación' },
+        { code: 'ISI08', name: 'Informática II', subject: 'Informática' },
+        { code: 'ISI09', name: 'Algoritmia II', subject: 'Algoritmos' },
+        { code: 'ISI10', name: 'Programación I', subject: 'Programación' }
+      ]
+    },
+    2: { // Segundo curso
+      3: [ // Tercer semestre
+        { code: 'ISI11', name: 'Matemática III', subject: 'Matemáticas' },
+        { code: 'ISI12', name: 'Computación III', subject: 'Computación' },
+        { code: 'ISI13', name: 'Programación II', subject: 'Programación' },
+        { code: 'ISI14', name: 'Lenguaje I', subject: 'Lenguajes' },
+        { code: 'ISI15', name: 'Física I', subject: 'Física' }
+      ],
+      4: [ // Cuarto semestre
+        { code: 'ISI16', name: 'Matemática IV', subject: 'Matemáticas' },
+        { code: 'ISI17', name: 'Computación IV', subject: 'Computación' },
+        { code: 'ISI18', name: 'Programación III', subject: 'Programación' },
+        { code: 'ISI19', name: 'Lenguajes II', subject: 'Lenguajes' },
+        { code: 'ISI20', name: 'Física II', subject: 'Física' }
+      ]
+    },
+    3: { // Tercer curso
+      5: [ // Quinto semestre
+        { code: 'ISI21', name: 'Matemática V', subject: 'Matemáticas' },
+        { code: 'ISI22', name: 'Programación IV', subject: 'Programación' },
+        { code: 'ISI23', name: 'Análisis y Diseño de Sistemas', subject: 'Sistemas' },
+        { code: 'ISI24', name: 'Lenguajes III', subject: 'Lenguajes' },
+        { code: 'ISI25', name: 'Administración I', subject: 'Administración' }
+      ],
+      6: [ // Sexto semestre
+        { code: 'ISI26', name: 'Matemática VI', subject: 'Matemáticas' },
+        { code: 'ISI27', name: 'Programación V', subject: 'Programación' },
+        { code: 'ISI28', name: 'Redes I', subject: 'Redes' },
+        { code: 'ISI29', name: 'Estadística y Probabilidades', subject: 'Estadística' },
+        { code: 'ISI30', name: 'Metodología de la Investigación I', subject: 'Investigación' }
+      ]
+    },
+    4: { // Cuarto curso
+      7: [ // Séptimo semestre
+        { code: 'ISI31', name: 'Computación V', subject: 'Computación' },
+        { code: 'ISI32', name: 'Informática III', subject: 'Informática' },
+        { code: 'ISI33', name: 'Investigación Operativa I', subject: 'Investigación' },
+        { code: 'ISI34', name: 'Metodología de la Investigación II', subject: 'Investigación' },
+        { code: 'ISI35', name: 'Proyecto I', subject: 'Proyectos' }
+      ],
+      8: [ // Octavo semestre
+        { code: 'ISI36', name: 'Computación VI', subject: 'Computación' },
+        { code: 'ISI37', name: 'Informática IV', subject: 'Informática' },
+        { code: 'ISI38', name: 'Investigación Operativa II', subject: 'Investigación' },
+        { code: 'ISI39', name: 'Electrónica Digital I', subject: 'Electrónica' },
+        { code: 'ISI40', name: 'Proyecto II', subject: 'Proyectos' }
+      ]
+    },
+    5: { // Quinto curso
+      9: [ // Noveno semestre
+        { code: 'ISI41', name: 'Redes II', subject: 'Redes' },
+        { code: 'ISI42', name: 'Administración II', subject: 'Administración' },
+        { code: 'ISI43', name: 'Ingeniería de Software I', subject: 'Ingeniería de Software' },
+        { code: 'ISI44', name: 'Electrónica Digital II', subject: 'Electrónica' },
+        { code: 'ISI45', name: 'Adm. de Sistemas de Información', subject: 'Administración' }
+      ],
+      10: [ // Décimo semestre
+        { code: 'ISI46', name: 'Sistemas Distribuidos', subject: 'Sistemas' },
+        { code: 'ISI47', name: 'Simulación de Sistemas de Control', subject: 'Simulación' },
+        { code: 'ISI48', name: 'Ingeniería de Software II', subject: 'Ingeniería de Software' },
+        { code: 'ISI49', name: 'Modelos y Sistemas de Optimización', subject: 'Optimización' },
+        { code: 'ISI50', name: 'Informática V', subject: 'Informática' }
+      ]
+    },
+    6: { // Sexto curso
+      11: [ // Undécimo semestre
+        { code: 'ISI51', name: 'Cibernética', subject: 'Cibernética' },
+        { code: 'ISI52', name: 'Informática VI', subject: 'Informática' },
+        { code: 'ISI53', name: 'Inteligencia Artificial', subject: 'IA' },
+        { code: 'ISI54', name: 'Programación Web Avanzado', subject: 'Programación Web' },
+        { code: 'ISI55', name: 'Trabajo de Tesis I', subject: 'Tesis' }
+      ],
+      12: [ // Duodécimo semestre
+        { code: 'ISI56', name: 'Auditoria Informática', subject: 'Auditoría' },
+        { code: 'ISI57', name: 'Foros Informáticos', subject: 'Foros' },
+        { code: 'ISI58', name: 'Trabajo de Tesis II', subject: 'Tesis' }
+      ]
+    }
+  };
+
   // Validar formulario
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.name.trim()) {
       newErrors.name = 'El nombre del curso es requerido';
     }
@@ -64,7 +164,13 @@ const CreateCourse = () => {
       newErrors.subject = 'La asignatura es requerida';
     }
     if (!formData.grade.trim()) {
-      newErrors.grade = 'El grado es requerido';
+      newErrors.grade = 'El curso es requerido';
+    }
+    if (!formData.semester.trim()) {
+      newErrors.semester = 'El semestre es requerido';
+    }
+    if (!formData.code.trim()) {
+      newErrors.code = 'La materia es requerida';
     }
     if (!formData.description.trim()) {
       newErrors.description = 'La descripción es requerida';
@@ -91,24 +197,8 @@ const CreateCourse = () => {
 
   // Generar código de unión automáticamente
   const generateJoinCode = () => {
-    const subjects = {
-      'Matemáticas': 'MATH',
-      'Física': 'PHYS',
-      'Química': 'CHEM',
-      'Historia': 'HIST',
-      'Literatura': 'LIT',
-      'Biología': 'BIO',
-      'Geografía': 'GEO',
-      'Inglés': 'ENG',
-      'Español': 'ESP',
-      'Arte': 'ART'
-    };
-    
-    const subjectCode = subjects[formData.subject] || 'COURSE';
     const year = new Date().getFullYear().toString().slice(-2);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    
-    const joinCode = `${subjectCode}${year}${random}`;
+    const joinCode = `${formData.code}${year}`;
     handleInputChange('joinCode', joinCode);
   };
 
@@ -136,6 +226,7 @@ const CreateCourse = () => {
     try {
       const courseData = {
         ...formData,
+        hours: 90, // Todas las materias tienen 90 horas según la malla
         teacher: {
           uid: userProfile.uid,
           name: userProfile.fullName,
@@ -145,7 +236,7 @@ const CreateCourse = () => {
       };
 
       const newCourse = createCourse(courseData);
-      
+
       toast.success('¡Curso creado exitosamente!');
       navigate('/courses');
     } catch (error) {
@@ -168,58 +259,31 @@ const CreateCourse = () => {
           >
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Nombre del Curso"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  error={!!errors.name}
-                  helperText={errors.name}
-                  placeholder="Ej: Matemáticas Avanzadas"
-                />
+                <Typography variant="h6" gutterBottom>
+                  Selección de Materia - Malla 2015 Ingeniería en Sistemas Informáticos
+                </Typography>
               </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth error={!!errors.subject}>
-                  <InputLabel>Asignatura</InputLabel>
-                  <Select
-                    value={formData.subject}
-                    onChange={(e) => handleInputChange('subject', e.target.value)}
-                    label="Asignatura"
-                  >
-                    <MenuItem value="Matemáticas">Matemáticas</MenuItem>
-                    <MenuItem value="Física">Física</MenuItem>
-                    <MenuItem value="Química">Química</MenuItem>
-                    <MenuItem value="Historia">Historia</MenuItem>
-                    <MenuItem value="Literatura">Literatura</MenuItem>
-                    <MenuItem value="Biología">Biología</MenuItem>
-                    <MenuItem value="Geografía">Geografía</MenuItem>
-                    <MenuItem value="Inglés">Inglés</MenuItem>
-                    <MenuItem value="Español">Español</MenuItem>
-                    <MenuItem value="Arte">Arte</MenuItem>
-                  </Select>
-                  {errors.subject && (
-                    <Typography variant="caption" color="error">
-                      {errors.subject}
-                    </Typography>
-                  )}
-                </FormControl>
-              </Grid>
-              
+
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth error={!!errors.grade}>
-                  <InputLabel>Grado</InputLabel>
+                  <InputLabel>Curso</InputLabel>
                   <Select
                     value={formData.grade}
-                    onChange={(e) => handleInputChange('grade', e.target.value)}
-                    label="Grado"
+                    onChange={(e) => {
+                      handleInputChange('grade', e.target.value);
+                      handleInputChange('semester', '');
+                      handleInputChange('code', '');
+                      handleInputChange('name', '');
+                      handleInputChange('subject', '');
+                    }}
+                    label="Curso"
                   >
-                    <MenuItem value="1er Año">1er Año</MenuItem>
-                    <MenuItem value="2do Año">2do Año</MenuItem>
-                    <MenuItem value="3er Año">3er Año</MenuItem>
-                    <MenuItem value="4to Año">4to Año</MenuItem>
-                    <MenuItem value="5to Año">5to Año</MenuItem>
-                    <MenuItem value="6to Año">6to Año</MenuItem>
+                    <MenuItem value="1er Curso">1er Curso</MenuItem>
+                    <MenuItem value="2do Curso">2do Curso</MenuItem>
+                    <MenuItem value="3er Curso">3er Curso</MenuItem>
+                    <MenuItem value="4to Curso">4to Curso</MenuItem>
+                    <MenuItem value="5to Curso">5to Curso</MenuItem>
+                    <MenuItem value="6to Curso">6to Curso</MenuItem>
                   </Select>
                   {errors.grade && (
                     <Typography variant="caption" color="error">
@@ -228,7 +292,82 @@ const CreateCourse = () => {
                   )}
                 </FormControl>
               </Grid>
-              
+
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth error={!!errors.semester}>
+                  <InputLabel>Semestre</InputLabel>
+                  <Select
+                    value={formData.semester}
+                    onChange={(e) => {
+                      handleInputChange('semester', e.target.value);
+                      handleInputChange('code', '');
+                      handleInputChange('name', '');
+                      handleInputChange('subject', '');
+                    }}
+                    label="Semestre"
+                    disabled={!formData.grade}
+                  >
+                    {formData.grade && mallaCurricular[formData.grade.split(' ')[0]] &&
+                      Object.keys(mallaCurricular[formData.grade.split(' ')[0]]).map(semester => (
+                        <MenuItem key={semester} value={semester}>
+                          {semester === '1' ? '1er Semestre' :
+                           semester === '2' ? '2do Semestre' :
+                           semester === '3' ? '3er Semestre' :
+                           semester === '4' ? '4to Semestre' :
+                           semester === '5' ? '5to Semestre' :
+                           semester === '6' ? '6to Semestre' :
+                           semester === '7' ? '7mo Semestre' :
+                           semester === '8' ? '8vo Semestre' :
+                           semester === '9' ? '9no Semestre' :
+                           semester === '10' ? '10mo Semestre' :
+                           semester === '11' ? '11vo Semestre' :
+                           '12vo Semestre'}
+                        </MenuItem>
+                      ))
+                    }
+                  </Select>
+                  {errors.semester && (
+                    <Typography variant="caption" color="error">
+                      {errors.semester}
+                    </Typography>
+                  )}
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12}>
+                <FormControl fullWidth error={!!errors.code}>
+                  <InputLabel>Materia</InputLabel>
+                  <Select
+                    value={formData.code}
+                    onChange={(e) => {
+                      const selectedMateria = e.target.value;
+                      const curso = formData.grade.split(' ')[0];
+                      const semestre = formData.semester;
+                      const materia = mallaCurricular[curso][semestre].find(m => m.code === selectedMateria);
+
+                      handleInputChange('code', selectedMateria);
+                      handleInputChange('name', materia.name);
+                      handleInputChange('subject', materia.subject);
+                    }}
+                    label="Materia"
+                    disabled={!formData.semester}
+                  >
+                    {formData.semester && formData.grade &&
+                      mallaCurricular[formData.grade.split(' ')[0]][formData.semester].map(materia => (
+                        <MenuItem key={materia.code} value={materia.code}>
+                          {materia.code} - {materia.name}
+                        </MenuItem>
+                      ))
+                    }
+                  </Select>
+                  {errors.code && (
+                    <Typography variant="caption" color="error">
+                      {errors.code}
+                    </Typography>
+                  )}
+                </FormControl>
+              </Grid>
+
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -266,7 +405,7 @@ const CreateCourse = () => {
                   inputProps={{ min: 1, max: 100 }}
                 />
               </Grid>
-              
+
               <Grid item xs={12} sm={6}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <TextField
@@ -287,13 +426,13 @@ const CreateCourse = () => {
                   </Button>
                 </Box>
               </Grid>
-              
+
               <Grid item xs={12}>
                 <Alert severity="info" sx={{ mb: 2 }}>
                   El código de unión permite a los estudiantes unirse al curso
                 </Alert>
               </Grid>
-              
+
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>
                   Permisos de Estudiantes
@@ -358,7 +497,7 @@ const CreateCourse = () => {
                   ))}
                 </Box>
               </Grid>
-              
+
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>
                   Vista Previa
@@ -387,14 +526,29 @@ const CreateCourse = () => {
                         {formData.name.charAt(0) || 'C'}
                       </Typography>
                     </Box>
-                    <Box>
-                      <Typography variant="h6" fontWeight="bold">
-                        {formData.name || 'Nombre del Curso'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {formData.subject || 'Asignatura'} • {formData.grade || 'Grado'}
-                      </Typography>
-                    </Box>
+                                      <Box>
+                    <Typography variant="h6" fontWeight="bold">
+                      {formData.name || 'Nombre del Curso'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {formData.code || 'Código'} • {formData.subject || 'Asignatura'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {formData.grade || 'Curso'} • {formData.semester ?
+                        (formData.semester === '1' ? '1er Semestre' :
+                         formData.semester === '2' ? '2do Semestre' :
+                         formData.semester === '3' ? '3er Semestre' :
+                         formData.semester === '4' ? '4to Semestre' :
+                         formData.semester === '5' ? '5to Semestre' :
+                         formData.semester === '6' ? '6to Semestre' :
+                         formData.semester === '7' ? '7mo Semestre' :
+                         formData.semester === '8' ? '8vo Semestre' :
+                         formData.semester === '9' ? '9no Semestre' :
+                         formData.semester === '10' ? '10mo Semestre' :
+                         formData.semester === '11' ? '11vo Semestre' :
+                         '12vo Semestre') : 'Semestre'}
+                    </Typography>
+                  </Box>
                   </Box>
                 </Paper>
               </Grid>
@@ -415,10 +569,10 @@ const CreateCourse = () => {
         transition={{ duration: 0.6 }}
       >
         <Typography variant="h3" gutterBottom fontWeight="bold" textAlign="center">
-          Crear Nuevo Curso
+          Crear Nueva Materia
         </Typography>
         <Typography variant="h6" color="text.secondary" textAlign="center" sx={{ mb: 4 }}>
-          Configura tu curso paso a paso
+          Malla 2015 - Ingeniería en Sistemas Informáticos
         </Typography>
       </motion.div>
 
@@ -444,14 +598,14 @@ const CreateCourse = () => {
           >
             Anterior
           </Button>
-          
+
           <Button
             variant="contained"
             onClick={handleNext}
             disabled={loading}
             sx={{ borderRadius: 2 }}
           >
-            {activeStep === steps.length - 1 ? 'Crear Curso' : 'Siguiente'}
+            {activeStep === steps.length - 1 ? 'Crear Materia' : 'Siguiente'}
           </Button>
         </Box>
       </Paper>

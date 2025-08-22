@@ -11,20 +11,23 @@ export const useDemoData = () => {
 };
 
 export const DemoDataProvider = ({ children }) => {
-  // Datos mock para cursos
+  // Datos mock para cursos - Malla 2015 Ingeniería en Sistemas Informáticos
   const [courses, setCourses] = useState([
     {
       id: 'course-1',
-      name: 'Matemáticas Avanzadas',
+      name: 'Matemática I',
       subject: 'Matemáticas',
-      description: 'Curso de matemáticas para estudiantes avanzados',
-      grade: '3er Año',
+      description: 'Fundamentos de matemáticas para ingeniería en sistemas',
+      grade: '1er Semestre',
+      semester: 1,
+      code: 'ISI01',
+      hours: 90,
       maxStudents: 30,
-      joinCode: 'MATH2024',
+      joinCode: 'ISI012024',
       color: '#007AFF',
       teacher: {
         uid: 'demo-teacher-1',
-        name: 'Dr. Carlos García',
+        name: 'Ingeniero Carlos García',
         email: 'profesor@demo.com'
       },
       students: [
@@ -39,16 +42,19 @@ export const DemoDataProvider = ({ children }) => {
     },
     {
       id: 'course-2',
-      name: 'Física Cuántica',
-      subject: 'Física',
-      description: 'Introducción a la física cuántica moderna',
-      grade: '4to Año',
+      name: 'Computación I',
+      subject: 'Computación',
+      description: 'Introducción a la computación y sistemas informáticos',
+      grade: '1er Semestre',
+      semester: 1,
+      code: 'ISI02',
+      hours: 90,
       maxStudents: 25,
-      joinCode: 'PHYS2024',
+      joinCode: 'ISI022024',
       color: '#34C759',
       teacher: {
         uid: 'demo-teacher-1',
-        name: 'Dr. Carlos García',
+        name: 'Ingeniero Carlos García',
         email: 'profesor@demo.com'
       },
       students: [],
@@ -56,6 +62,206 @@ export const DemoDataProvider = ({ children }) => {
       isActive: true,
       settings: {
         allowStudentPosts: false,
+        allowStudentComments: true
+      }
+    },
+    {
+      id: 'course-3',
+      name: 'Informática I',
+      subject: 'Informática',
+      description: 'Fundamentos de informática y tecnologías de la información',
+      grade: '1er Semestre',
+      semester: 1,
+      code: 'ISI03',
+      hours: 90,
+      maxStudents: 30,
+      joinCode: 'ISI032024',
+      color: '#FF9500',
+      teacher: {
+        uid: 'demo-teacher-1',
+        name: 'Ingeniero Carlos García',
+        email: 'profesor@demo.com'
+      },
+      students: [],
+      createdAt: new Date('2024-02-01'),
+      isActive: true,
+      settings: {
+        allowStudentPosts: true,
+        allowStudentComments: true
+      }
+    },
+    {
+      id: 'course-4',
+      name: 'Algoritmia I',
+      subject: 'Algoritmos',
+      description: 'Fundamentos de algoritmos y programación básica',
+      grade: '1er Semestre',
+      semester: 1,
+      code: 'ISI04',
+      hours: 90,
+      maxStudents: 25,
+      joinCode: 'ISI042024',
+      color: '#FF3B30',
+      teacher: {
+        uid: 'demo-teacher-1',
+        name: 'Ingeniero Carlos García',
+        email: 'profesor@demo.com'
+      },
+      students: [],
+      createdAt: new Date('2024-02-01'),
+      isActive: true,
+      settings: {
+        allowStudentPosts: true,
+        allowStudentComments: true
+      }
+    },
+    {
+      id: 'course-5',
+      name: 'Inglés',
+      subject: 'Idiomas',
+      description: 'Inglés técnico para ingeniería en sistemas',
+      grade: '1er Semestre',
+      semester: 1,
+      code: 'ISI05',
+      hours: 90,
+      maxStudents: 30,
+      joinCode: 'ISI052024',
+      color: '#5AC8FA',
+      teacher: {
+        uid: 'demo-teacher-1',
+        name: 'Ingeniero Carlos García',
+        email: 'profesor@demo.com'
+      },
+      students: [],
+      createdAt: new Date('2024-02-01'),
+      isActive: true,
+      settings: {
+        allowStudentPosts: true,
+        allowStudentComments: true
+      }
+    },
+    {
+      id: 'course-6',
+      name: 'Matemática II',
+      subject: 'Matemáticas',
+      description: 'Continuación de matemáticas para ingeniería',
+      grade: '2do Semestre',
+      semester: 2,
+      code: 'ISI06',
+      hours: 90,
+      maxStudents: 30,
+      joinCode: 'ISI062024',
+      color: '#AF52DE',
+      teacher: {
+        uid: 'demo-teacher-1',
+        name: 'Ingeniero Carlos García',
+        email: 'profesor@demo.com'
+      },
+      students: [],
+      createdAt: new Date('2024-02-01'),
+      isActive: true,
+      settings: {
+        allowStudentPosts: true,
+        allowStudentComments: true
+      }
+    },
+    {
+      id: 'course-7',
+      name: 'Computación II',
+      subject: 'Computación',
+      description: 'Avanzado en computación y sistemas',
+      grade: '2do Semestre',
+      semester: 2,
+      code: 'ISI07',
+      hours: 90,
+      maxStudents: 25,
+      joinCode: 'ISI072024',
+      color: '#FF2D92',
+      teacher: {
+        uid: 'demo-teacher-1',
+        name: 'Ingeniero Carlos García',
+        email: 'profesor@demo.com'
+      },
+      students: [],
+      createdAt: new Date('2024-02-01'),
+      isActive: true,
+      settings: {
+        allowStudentPosts: true,
+        allowStudentComments: true
+      }
+    },
+    {
+      id: 'course-8',
+      name: 'Informática II',
+      subject: 'Informática',
+      description: 'Informática avanzada y aplicaciones',
+      grade: '2do Semestre',
+      semester: 2,
+      code: 'ISI08',
+      hours: 90,
+      maxStudents: 30,
+      joinCode: 'ISI082024',
+      color: '#5856D6',
+      teacher: {
+        uid: 'demo-teacher-1',
+        name: 'Ingeniero Carlos García',
+        email: 'profesor@demo.com'
+      },
+      students: [],
+      createdAt: new Date('2024-02-01'),
+      isActive: true,
+      settings: {
+        allowStudentPosts: true,
+        allowStudentComments: true
+      }
+    },
+    {
+      id: 'course-9',
+      name: 'Algoritmia II',
+      subject: 'Algoritmos',
+      description: 'Algoritmos avanzados y estructuras de datos',
+      grade: '2do Semestre',
+      semester: 2,
+      code: 'ISI09',
+      hours: 90,
+      maxStudents: 25,
+      joinCode: 'ISI092024',
+      color: '#FF6B5E',
+      teacher: {
+        uid: 'demo-teacher-1',
+        name: 'Ingeniero Carlos García',
+        email: 'profesor@demo.com'
+      },
+      students: [],
+      createdAt: new Date('2024-02-01'),
+      isActive: true,
+      settings: {
+        allowStudentPosts: true,
+        allowStudentComments: true
+      }
+    },
+    {
+      id: 'course-10',
+      name: 'Programación I',
+      subject: 'Programación',
+      description: 'Fundamentos de programación y desarrollo de software',
+      grade: '2do Semestre',
+      semester: 2,
+      code: 'ISI10',
+      hours: 90,
+      maxStudents: 30,
+      joinCode: 'ISI102024',
+      color: '#4DA3FF',
+      teacher: {
+        uid: 'demo-teacher-1',
+        name: 'Ingeniero Carlos García',
+        email: 'profesor@demo.com'
+      },
+      students: [],
+      createdAt: new Date('2024-02-01'),
+      isActive: true,
+      settings: {
+        allowStudentPosts: true,
         allowStudentComments: true
       }
     }
@@ -66,8 +272,8 @@ export const DemoDataProvider = ({ children }) => {
     {
       id: 'unit-1',
       courseId: 'course-1',
-      title: 'Álgebra Lineal',
-      description: 'Fundamentos del álgebra lineal y matrices',
+      title: 'Fundamentos de Matemáticas',
+      description: 'Conceptos básicos de matemáticas para ingeniería',
       order: 1,
       isPublished: true,
       createdAt: new Date('2024-01-20')
@@ -75,8 +281,8 @@ export const DemoDataProvider = ({ children }) => {
     {
       id: 'unit-2',
       courseId: 'course-1',
-      title: 'Cálculo Diferencial',
-      description: 'Derivadas y aplicaciones',
+      title: 'Álgebra y Trigonometría',
+      description: 'Álgebra lineal y funciones trigonométricas',
       order: 2,
       isPublished: true,
       createdAt: new Date('2024-01-25')
@@ -84,8 +290,8 @@ export const DemoDataProvider = ({ children }) => {
     {
       id: 'unit-3',
       courseId: 'course-2',
-      title: 'Principios de Mecánica Cuántica',
-      description: 'Conceptos básicos de la mecánica cuántica',
+      title: 'Introducción a la Computación',
+      description: 'Conceptos básicos de computación y sistemas',
       order: 1,
       isPublished: true,
       createdAt: new Date('2024-02-05')
@@ -98,8 +304,8 @@ export const DemoDataProvider = ({ children }) => {
       id: 'assignment-1',
       courseId: 'course-1',
       unitId: 'unit-1',
-      title: 'Ejercicios de Matrices',
-      description: 'Resolver los ejercicios 1-10 del capítulo 3',
+      title: 'Ejercicios de Fundamentos Matemáticos',
+      description: 'Resolver los ejercicios 1-15 del capítulo 1 de Matemática I',
       dueDate: new Date('2024-03-15'),
       maxPoints: 100,
       isPublished: true,
@@ -120,8 +326,8 @@ export const DemoDataProvider = ({ children }) => {
       id: 'assignment-2',
       courseId: 'course-1',
       unitId: 'unit-2',
-      title: 'Problemas de Derivadas',
-      description: 'Aplicar las reglas de derivación en problemas prácticos',
+      title: 'Problemas de Álgebra y Trigonometría',
+      description: 'Aplicar conceptos de álgebra lineal en problemas prácticos',
       dueDate: new Date('2024-03-20'),
       maxPoints: 80,
       isPublished: true,
@@ -154,8 +360,8 @@ export const DemoDataProvider = ({ children }) => {
       id: 'msg-1',
       courseId: 'course-1',
       senderId: 'demo-teacher-1',
-      senderName: 'Dr. Carlos García',
-      content: 'Recordatorio: La tarea de matrices se entrega el próximo viernes',
+      senderName: 'Ingeniero Carlos García',
+      content: 'Recordatorio: La tarea de Matemática I se entrega el próximo viernes',
       timestamp: new Date('2024-03-12T10:00:00'),
       type: 'announcement'
     },
