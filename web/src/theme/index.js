@@ -211,10 +211,11 @@ export const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(20px)',
           borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
           boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.08)',
+          color: '#000000',
         },
       },
     },
@@ -235,6 +236,26 @@ export const theme = createTheme({
           '&:hover': {
             backgroundColor: '#0056CC',
             transform: 'scale(1.1)',
+          },
+        },
+      },
+    },
+    MuiBadge: {
+      styleOverrides: {
+        badge: {
+          backgroundColor: '#FF3B30',
+          color: '#FFFFFF',
+          fontSize: '0.75rem',
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          color: '#000000',
+          '&:hover': {
+            backgroundColor: 'rgba(0, 0, 0, 0.04)',
           },
         },
       },

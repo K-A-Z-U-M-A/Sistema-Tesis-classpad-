@@ -118,9 +118,9 @@ const Layout = () => {
             <ListItemIcon sx={{ color: isActiveRoute(item.path) ? 'primary.main' : 'inherit' }}>
               {item.icon}
             </ListItemIcon>
-            <ListItemText 
+            <ListItemText
               primary={item.text}
-              sx={{ 
+              sx={{
                 color: isActiveRoute(item.path) ? 'primary.main' : 'inherit',
                 fontWeight: isActiveRoute(item.path) ? 'bold' : 'normal',
               }}
@@ -132,7 +132,7 @@ const Layout = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', backgroundColor: '#F2F2F7', minHeight: '100vh' }}>
       <AppBar
         position="fixed"
         sx={{
@@ -142,26 +142,27 @@ const Layout = () => {
       >
         <Toolbar>
           <IconButton
-            color="inherit"
+            sx={{ 
+              mr: 2, 
+              display: { md: 'none' }
+            }}
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
           >
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Plataforma Educativa ClassPad
           </Typography>
-          
-          <IconButton color="inherit">
+
+          <IconButton>
             <Badge badgeContent={4} color="error">
               <Notifications />
             </Badge>
           </IconButton>
-          
+
           <IconButton
-            color="inherit"
             onClick={handleProfileMenuOpen}
           >
             <Avatar
@@ -211,6 +212,8 @@ const Layout = () => {
           flexGrow: 1,
           p: 3,
           width: { md: `calc(100% - ${drawerWidth}px)` },
+          backgroundColor: '#F2F2F7',
+          minHeight: '100vh',
         }}
       >
         <Toolbar />
@@ -247,4 +250,4 @@ const Layout = () => {
   );
 };
 
-export default Layout; 
+export default Layout;

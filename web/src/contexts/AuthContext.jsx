@@ -8,7 +8,7 @@ const DEMO_USERS = [
   {
     uid: 'demo-teacher-1',
     email: 'profesor@demo.com',
-    displayName: 'Dr. García',
+    displayName: 'Ingeniero Carlos García',
     role: 'teacher',
     photoURL: null,
     emailVerified: true,
@@ -29,11 +29,11 @@ const DEMO_USERS = [
 const DEMO_PROFILES = {
   'demo-teacher-1': {
     uid: 'demo-teacher-1',
-    fullName: 'Dr. Carlos García',
+    fullName: 'Ingeniero Carlos García',
     email: 'profesor@demo.com',
     role: 'teacher',
     subject: 'Matemáticas',
-    bio: 'Profesor de matemáticas con 15 años de experiencia',
+    bio: 'Ingeniero de sistemas con 15 años de experiencia',
     avatar: null,
     createdAt: new Date('2024-01-01'),
     lastLogin: new Date(),
