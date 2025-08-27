@@ -66,7 +66,7 @@ const Assignments = () => {
   });
 
   // Filtrar tareas según el rol del usuario
-  const userAssignments = userProfile?.role === 'teacher' 
+  const userAssignments = userProfile?.role === 'teacher'
     ? assignments.filter(a => courses.find(c => c.id === a.courseId)?.teacher.uid === userProfile.uid)
     : assignments.filter(a => {
         const course = courses.find(c => c.id === a.courseId);
@@ -83,7 +83,7 @@ const Assignments = () => {
   });
 
   // Obtener cursos del usuario para el filtro
-  const userCourses = userProfile?.role === 'teacher' 
+  const userCourses = userProfile?.role === 'teacher'
     ? courses.filter(c => c.teacher.uid === userProfile.uid)
     : courses.filter(c => c.students.some(s => s.uid === userProfile?.uid));
 
@@ -92,7 +92,7 @@ const Assignments = () => {
     if (userProfile?.role === 'student') {
       const hasSubmission = assignment.submissions.some(s => s.studentId === userProfile.uid);
       if (hasSubmission) return 'completed';
-      
+
       const daysLeft = Math.ceil((new Date(assignment.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
       if (daysLeft < 0) return 'overdue';
       if (daysLeft <= 3) return 'urgent';
@@ -149,7 +149,7 @@ const Assignments = () => {
       };
 
       createAssignment(assignmentData);
-      
+
       toast.success('¡Tarea creada exitosamente!');
       setCreateDialogOpen(false);
       setFormData({
@@ -206,7 +206,7 @@ const Assignments = () => {
               {userProfile?.role === 'teacher' ? 'Gestiona las tareas de tus cursos' : 'Tareas asignadas'}
             </Typography>
           </Box>
-          
+
           {userProfile?.role === 'teacher' && (
             <Button
               variant="contained"
@@ -236,7 +236,7 @@ const Assignments = () => {
             }}
             sx={{ minWidth: 300 }}
           />
-          
+
           <FormControl sx={{ minWidth: 200 }}>
             <InputLabel>Filtrar por curso</InputLabel>
             <Select
@@ -278,7 +278,7 @@ const Assignments = () => {
           {filteredAssignments.map((assignment, index) => {
             const course = courses.find(c => c.id === assignment.courseId);
             const status = getAssignmentStatus(assignment);
-            
+
             return (
               <Grid item xs={12} sm={6} md={4} key={assignment.id}>
                 <motion.div
@@ -286,9 +286,9 @@ const Assignments = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
                 >
-                  <Card 
-                    sx={{ 
-                      height: '100%', 
+                  <Card
+                    sx={{
+                      height: '100%',
                       cursor: 'pointer',
                       '&:hover': {
                         transform: 'translateY(-4px)',
@@ -301,11 +301,11 @@ const Assignments = () => {
                     <CardContent>
                       {/* Header de la tarea */}
                       <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                        <Box 
-                          sx={{ 
-                            width: 50, 
-                            height: 50, 
-                            borderRadius: 2, 
+                        <Box
+                          sx={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: 2,
                             backgroundColor: course?.color || '#007AFF',
                             display: 'flex',
                             alignItems: 'center',
@@ -314,7 +314,7 @@ const Assignments = () => {
                         >
                           <Assignment sx={{ color: 'white', fontSize: 24 }} />
                         </Box>
-                        
+
                         <IconButton
                           size="small"
                           onClick={(e) => {
@@ -330,23 +330,23 @@ const Assignments = () => {
                       <Typography variant="h6" gutterBottom fontWeight="bold">
                         {assignment.title}
                       </Typography>
-                      
+
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         {course?.name} • {course?.subject}
                       </Typography>
-                      
+
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                         {assignment.description}
                       </Typography>
 
                       {/* Estado y fecha */}
                       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Chip 
-                          label={getStatusText(status)} 
-                          color={getStatusColor(status)} 
-                          size="small" 
+                        <Chip
+                          label={getStatusText(status)}
+                          color={getStatusColor(status)}
+                          size="small"
                         />
-                        
+
                         <Box textAlign="right">
                           <Typography variant="caption" color="text.secondary">
                             {getDaysLeft(assignment.dueDate)}
@@ -369,20 +369,20 @@ const Assignments = () => {
                             </Typography>
                           )}
                         </Box>
-                        
+
                         {userProfile?.role === 'student' && (
-                          <LinearProgress 
-                            variant="determinate" 
+                          <LinearProgress
+                            variant="determinate"
                             value={assignment.submissions.some(s => s.studentId === userProfile.uid) ? 100 : 0}
-                            sx={{ 
-                              height: 6, 
+                            sx={{
+                              height: 6,
                               borderRadius: 3,
                               backgroundColor: 'grey.200',
                               '& .MuiLinearProgress-bar': {
                                 backgroundColor: course?.color || '#007AFF',
                                 borderRadius: 3
                               }
-                            }} 
+                            }}
                           />
                         )}
                       </Box>
@@ -398,7 +398,7 @@ const Assignments = () => {
                                 {assignment.submissions.length} entregas
                               </Typography>
                             </Box>
-                            
+
                             <Typography variant="body2" color="text.secondary">
                               {course?.students.length || 0} estudiantes
                             </Typography>
@@ -424,14 +424,14 @@ const Assignments = () => {
               {searchTerm || filterCourse || filterStatus ? 'No se encontraron tareas' : 'No tienes tareas aún'}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              {searchTerm || filterCourse || filterStatus 
+              {searchTerm || filterCourse || filterStatus
                 ? 'Intenta ajustar los filtros de búsqueda'
                 : userProfile?.role === 'teacher'
                   ? 'Crea tu primera tarea para comenzar'
                   : 'Las tareas aparecerán cuando te unas a un curso'
               }
             </Typography>
-            
+
             {userProfile?.role === 'teacher' && (
               <Button
                 variant="contained"
@@ -483,7 +483,7 @@ const Assignments = () => {
                 placeholder="Ej: Ejercicios de Matrices"
               />
             </Grid>
-            
+
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -495,7 +495,7 @@ const Assignments = () => {
                 placeholder="Describe la tarea y los requisitos..."
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
                 <InputLabel>Curso</InputLabel>
@@ -512,7 +512,7 @@ const Assignments = () => {
                 </Select>
               </FormControl>
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -523,7 +523,7 @@ const Assignments = () => {
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth

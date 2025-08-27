@@ -142,8 +142,8 @@ const Layout = () => {
       >
         <Toolbar>
           <IconButton
-            sx={{ 
-              mr: 2, 
+            sx={{
+              mr: 2,
               display: { md: 'none' }
             }}
             aria-label="open drawer"
