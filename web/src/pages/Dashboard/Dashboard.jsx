@@ -18,7 +18,7 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useDemoData } from '../../contexts/DemoDataContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 
 // Componente de tarjeta de estadística
 const StatCard = ({ title, value, icon, color, subtitle }) => (
