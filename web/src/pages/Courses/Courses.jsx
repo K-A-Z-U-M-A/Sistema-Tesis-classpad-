@@ -36,7 +36,7 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useDemoData } from '../../contexts/DemoDataContext';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 import toast from 'react-hot-toast';
 
 const Courses = () => {

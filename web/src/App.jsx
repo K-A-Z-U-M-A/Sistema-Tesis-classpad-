@@ -5,7 +5,7 @@ import { CssBaseline } from '@mui/material';
 import { Toaster } from 'react-hot-toast';
 
 // Providers
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import { DemoDataProvider } from './contexts/DemoDataContext';
 
 // Theme
@@ -15,8 +15,9 @@ import { theme } from './theme';
 import AppLayout from './components/Layout/AppLayout';
 
 // Pages
-import Login from './pages/Auth/Login';
-import Signup from './pages/Auth/Signup';
+import Login from './pages/auth/Login.jsx';
+import Signup from './pages/auth/Signup.jsx';
+import AuthCallback from './pages/auth/AuthCallback.jsx';
 import Dashboard from './pages/Dashboard/Dashboard';
 import CreateCourse from './pages/Courses/CreateCourse';
 import Courses from './pages/Courses/Courses';
@@ -71,6 +72,7 @@ function AppRoutes() {
           <Signup />
         </PublicRoute>
       } />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       
       {/* Rutas protegidas */}
       <Route path="/" element={
@@ -163,9 +165,9 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <DemoDataProvider>
-          <Router>
+      <Router>
+        <AuthProvider>
+          <DemoDataProvider>
             <AppRoutes />
             <Toaster
               position="top-right"
@@ -189,9 +191,9 @@ function App() {
                 },
               }}
             />
-          </Router>
-        </DemoDataProvider>
-      </AuthProvider>
+          </DemoDataProvider>
+        </AuthProvider>
+      </Router>
     </ThemeProvider>
   );
 }

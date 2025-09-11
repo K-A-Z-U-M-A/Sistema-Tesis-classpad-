@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { Google as GoogleIcon } from '@mui/icons-material';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 
 const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -29,6 +30,7 @@ const Register = () => {
     role: 'student',
   });
   const navigate = useNavigate();
+  const { register, loginWithGoogle } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -52,28 +54,44 @@ const Register = () => {
       return;
     }
 
+    if (formData.password.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
     try {
       setIsLoading(true);
-      // Simular registro
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Registrar usuario usando el contexto de autenticación
+      await register({
+        displayName: formData.displayName,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role
+      });
+      
       toast.success('¡Cuenta creada exitosamente!');
-      navigate('/dashboard');
+      // El contexto ya maneja la redirección al dashboard
     } catch (error: any) {
-      toast.error('Error al crear cuenta');
+      console.error('Registration error:', error);
+      toast.error(error.message || 'Error al crear cuenta');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleRegister = async () => {
     try {
       setIsGoogleLoading(true);
-      // Simular login con Google
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success('¡Bienvenido con Google!');
-      navigate('/dashboard');
+      
+      // Usar el mismo flujo de Google OAuth que el login
+      // El backend detectará si es un usuario nuevo y lo registrará automáticamente
+      await loginWithGoogle();
+      
+      // No necesitamos navegar manualmente, el contexto maneja la redirección
     } catch (error: any) {
-      toast.error('Error al iniciar sesión con Google');
+      console.error('Google registration error:', error);
+      toast.error(error.message || 'Error al registrarse con Google');
     } finally {
       setIsGoogleLoading(false);
     }
@@ -190,7 +208,7 @@ const Register = () => {
             fullWidth
             variant="outlined"
             startIcon={<GoogleIcon />}
-            onClick={handleGoogleLogin}
+            onClick={handleGoogleRegister}
             disabled={isGoogleLoading}
             sx={{ mb: 2 }}
           >
