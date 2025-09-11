@@ -1,0 +1,14 @@
+{
+  "name": "classpad-monorepo",
+  "version": "1.0.0",
+  "description": "ClassPad system with React frontend and Express backend",
+  "scripts": {
+    "dev": "concurrently -n WEB,BACK -c auto \"npm --prefix web run dev\" \"npm --prefix backend run dev\"",
+    "install:all": "npm install && npm --prefix web install && npm --prefix backend install",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix backend run start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

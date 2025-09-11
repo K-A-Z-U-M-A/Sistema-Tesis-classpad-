@@ -1,17 +1,5 @@
 import { create } from 'zustand';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  sendPasswordResetEmail,
-  updateProfile,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../config/firebase';
+import apiService from '../services/api';
 import { User, AuthState, LoginForm, RegisterForm } from '../types';
 
 interface AuthStore extends AuthState {
@@ -23,6 +11,7 @@ interface AuthStore extends AuthState {
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (data: Partial<User>) => Promise<void>;
   initializeAuth: () => void;
+  handleGoogleCallback: (token: string, user: any) => void;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -33,20 +22,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   login: async (credentials: LoginForm) => {
     try {
       set({ loading: true, error: null });
-      const userCredential = await signInWithEmailAndPassword(
-        auth, 
-        credentials.email, 
-        credentials.password
-      );
+      const response = await apiService.login(credentials);
       
-      // Obtener datos del usuario desde Firestore
-      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data() as User;
-        set({ user: userData, loading: false });
-      } else {
-        throw new Error('Usuario no encontrado en la base de datos');
-      }
+      // Guardar token y datos del usuario
+      apiService.setToken(response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      set({ user: response.data.user, loading: false });
     } catch (error: any) {
       set({ 
         error: error.message || 'Error al iniciar sesión', 
@@ -59,32 +41,57 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   loginWithGoogle: async () => {
     try {
       set({ loading: true, error: null });
-      const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(auth, provider);
-      
-      // Verificar si el usuario ya existe en Firestore
-      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-      
-      if (!userDoc.exists()) {
-        // Crear nuevo usuario en Firestore
-        const newUser: User = {
-          id: userCredential.user.uid,
-          email: userCredential.user.email!,
-          displayName: userCredential.user.displayName || 'Usuario',
-          photoURL: userCredential.user.photoURL || undefined,
-          role: 'student', // Por defecto
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          isEmailVerified: userCredential.user.emailVerified,
-          is2FAEnabled: false,
-        };
-        
-        await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
-        set({ user: newUser, loading: false });
-      } else {
-        const userData = userDoc.data() as User;
-        set({ user: userData, loading: false });
+
+      const backendOrigin = 'http://localhost:3001';
+      const authUrl = `${backendOrigin}/api/auth/google`;
+
+      const popup = window.open(
+        authUrl,
+        'google_oauth',
+        'width=520,height=640,menubar=no,location=no,resizable=yes,scrollbars=yes,status=no'
+      );
+
+      if (!popup) {
+        throw new Error('No se pudo abrir la ventana de autenticación. Permita popups.');
       }
+
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          window.removeEventListener('message', onMessage);
+          try { popup.close(); } catch {}
+          reject(new Error('Google authentication cancelled'));
+        }, 120000);
+
+        function onMessage(event: MessageEvent) {
+          // Aceptar mensajes del backend (callback servido desde backend) o del frontend (en caso de redirect interno)
+          const allowedOrigins = [backendOrigin, window.location.origin];
+          if (!allowedOrigins.includes(event.origin)) return;
+
+          const data: any = event.data || {};
+          if (data.type === 'GOOGLE_AUTH_SUCCESS' && data.token) {
+            clearTimeout(timeout);
+            window.removeEventListener('message', onMessage);
+            try { popup.close(); } catch {}
+
+            apiService.setToken(data.token);
+            if (data.user) {
+              localStorage.setItem('user', JSON.stringify(data.user));
+              set({ user: data.user, loading: false, error: null });
+            } else {
+              set({ loading: false, error: null });
+            }
+            resolve();
+          } else if (data.type === 'GOOGLE_AUTH_ERROR') {
+            clearTimeout(timeout);
+            window.removeEventListener('message', onMessage);
+            try { popup.close(); } catch {}
+            reject(new Error(data.error || 'Google authentication cancelled'));
+          }
+        }
+
+        window.addEventListener('message', onMessage);
+      });
+
     } catch (error: any) {
       set({ 
         error: error.message || 'Error al iniciar sesión con Google', 
@@ -102,31 +109,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         throw new Error('Las contraseñas no coinciden');
       }
       
-      const userCredential = await createUserWithEmailAndPassword(
-        auth, 
-        userData.email, 
-        userData.password
-      );
-      
-      // Actualizar perfil de Firebase Auth
-      await updateProfile(userCredential.user, {
-        displayName: userData.displayName
-      });
-      
-      // Crear usuario en Firestore
-      const newUser: User = {
-        id: userCredential.user.uid,
+      const response = await apiService.register({
         email: userData.email,
         displayName: userData.displayName,
-        role: userData.role,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isEmailVerified: false,
-        is2FAEnabled: false,
-      };
+        password: userData.password,
+        role: userData.role
+      });
       
-      await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
-      set({ user: newUser, loading: false });
+      // Guardar token y datos del usuario
+      apiService.setToken(response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
+      
+      set({ user: response.data.user, loading: false });
     } catch (error: any) {
       set({ 
         error: error.message || 'Error al registrar usuario', 
@@ -139,7 +133,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   logout: async () => {
     try {
       set({ loading: true, error: null });
-      await signOut(auth);
+      await apiService.logout();
       set({ user: null, loading: false });
     } catch (error: any) {
       set({ 
@@ -153,8 +147,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   resetPassword: async (email: string) => {
     try {
       set({ loading: true, error: null });
-      await sendPasswordResetEmail(auth, email);
-      set({ loading: false });
+      // TODO: Implementar reset password con la nueva API
+      throw new Error('Password reset not implemented yet');
     } catch (error: any) {
       set({ 
         error: error.message || 'Error al enviar email de restablecimiento', 
@@ -171,8 +165,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       
       set({ loading: true, error: null });
       
+      // TODO: Implementar actualización de perfil con la nueva API
       const updatedUser = { ...user, ...data, updatedAt: new Date() };
-      await updateDoc(doc(db, 'users', user.id), updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
       
       set({ user: updatedUser, loading: false });
     } catch (error: any) {
@@ -187,30 +182,45 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   initializeAuth: () => {
     set({ loading: true });
     
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        try {
-          // Obtener datos del usuario desde Firestore
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data() as User;
-            set({ user: userData, loading: false, error: null });
-          } else {
-            set({ user: null, loading: false, error: 'Usuario no encontrado' });
-          }
-        } catch (error: any) {
-          set({ 
-            user: null, 
-            loading: false, 
-            error: error.message || 'Error al cargar usuario' 
-          });
-        }
-      } else {
+    // Verificar si hay token y usuario guardados
+    const token = apiService.getToken();
+    const savedUser = localStorage.getItem('user');
+    
+    if (token && savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        set({ user, loading: false, error: null });
+        
+        // Verificar que el token sigue siendo válido
+        apiService.getMe().catch(() => {
+          // Token inválido, limpiar datos
+          apiService.logout();
+          set({ user: null, loading: false, error: null });
+        });
+      } catch (error) {
+        // Datos corruptos, limpiar
+        apiService.logout();
         set({ user: null, loading: false, error: null });
       }
-    });
+    } else {
+      set({ user: null, loading: false, error: null });
+    }
     
-    // Retornar función de limpieza
-    return unsubscribe;
+    // Retornar función de limpieza (no-op para compatibilidad)
+    return () => {};
+  },
+
+  // Método para manejar el callback de Google
+  handleGoogleCallback: (token: string, user: any) => {
+    try {
+      apiService.setToken(token);
+      localStorage.setItem('user', JSON.stringify(user));
+      set({ user, loading: false, error: null });
+    } catch (error) {
+      set({ 
+        error: 'Error al procesar el callback de Google', 
+        loading: false 
+      });
+    }
   },
 })); 
