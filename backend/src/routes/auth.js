@@ -223,15 +223,30 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 // Google OAuth routes
-router.get('/google', passport.authenticate('google', {
-  scope: ['profile', 'email']
-}));
+router.get('/google', (req, res, next) => {
+  console.log('🔍 Google auth - query params:', req.query);
+  console.log('🔍 Google auth - flow param:', req.query.flow);
+  
+  // Store the flow parameter in session or pass it through state
+  if (req.query.flow === 'redirect') {
+    // We'll use a custom state parameter to pass the flow type
+    req.session = req.session || {};
+    req.session.oauthFlow = 'redirect';
+  }
+  
+  passport.authenticate('google', {
+    scope: ['profile', 'email'],
+    state: req.query.flow || 'popup' // Pass flow as state parameter
+  })(req, res, next);
+});
 
 router.get('/google/callback', 
   passport.authenticate('google', { session: false }),
   async (req, res) => {
     try {
       const user = req.user;
+      console.log('🔍 Google callback - query params:', req.query);
+      console.log('🔍 Google callback - state param:', req.query.state);
 
       // Generate JWT token
       const token = signToken({
@@ -243,14 +258,23 @@ router.get('/google/callback',
 
       const frontendUrl = process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:5173';
 
+      // Support full-page redirect flow to frontend (avoids popup/postMessage entirely)
+      if (req.query.state === 'redirect') {
+        console.log('✅ Using redirect flow to frontend');
+        const encodedToken = encodeURIComponent(token);
+        const encodedUser = encodeURIComponent(JSON.stringify(user));
+        return res.redirect(`${frontendUrl}/auth/callback?token=${encodedToken}&user=${encodedUser}`);
+      }
+
       // If client prefers JSON
       if (req.headers.accept?.includes('application/json') || req.query.format === 'json') {
         return res.json({ data: { token, user } });
       }
 
-      // Always perform full-page redirect to frontend callback (simpler and CSP-safe)
+      // Redirect to static callback page with data in querystring (CSP-safe, no inline scripts)
       const encodedUser = encodeURIComponent(JSON.stringify(user));
-      return res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(token)}&user=${encodedUser}`);
+      const encodedFront = encodeURIComponent(frontendUrl);
+      return res.redirect(`/auth-callback.html?token=${encodeURIComponent(token)}&user=${encodedUser}&front=${encodedFront}`);
     } catch (error) {
       console.error('Google OAuth callback error:', error);
       return res.redirect('/auth-callback.html?error=OAuth%20authentication%20failed');
