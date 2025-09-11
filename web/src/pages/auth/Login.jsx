@@ -23,12 +23,12 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 
 export default function Login() {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { login, loginWithGoogle } = useAuth();
+  const { login } = useAuth();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -60,40 +60,31 @@ export default function Login() {
       navigate('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
-      switch (error.code) {
-        case 'auth/user-not-found':
-          setError('No existe una cuenta con este correo electrónico');
-          break;
-        case 'auth/wrong-password':
-          setError('Contraseña incorrecta');
-          break;
-        case 'auth/invalid-email':
-          setError('Correo electrónico inválido');
-          break;
-        case 'auth/too-many-requests':
-          setError('Demasiados intentos fallidos. Intenta más tarde');
-          break;
-        default:
-          setError('Error al iniciar sesión. Intenta de nuevo');
+      
+      // Manejar errores del backend
+      if (error.message) {
+        if (error.message.includes('Este usuario solo puede iniciar sesión con Google')) {
+          setError('Este usuario solo puede iniciar sesión con Google. Usa el botón "Continuar con Google"');
+        } else if (error.message.includes('Invalid credentials')) {
+          setError('Credenciales inválidas. Verifica tu email y contraseña');
+        } else if (error.message.includes('Account is deactivated')) {
+          setError('Tu cuenta está desactivada. Contacta al administrador');
+        } else {
+          setError(error.message);
+        }
+      } else {
+        // Fallback para errores sin mensaje específico
+        setError('Error al iniciar sesión. Intenta de nuevo');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    setError('');
-
-    try {
-      await loginWithGoogle();
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Google login error:', error);
-      setError('Error al iniciar sesión con Google. Intenta de nuevo');
-    } finally {
-      setLoading(false);
-    }
+  const handleGoogleLogin = () => {
+    // Redirección directa al backend (sin popup)
+    const backendUrl = 'http://localhost:3001';
+    window.location.href = `${backendUrl}/api/auth/google?flow=redirect`;
   };
 
   return (

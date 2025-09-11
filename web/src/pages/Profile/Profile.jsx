@@ -39,7 +39,7 @@ import {
   CheckCircle
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 import { useDemoData } from '../../contexts/DemoDataContext';
 import toast from 'react-hot-toast';
 

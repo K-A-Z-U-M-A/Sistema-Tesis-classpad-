@@ -28,12 +28,12 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 
 export default function Signup() {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { signup, loginWithGoogle } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   
   const [formData, setFormData] = useState({
     displayName: '',
@@ -75,22 +75,30 @@ export default function Signup() {
     setError('');
 
     try {
-      await signup(formData.email, formData.password, formData.displayName, formData.role);
+      await register({
+        email: formData.email,
+        password: formData.password,
+        displayName: formData.displayName,
+        role: formData.role
+      });
       navigate('/dashboard');
     } catch (error) {
       console.error('Signup error:', error);
-      switch (error.code) {
-        case 'auth/email-already-in-use':
+      
+      // Manejar errores del backend
+      if (error.message) {
+        if (error.message.includes('User with this email already exists')) {
           setError('Ya existe una cuenta con este correo electrónico');
-          break;
-        case 'auth/invalid-email':
-          setError('Correo electrónico inválido');
-          break;
-        case 'auth/weak-password':
-          setError('La contraseña es demasiado débil');
-          break;
-        default:
-          setError('Error al crear la cuenta. Intenta de nuevo');
+        } else if (error.message.includes('Password must be at least 8 characters long')) {
+          setError('La contraseña debe tener al menos 8 caracteres');
+        } else if (error.message.includes('Email, display name, and password are required')) {
+          setError('Todos los campos son obligatorios');
+        } else {
+          setError(error.message);
+        }
+      } else {
+        // Fallback para errores sin mensaje específico
+        setError('Error al crear la cuenta. Intenta de nuevo');
       }
     } finally {
       setLoading(false);
