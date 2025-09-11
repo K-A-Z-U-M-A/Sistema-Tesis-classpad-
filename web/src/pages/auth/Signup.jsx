@@ -33,7 +33,7 @@ import { useAuth } from '../../contexts/AuthContext.tsx';
 export default function Signup() {
   const theme = useTheme();
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   
   const [formData, setFormData] = useState({
     displayName: '',
@@ -77,10 +77,9 @@ export default function Signup() {
     try {
       await register({
         email: formData.email,
-        displayName: formData.displayName,
         password: formData.password,
-        confirmPassword: formData.confirmPassword,
-        role: formData.role,
+        displayName: formData.displayName,
+        role: formData.role
       });
       navigate('/dashboard');
     } catch (error) {
@@ -106,9 +105,19 @@ export default function Signup() {
     }
   };
 
-  const handleGoogleSignup = () => {
-    const backendUrl = 'http://localhost:3001';
-    window.location.href = `${backendUrl}/api/auth/google?flow=redirect`;
+  const handleGoogleSignup = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      await loginWithGoogle();
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Google signup error:', error);
+      setError('Error al crear la cuenta con Google. Intenta de nuevo');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

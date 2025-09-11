@@ -41,57 +41,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   loginWithGoogle: async () => {
     try {
       set({ loading: true, error: null });
-
-      const backendOrigin = 'http://localhost:3001';
-      const authUrl = `${backendOrigin}/api/auth/google`;
-
-      const popup = window.open(
-        authUrl,
-        'google_oauth',
-        'width=520,height=640,menubar=no,location=no,resizable=yes,scrollbars=yes,status=no'
-      );
-
-      if (!popup) {
-        throw new Error('No se pudo abrir la ventana de autenticación. Permita popups.');
-      }
-
-      await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          window.removeEventListener('message', onMessage);
-          try { popup.close(); } catch {}
-          reject(new Error('Google authentication cancelled'));
-        }, 120000);
-
-        function onMessage(event: MessageEvent) {
-          // Aceptar mensajes del backend (callback servido desde backend) o del frontend (en caso de redirect interno)
-          const allowedOrigins = [backendOrigin, window.location.origin];
-          if (!allowedOrigins.includes(event.origin)) return;
-
-          const data: any = event.data || {};
-          if (data.type === 'GOOGLE_AUTH_SUCCESS' && data.token) {
-            clearTimeout(timeout);
-            window.removeEventListener('message', onMessage);
-            try { popup.close(); } catch {}
-
-            apiService.setToken(data.token);
-            if (data.user) {
-              localStorage.setItem('user', JSON.stringify(data.user));
-              set({ user: data.user, loading: false, error: null });
-            } else {
-              set({ loading: false, error: null });
-            }
-            resolve();
-          } else if (data.type === 'GOOGLE_AUTH_ERROR') {
-            clearTimeout(timeout);
-            window.removeEventListener('message', onMessage);
-            try { popup.close(); } catch {}
-            reject(new Error(data.error || 'Google authentication cancelled'));
-          }
-        }
-
-        window.addEventListener('message', onMessage);
-      });
-
+      
+      // Flujo por redirección completa (sin popup): evita problemas de CSP y cross-origin postMessage
+      const googleAuthUrl = `${apiService.getGoogleAuthUrl()}?flow=redirect`;
+      window.location.href = googleAuthUrl;
+      
+      // No necesitamos esperar nada aquí, el callback se maneja en AuthCallback.jsx
+      return Promise.resolve();
     } catch (error: any) {
       set({ 
         error: error.message || 'Error al iniciar sesión con Google', 
@@ -104,10 +60,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   register: async (userData: RegisterForm) => {
     try {
       set({ loading: true, error: null });
-      
-      if (userData.password !== userData.confirmPassword) {
-        throw new Error('Las contraseñas no coinciden');
-      }
       
       const response = await apiService.register({
         email: userData.email,
