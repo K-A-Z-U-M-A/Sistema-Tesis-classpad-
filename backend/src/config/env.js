@@ -12,10 +12,10 @@ const result = dotenv.config({ path: join(__dirname, '../../.env') });
 console.log('📄 Resultado dotenv:', result);
 
 if (!process.env.JWT_SECRET) {
-	console.error('❌ JWT_SECRET no se cargó. Revisa tu archivo .env');
-	process.exit(1);
+	console.warn('⚠️ JWT_SECRET no se cargó desde .env, usando valor por defecto para desarrollo');
+	process.env.JWT_SECRET = 'development-secret-key-change-in-production';
 } else {
-	console.log('✅ JWT_SECRET cargado correctamente:', process.env.JWT_SECRET);
+	console.log('✅ JWT_SECRET cargado correctamente');
 }
 
 

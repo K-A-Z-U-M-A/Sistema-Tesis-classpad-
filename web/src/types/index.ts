@@ -1,17 +1,54 @@
 // Tipos de usuario
 export interface User {
-  id: string;
+  id: string | number;
   email: string;
   displayName: string;
   photoURL?: string;
-  role: 'student' | 'teacher' | 'admin';
-  createdAt: Date;
-  updatedAt: Date;
+  role: 'student' | 'teacher' | 'admin' | 'estudiante' | 'docente';
+  description?: string;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
+  lastLogin?: Date | string;
+  isActive?: boolean;
+  provider?: string;
   phoneNumber?: string;
   bio?: string;
-  isEmailVerified: boolean;
-  is2FAEnabled: boolean;
+  isEmailVerified?: boolean;
+  is2FAEnabled?: boolean;
   fcmToken?: string;
+}
+
+// Estadísticas del usuario
+export interface UserStatistics {
+  coursesImpartidos: number;
+  tareasCreadas: number;
+  estudiantesTotales: number;
+}
+
+// Perfil completo del usuario
+export interface UserProfile {
+  user: User;
+  statistics: UserStatistics;
+}
+
+// Curso del docente con estadísticas
+export interface TeacherCourse {
+  id: string | number;
+  name: string;
+  description: string;
+  subject: string;
+  grade: string;
+  semester: string;
+  year: number;
+  color: string;
+  imageURL?: string;
+  joinCode: string;
+  isActive: boolean;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
+  teacherRole: 'owner' | 'teacher';
+  studentCount: number;
+  assignmentCount: number;
 }
 
 // Tipos de curso
