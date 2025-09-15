@@ -37,8 +37,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  console.log('🔍 AuthContext - AuthProvider render:');
+  console.log('  - user:', authStore.user);
+  console.log('  - loading:', authStore.loading);
+  console.log('  - error:', authStore.error);
+
   // Inicializar autenticación al montar el componente
   useEffect(() => {
+    console.log('🔍 AuthContext - Initializing auth...');
     authStore.initializeAuth();
   }, []);
 

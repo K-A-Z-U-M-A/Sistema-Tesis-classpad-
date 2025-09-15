@@ -30,7 +30,8 @@ async function runMigrations() {
           last_login TIMESTAMP NULL,
           is_active BOOLEAN DEFAULT true,
           password_hash VARCHAR(255),
-          provider VARCHAR(50) DEFAULT 'local'
+          provider VARCHAR(50) DEFAULT 'local',
+          description TEXT DEFAULT ''
         )
       `);
 
@@ -38,7 +39,8 @@ async function runMigrations() {
       await pool.query(`
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255),
-        ADD COLUMN IF NOT EXISTS provider VARCHAR(50) DEFAULT 'local';
+        ADD COLUMN IF NOT EXISTS provider VARCHAR(50) DEFAULT 'local',
+        ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
       `);
 
       // Remove old firebase_ui column if it exists
@@ -63,7 +65,8 @@ async function runMigrations() {
           last_login DATETIME NULL,
           is_active BOOLEAN DEFAULT 1,
           password_hash VARCHAR(255),
-          provider VARCHAR(50) DEFAULT 'local'
+          provider VARCHAR(50) DEFAULT 'local',
+          description TEXT DEFAULT ''
         )
       `);
 
