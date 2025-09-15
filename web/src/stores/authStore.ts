@@ -10,6 +10,8 @@ interface AuthStore extends AuthState {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (data: Partial<User>) => Promise<void>;
+  getUserProfileWithStats: (userId?: number) => Promise<any>;
+  getTeacherCourses: (teacherId?: number) => Promise<any>;
   initializeAuth: () => void;
   handleGoogleCallback: (token: string, user: any) => void;
 }
@@ -117,8 +119,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       
       set({ loading: true, error: null });
       
-      // TODO: Implementar actualización de perfil con la nueva API
-      const updatedUser = { ...user, ...data, updatedAt: new Date() };
+      const response = await apiService.updateUserProfile(user.id, {
+        displayName: data.displayName || user.displayName,
+        photoURL: data.photoURL || user.photoURL,
+        description: data.description || user.description || ''
+      });
+      
+      const updatedUser = response.data.user;
       localStorage.setItem('user', JSON.stringify(updatedUser));
       
       set({ user: updatedUser, loading: false });
@@ -127,6 +134,67 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         error: error.message || 'Error al actualizar perfil', 
         loading: false 
       });
+      throw error;
+    }
+  },
+
+  // Método para obtener perfil completo con estadísticas
+  getUserProfileWithStats: async (userId?: number) => {
+    try {
+      const { user } = get();
+      const targetUserId = userId || user?.id;
+      
+      if (!targetUserId) throw new Error('Usuario no autenticado');
+      
+      set({ loading: true, error: null });
+      
+      const response = await apiService.getUserProfile(targetUserId);
+      
+      set({ loading: false });
+      return response.data;
+    } catch (error: any) {
+      set({ 
+        error: error.message || 'Error al obtener perfil', 
+        loading: false 
+      });
+      throw error;
+    }
+  },
+
+  // Método para obtener perfil del usuario autenticado
+  getUserProfileMe: async () => {
+    try {
+      console.log('🔍 AuthStore - getUserProfileMe called');
+      set({ loading: true, error: null });
+      
+      console.log('🔍 AuthStore - Calling apiService.getUserProfileMe()');
+      const response = await apiService.getUserProfileMe();
+      console.log('🔍 AuthStore - getUserProfileMe response:', response);
+      
+      set({ loading: false });
+      return response.data;
+    } catch (error: any) {
+      console.error('🔍 AuthStore - getUserProfileMe error:', error);
+      set({ 
+        error: error.message || 'Error al obtener perfil', 
+        loading: false 
+      });
+      throw error;
+    }
+  },
+
+  // Método para obtener cursos del docente
+  getTeacherCourses: async (teacherId?: number) => {
+    try {
+      const { user } = get();
+      const targetTeacherId = teacherId || user?.id;
+      
+      if (!targetTeacherId) throw new Error('Usuario no autenticado');
+      
+      const response = await apiService.getTeacherCourses(targetTeacherId);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error al obtener cursos del docente:', error);
       throw error;
     }
   },
@@ -144,7 +212,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         set({ user, loading: false, error: null });
         
         // Verificar que el token sigue siendo válido
-        apiService.getMe().catch(() => {
+        apiService.getMe().then((response) => {
+          // Actualizar datos del usuario si han cambiado
+          if (response.data?.user) {
+            localStorage.setItem('user', JSON.stringify(response.data.user));
+            set({ user: response.data.user, loading: false, error: null });
+          }
+        }).catch((error) => {
           // Token inválido, limpiar datos
           apiService.logout();
           set({ user: null, loading: false, error: null });

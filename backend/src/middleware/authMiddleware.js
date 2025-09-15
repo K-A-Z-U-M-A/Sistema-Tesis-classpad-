@@ -18,6 +18,7 @@ export async function authMiddleware(req, res, next) {
     
     // Verify JWT token
     const decoded = verifyToken(token);
+    console.log('🔍 Auth middleware - Decoded token:', decoded);
     
     // Get fresh user data from database
     const result = await pool.query(

@@ -9,6 +9,12 @@ class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const token = localStorage.getItem('authToken');
 
+    console.log('🔍 API Request:');
+    console.log('  - endpoint:', endpoint);
+    console.log('  - url:', url);
+    console.log('  - hasToken:', !!token);
+    console.log('  - tokenPreview:', token ? `${token.substring(0, 20)}...` : 'none');
+
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -21,6 +27,12 @@ class ApiService {
     try {
       const response = await fetch(url, config);
       const data = await response.json();
+
+      console.log('🔍 API Response:');
+      console.log('  - endpoint:', endpoint);
+      console.log('  - status:', response.status);
+      console.log('  - ok:', response.ok);
+      console.log('  - data:', data);
 
       if (!response.ok) {
         // Crear un error con el código y mensaje del backend
@@ -77,6 +89,34 @@ class ApiService {
 
   isAuthenticated() {
     return !!this.getToken();
+  }
+
+  // User profile methods
+  async getUserProfile(userId) {
+    return this.request(`/users/${userId}`);
+  }
+
+  async getUserProfileMe() {
+    console.log('🔍 API - getUserProfileMe called');
+    const result = await this.request('/users/me');
+    console.log('🔍 API - getUserProfileMe result:', result);
+    return result;
+  }
+
+  async updateUserProfile(userId, { displayName, photoURL, description }) {
+    return this.request(`/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ displayName, photoURL, description }),
+    });
+  }
+
+  // Teacher methods
+  async getTeacherCourses(teacherId) {
+    return this.request(`/teachers/${teacherId}/courses`);
+  }
+
+  async getTeacherStudents(teacherId) {
+    return this.request(`/teachers/${teacherId}/students`);
   }
 }
 

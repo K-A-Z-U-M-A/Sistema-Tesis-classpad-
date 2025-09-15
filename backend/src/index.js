@@ -6,6 +6,8 @@ import morgan from 'morgan';
 import pool from './config/database.js';
 import passport from './config/passport.js';
 import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
+import teacherRoutes from './routes/teachers.js';
 import { join } from 'path';
 
 // ... resto del index.js igual que antes
@@ -48,6 +50,8 @@ app.get('/api/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/teachers', teacherRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
