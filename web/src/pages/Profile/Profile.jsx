@@ -1,142 +1,217 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, useRef } from "react";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Container,
+  Paper,
   Typography,
+  Avatar,
   Box,
   Grid,
   Card,
   CardContent,
-  Avatar,
   Button,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Chip,
   Divider,
-  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert
-} from '@mui/material';
+  TextField,
+  CircularProgress,
+  Alert,
+  IconButton,
+  Stack
+} from "@mui/material";
 import {
-  Edit,
-  Save,
-  Cancel,
-  School,
-  Assignment,
-  People,
-  TrendingUp,
-  CalendarToday,
-  Email,
-  Phone,
-  LocationOn,
-  Work,
-  Grade,
-  CheckCircle
-} from '@mui/icons-material';
-import { motion } from 'framer-motion';
-import { useAuth } from '../../contexts/AuthContext.tsx';
-import { useDemoData } from '../../contexts/DemoDataContext';
-import toast from 'react-hot-toast';
+  Edit as EditIcon,
+  School as SchoolIcon,
+  Assignment as AssignmentIcon,
+  People as PeopleIcon,
+  CalendarToday as CalendarIcon,
+  Email as EmailIcon,
+  Person as PersonIcon,
+  PhotoCamera as PhotoCameraIcon,
+  Delete as DeleteIcon
+} from "@mui/icons-material";
+import { motion } from "framer-motion";
 
-const Profile = () => {
-  const { userProfile, updateUserProfile } = useAuth();
-  const { courses, assignments } = useDemoData();
-  const [editMode, setEditMode] = useState(false);
+export default function Profile() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [courses, setCourses] = useState([]);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: userProfile?.fullName || '',
-    bio: userProfile?.bio || '',
-    subject: userProfile?.subject || '',
-    grade: userProfile?.grade || '',
-    phone: userProfile?.phone || '',
-    location: userProfile?.location || ''
+  const [editLoading, setEditLoading] = useState(false);
+  const [editForm, setEditForm] = useState({
+    displayName: '',
+    photoURL: '',
+    description: ''
   });
+  const [previewImage, setPreviewImage] = useState(null);
+  const fileInputRef = useRef(null);
 
-  // Calcular estadísticas del usuario
-  const userStats = {
-    totalCourses: userProfile?.role === 'teacher' 
-      ? courses.filter(c => c.teacher.uid === userProfile.uid).length
-      : courses.filter(c => c.students.some(s => s.uid === userProfile.uid)).length,
-    
-    totalAssignments: userProfile?.role === 'teacher'
-      ? assignments.filter(a => courses.find(c => c.id === a.courseId)?.teacher.uid === userProfile.uid).length
-      : assignments.filter(a => {
-          const course = courses.find(c => c.id === a.courseId);
-          return course && course.students.some(s => s.uid === userProfile.uid);
-        }).length,
-    
-    completedAssignments: userProfile?.role === 'student'
-      ? assignments.filter(a => {
-          const course = courses.find(c => c.id === a.courseId);
-          return course && course.students.some(s => s.uid === userProfile.uid);
-        }).filter(a => a.submissions.some(s => s.studentId === userProfile.uid)).length
-      : 0,
-    
-    averageGrade: userProfile?.role === 'student'
-      ? (() => {
-          const completedAssignments = assignments.filter(a => {
-            const course = courses.find(c => c.id === a.courseId);
-            return course && course.students.some(s => s.uid === userProfile.uid);
-          }).filter(a => a.submissions.some(s => s.studentId === userProfile.uid));
-          
-          if (completedAssignments.length === 0) return 0;
-          
-          const totalGrade = completedAssignments.reduce((sum, a) => {
-            const submission = a.submissions.find(s => s.studentId === userProfile.uid);
-            return sum + (submission?.grade || 0);
-          }, 0);
-          
-          return totalGrade / completedAssignments.length;
-        })()
-      : 0
+  // Funciones para manejo de imagen
+  const handleImageSelect = () => {
+    fileInputRef.current?.click();
   };
 
-  // Manejar cambios en el formulario
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const handleFileChange = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor selecciona un archivo de imagen válido');
+        return;
+      }
 
-  // Guardar cambios del perfil
-  const handleSaveProfile = async () => {
-    try {
-      await updateUserProfile(formData);
-      toast.success('Perfil actualizado exitosamente');
-      setEditMode(false);
-      setEditDialogOpen(false);
-    } catch (error) {
-      toast.error('Error al actualizar el perfil');
-      console.error('Error:', error);
+      // Validar tamaño (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('La imagen debe ser menor a 5MB');
+        return;
+      }
+
+      // Crear preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewImage(e.target.result);
+        setEditForm(prev => ({ ...prev, photoURL: e.target.result }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  // Cancelar edición
-  const handleCancelEdit = () => {
-    setFormData({
-      fullName: userProfile?.fullName || '',
-      bio: userProfile?.bio || '',
-      subject: userProfile?.subject || '',
-      grade: userProfile?.grade || '',
-      phone: userProfile?.phone || '',
-      location: userProfile?.location || ''
-    });
-    setEditMode(false);
-    setEditDialogOpen(false);
+  const removeImage = () => {
+    setPreviewImage(null);
+    setEditForm(prev => ({ ...prev, photoURL: '' }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
-  // Obtener iniciales para el avatar
-  const getInitials = (name) => {
-    if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  useEffect(() => {
+    console.log("🔍 Profile - useEffect triggered");
+    if (user) {
+      setLoading(false);
+      setEditForm({
+        displayName: user.display_name || '',
+        photoURL: user.photo_url || '',
+        description: user.description || ''
+      });
+      loadTeacherCourses();
+    }
+  }, [user]);
+
+  const loadTeacherCourses = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token || !user) return;
+
+      const res = await fetch(`/api/teachers/${user.id}/courses`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          setCourses(data.data?.courses || []);
+        } else {
+          console.warn('Response is not JSON, skipping courses load');
+          setCourses([]);
+        }
+      } else {
+        console.warn(`Failed to load courses: ${res.status}`);
+        setCourses([]);
+      }
+    } catch (error) {
+      console.error('Error loading courses:', error);
+      setCourses([]);
+    }
   };
 
-  // Formatear fecha
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('es-ES', {
+  const handleEditProfile = async () => {
+    try {
+      setEditLoading(true);
+      
+      // Usar el endpoint /users/me en lugar de /users/:id
+      const token = localStorage.getItem('authToken');
+      if (!token) throw new Error('No hay token de autenticación');
+
+      console.log('🔍 Sending profile update to /api/users/me');
+      console.log('🔍 Update data:', {
+        displayName: editForm.displayName,
+        photoURL: editForm.photoURL,
+        description: editForm.description
+      });
+
+      const response = await fetch('/api/users/me', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          displayName: editForm.displayName,
+          photoURL: editForm.photoURL,
+          description: editForm.description
+        })
+      });
+
+      console.log('🔍 Response status:', response.status);
+      console.log('🔍 Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('🔍 Error response:', errorText);
+        throw new Error(`Error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('🔍 Success response:', data);
+      
+      // Actualizar el usuario en el contexto
+      if (data.data?.user) {
+        // El AuthContext se encargará de actualizar el estado
+        window.location.reload(); // Recarga temporal para reflejar cambios
+      }
+      
+      setEditDialogOpen(false);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Error al actualizar perfil: ' + error.message);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+          <Typography variant="h6" sx={{ ml: 2 }}>Cargando perfil...</Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Alert severity="error">No se pudo cargar la información del perfil.</Alert>
+      </Container>
+    );
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -149,449 +224,307 @@ const Profile = () => {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.5 }}
       >
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-          <Typography variant="h3" fontWeight="bold">
-            Mi Perfil
-          </Typography>
-          
-          <Button
-            variant="outlined"
-            startIcon={<Edit />}
-            onClick={() => setEditDialogOpen(true)}
-            sx={{ borderRadius: 2 }}
-          >
-            Editar Perfil
-          </Button>
-        </Box>
+        <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
+          <Grid container spacing={4} alignItems="center">
+            <Grid item>
+              <Avatar
+                src={user.photo_url}
+                sx={{ width: 120, height: 120, fontSize: '3rem' }}
+              >
+                {user.display_name?.charAt(0)?.toUpperCase() || 'U'}
+              </Avatar>
+            </Grid>
+            <Grid item xs>
+              <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                <Box>
+                  <Typography variant="h3" component="h1" gutterBottom>
+                    {user.display_name || 'Usuario'}
+                  </Typography>
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    <EmailIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    {user.email}
+                  </Typography>
+                  <Box display="flex" gap={1} mt={2}>
+                    <Chip 
+                      icon={<PersonIcon />}
+                      label={user.role === 'teacher' ? 'Docente' : user.role}
+                      color="primary"
+                      variant="outlined"
+                    />
+                    <Chip 
+                      label={user.provider === 'local' ? 'Email' : 'Google'}
+                      color="secondary"
+                      variant="outlined"
+                    />
+                    {user.is_active && (
+                      <Chip label="Activo" color="success" variant="outlined" />
+                    )}
+                  </Box>
+                </Box>
+                <Button
+                  variant="contained"
+                  startIcon={<EditIcon />}
+                  onClick={() => setEditDialogOpen(true)}
+                  sx={{ ml: 2 }}
+                >
+                  Editar Perfil
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
       </motion.div>
 
       <Grid container spacing={4}>
-        {/* Columna izquierda - Información del perfil */}
-        <Grid item xs={12} md={4}>
+        {/* Información personal */}
+        <Grid item xs={12} md={6}>
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Card sx={{ mb: 3 }}>
-              <CardContent sx={{ textAlign: 'center', py: 4 }}>
-                <Avatar
-                  sx={{
-                    width: 120,
-                    height: 120,
-                    fontSize: '3rem',
-                    fontWeight: 'bold',
-                    backgroundColor: 'primary.main',
-                    mx: 'auto',
-                    mb: 3
-                  }}
-                >
-                  {getInitials(userProfile?.fullName)}
-                </Avatar>
-                
-                <Typography variant="h5" gutterBottom fontWeight="bold">
-                  {userProfile?.fullName}
-                </Typography>
-                
-                <Chip 
-                  label={userProfile?.role === 'teacher' ? 'Profesor' : 'Estudiante'} 
-                  color={userProfile?.role === 'teacher' ? 'primary' : 'secondary'} 
-                  sx={{ mb: 2 }}
-                />
-                
-                <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-                  {userProfile?.bio || 'Sin descripción'}
-                </Typography>
-                
-                <Box display="flex" flexDirection="column" gap={1} alignItems="center">
-                  {userProfile?.email && (
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Email sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant="body2" color="text.secondary">
-                        {userProfile.email}
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  {userProfile?.phone && (
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Phone sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant="body2" color="text.secondary">
-                        {userProfile.phone}
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  {userProfile?.location && (
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <LocationOn sx={{ fontSize: 16, color: 'text.secondary' }} />
-                      <Typography variant="body2" color="text.secondary">
-                        {userProfile.location}
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-
-            {/* Información adicional */}
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom fontWeight="bold">
-                  Información Académica
+                <Typography variant="h5" gutterBottom>
+                  Información Personal
                 </Typography>
+                <Divider sx={{ mb: 2 }} />
                 
-                <Box display="flex" flexDirection="column" gap={2}>
-                  {userProfile?.role === 'teacher' && userProfile?.subject && (
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Work sx={{ color: 'primary.main' }} />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Asignatura
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {userProfile.subject}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                  
-                  {userProfile?.role === 'student' && userProfile?.grade && (
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Grade sx={{ color: 'secondary.main' }} />
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Grado
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {userProfile.grade}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                  
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <CalendarToday sx={{ color: 'info.main' }} />
-                    <Box>
-                      <Typography variant="body2" color="text.secondary">
-                        Miembro desde
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {formatDate(userProfile?.createdAt)}
-                      </Typography>
-                    </Box>
-                  </Box>
+                <Box mb={2}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    <CalendarIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    Miembro desde
+                  </Typography>
+                  <Typography variant="body1">
+                    {formatDate(user.created_at)}
+                  </Typography>
                 </Box>
+
+                <Box mb={2}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    <CalendarIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    Último acceso
+                  </Typography>
+                  <Typography variant="body1">
+                    {formatDate(user.last_login)}
+                  </Typography>
+                </Box>
+
+                {user.description && (
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Descripción
+                    </Typography>
+                    <Typography variant="body1">
+                      {user.description}
+                    </Typography>
+                  </Box>
+                )}
               </CardContent>
             </Card>
           </motion.div>
         </Grid>
 
-        {/* Columna derecha - Estadísticas y actividad */}
-        <Grid item xs={12} md={8}>
+        {/* Estadísticas */}
+        <Grid item xs={12} md={6}>
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
           >
-            {/* Estadísticas principales */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} sm={6}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box 
-                        sx={{ 
-                          p: 2, 
-                          borderRadius: 2, 
-                          backgroundColor: 'primary.15',
-                          color: 'primary.main' 
-                        }}
-                      >
-                        <School sx={{ fontSize: 32 }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="h4" fontWeight="bold" color="primary.main">
-                          {userStats.totalCourses}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Cursos {userProfile?.role === 'teacher' ? 'impartidos' : 'inscritos'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box 
-                        sx={{ 
-                          p: 2, 
-                          borderRadius: 2, 
-                          backgroundColor: 'secondary.15',
-                          color: 'secondary.main' 
-                        }}
-                      >
-                        <Assignment sx={{ fontSize: 32 }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="h4" fontWeight="bold" color="secondary.main">
-                          {userStats.totalAssignments}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Tareas {userProfile?.role === 'teacher' ? 'creadas' : 'asignadas'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-              
-              {userProfile?.role === 'student' && (
-                <>
-                  <Grid item xs={12} sm={6}>
-                    <Card>
-                      <CardContent>
-                        <Box display="flex" alignItems="center" gap={2}>
-                          <Box 
-                            sx={{ 
-                              p: 2, 
-                              borderRadius: 2, 
-                              backgroundColor: 'success.15',
-                              color: 'success.main' 
-                            }}
-                          >
-                            <CheckCircle sx={{ fontSize: 32 }} />
-                          </Box>
-                          <Box>
-                            <Typography variant="h4" fontWeight="bold" color="success.main">
-                              {userStats.completedAssignments}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Tareas completadas
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={6}>
-                    <Card>
-                      <CardContent>
-                        <Box display="flex" alignItems="center" gap={2}>
-                          <Box 
-                            sx={{ 
-                              p: 2, 
-                              borderRadius: 2, 
-                              backgroundColor: 'warning.15',
-                              color: 'warning.main' 
-                            }}
-                          >
-                            <TrendingUp sx={{ fontSize: 32 }} />
-                          </Box>
-                          <Box>
-                            <Typography variant="h4" fontWeight="bold" color="warning.main">
-                              {userStats.averageGrade.toFixed(1)}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Promedio general
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                </>
-              )}
-            </Grid>
-
-            {/* Actividad reciente */}
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom fontWeight="bold">
-                  Actividad Reciente
+                <Typography variant="h5" gutterBottom>
+                  Estadísticas
                 </Typography>
+                <Divider sx={{ mb: 2 }} />
                 
-                <Box display="flex" flexDirection="column" gap={2}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Box 
-                      sx={{ 
-                        width: 40, 
-                        height: 40, 
-                        borderRadius: 2, 
-                        backgroundColor: 'primary.15',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <School sx={{ color: 'primary.main' }} />
-                    </Box>
-                    <Box flex={1}>
-                      <Typography variant="body1" fontWeight="medium">
-                        Último acceso
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Box textAlign="center">
+                      <SchoolIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
+                      <Typography variant="h4" color="primary">
+                        {courses.length}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {formatDate(userProfile?.lastLogin)}
+                        Cursos
                       </Typography>
                     </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box textAlign="center">
+                      <PeopleIcon color="secondary" sx={{ fontSize: 40, mb: 1 }} />
+                      <Typography variant="h4" color="secondary">
+                        0
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Estudiantes
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </Grid>
+
+        {/* Cursos */}
+        <Grid item xs={12}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <Card>
+              <CardContent>
+                <Typography variant="h5" gutterBottom>
+                  Mis Cursos
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                {courses.length > 0 ? (
+                  <List>
+                    {courses.map((course, index) => (
+                      <motion.div
+                        key={course.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                      >
+                        <ListItem>
+                          <ListItemAvatar>
+                            <Avatar sx={{ bgcolor: 'primary.main' }}>
+                              <SchoolIcon />
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={course.name}
+                            secondary={
+                              <Box>
+                                <Typography variant="body2" color="text.secondary">
+                                  {course.description || 'Sin descripción'}
+                                </Typography>
+                                <Box display="flex" gap={1} mt={1}>
+                                  <Chip 
+                                    size="small" 
+                                    label={`${course.studentCount || 0} estudiantes`}
+                                    variant="outlined"
+                                  />
+                                  <Chip 
+                                    size="small" 
+                                    label={`${course.assignmentCount || 0} tareas`}
+                                    variant="outlined"
+                                  />
+                                </Box>
+                              </Box>
+                            }
+                          />
+                        </ListItem>
+                        {index < courses.length - 1 && <Divider variant="inset" component="li" />}
+                      </motion.div>
+                    ))}
+                  </List>
+                ) : (
+                  <Box textAlign="center" py={4}>
+                    <SchoolIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      No tienes cursos creados
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Crea tu primer curso para comenzar a enseñar
+                    </Typography>
                   </Box>
-                  
-                  {userProfile?.role === 'teacher' && (
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box 
-                        sx={{ 
-                          width: 40, 
-                          height: 40, 
-                          borderRadius: 2, 
-                          backgroundColor: 'secondary.15',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <Assignment sx={{ color: 'secondary.main' }} />
-                      </Box>
-                      <Box flex={1}>
-                        <Typography variant="body1" fontWeight="medium">
-                          Última tarea creada
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {userStats.totalAssignments > 0 ? 'Recientemente' : 'Ninguna aún'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                  
-                  {userProfile?.role === 'student' && (
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Box 
-                        sx={{ 
-                          width: 40, 
-                          height: 40, 
-                          borderRadius: 2, 
-                          backgroundColor: 'success.15',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <CheckCircle sx={{ color: 'success.main' }} />
-                      </Box>
-                      <Box flex={1}>
-                        <Typography variant="body1" fontWeight="medium">
-                          Última tarea entregada
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {userStats.completedAssignments > 0 ? 'Recientemente' : 'Ninguna aún'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
+                )}
               </CardContent>
             </Card>
           </motion.div>
         </Grid>
       </Grid>
 
-      {/* Dialog para editar perfil */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
+      {/* Dialog de edición */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Editar Perfil</DialogTitle>
         <DialogContent>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Nombre Completo"
-                value={formData.fullName}
-                onChange={(e) => handleInputChange('fullName', e.target.value)}
-                placeholder="Tu nombre completo"
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Teléfono"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                placeholder="Tu número de teléfono"
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Biografía"
-                value={formData.bio}
-                onChange={(e) => handleInputChange('bio', e.target.value)}
-                multiline
-                rows={3}
-                placeholder="Cuéntanos sobre ti..."
-              />
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Ubicación"
-                value={formData.location}
-                onChange={(e) => handleInputChange('location', e.target.value)}
-                placeholder="Ciudad, País"
-              />
-            </Grid>
-            
-            {userProfile?.role === 'teacher' && (
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Asignatura Principal"
-                  value={formData.subject}
-                  onChange={(e) => handleInputChange('subject', e.target.value)}
-                  placeholder="Ej: Matemáticas"
-                />
-              </Grid>
-            )}
-            
-            {userProfile?.role === 'student' && (
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Grado</InputLabel>
-                  <Select
-                    value={formData.grade}
-                    onChange={(e) => handleInputChange('grade', e.target.value)}
-                    label="Grado"
+          <Box sx={{ pt: 2 }}>
+            {/* Selector de imagen */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Foto de perfil
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Avatar
+                  src={previewImage || editForm.photoURL}
+                  sx={{ width: 80, height: 80 }}
+                >
+                  {editForm.displayName?.charAt(0)?.toUpperCase() || 'U'}
+                </Avatar>
+                <Stack spacing={1}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PhotoCameraIcon />}
+                    onClick={handleImageSelect}
+                    size="small"
                   >
-                    <MenuItem value="1er Año">1er Año</MenuItem>
-                    <MenuItem value="2do Año">2do Año</MenuItem>
-                    <MenuItem value="3er Año">3er Año</MenuItem>
-                    <MenuItem value="4to Año">4to Año</MenuItem>
-                    <MenuItem value="5to Año">5to Año</MenuItem>
-                    <MenuItem value="6to Año">6to Año</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            )}
-          </Grid>
+                    Seleccionar imagen
+                  </Button>
+                  {(previewImage || editForm.photoURL) && (
+                    <Button
+                      variant="text"
+                      startIcon={<DeleteIcon />}
+                      onClick={removeImage}
+                      size="small"
+                      color="error"
+                    >
+                      Eliminar
+                    </Button>
+                  )}
+                </Stack>
+              </Stack>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                style={{ display: 'none' }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                Formatos soportados: JPG, PNG, GIF. Tamaño máximo: 5MB
+              </Typography>
+            </Box>
+
+            <TextField
+              fullWidth
+              label="Nombre completo"
+              value={editForm.displayName}
+              onChange={(e) => setEditForm({...editForm, displayName: e.target.value})}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="Descripción"
+              value={editForm.description}
+              onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+              margin="normal"
+              multiline
+              rows={3}
+              placeholder="Cuéntanos un poco sobre ti..."
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCancelEdit}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSaveProfile} variant="contained">
-            Guardar Cambios
+          <Button onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
+          <Button 
+            onClick={handleEditProfile}
+            variant="contained"
+            disabled={editLoading}
+          >
+            {editLoading ? <CircularProgress size={20} /> : 'Guardar'}
           </Button>
         </DialogActions>
       </Dialog>
     </Container>
   );
-};
-
-export default Profile;
+}

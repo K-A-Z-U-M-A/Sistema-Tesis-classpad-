@@ -32,14 +32,25 @@ import Settings from './pages/Settings/Settings';
 const ProtectedRoute = ({ children }) => {
   const { currentUser, loading } = useAuth();
   
+  console.log('🔍 ProtectedRoute - Render:', { 
+    currentUser: !!currentUser, 
+    loading, 
+    childrenType: children?.type?.name,
+    childrenProps: children?.props,
+    children: children
+  });
+  
   if (loading) {
+    console.log('🔍 ProtectedRoute - Loading, showing loading message');
     return <div>Cargando...</div>; // En producción usar un spinner
   }
   
   if (!currentUser) {
+    console.log('🔍 ProtectedRoute - No currentUser, redirecting to login');
     return <Navigate to="/login" replace />;
   }
   
+  console.log('🔍 ProtectedRoute - User authenticated, rendering children');
   return children;
 };
 
