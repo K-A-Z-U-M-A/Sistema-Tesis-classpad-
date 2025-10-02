@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import pkg from 'pg';
+const { Pool } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -12,10 +14,7 @@ const DB_ENGINE = process.env.DB_ENGINE || 'memory';
 
 let pool;
 
-
-
 async function createPostgresPool() {
-  const { Pool } = await import('pg');
   const newPool = new Pool({
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,

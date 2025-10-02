@@ -2,6 +2,8 @@ import readline from 'readline';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import pkg from 'pg';
+const { Pool } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -48,7 +50,7 @@ GOOGLE_CALLBACK_URL=http://localhost:3001/api/auth/google/callback`;
     console.log('\nNow testing connection...');
     
     // Test the connection
-    const { Pool } = await import('pg');
+    // Pool is already imported at the top
     const pool = new Pool({
       host,
       port: parseInt(port),

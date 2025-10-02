@@ -209,20 +209,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     if (token && savedUser) {
       try {
         const user = JSON.parse(savedUser);
+        // Confiar en el usuario almacenado para evitar cierres de sesión por HMR/duplicado
         set({ user, loading: false, error: null });
-        
-        // Verificar que el token sigue siendo válido
-        apiService.getMe().then((response) => {
-          // Actualizar datos del usuario si han cambiado
-          if (response.data?.user) {
-            localStorage.setItem('user', JSON.stringify(response.data.user));
-            set({ user: response.data.user, loading: false, error: null });
-          }
-        }).catch((error) => {
-          // Token inválido, limpiar datos
-          apiService.logout();
-          set({ user: null, loading: false, error: null });
-        });
       } catch (error) {
         // Datos corruptos, limpiar
         apiService.logout();
