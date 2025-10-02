@@ -1,5 +1,5 @@
 import express from 'express';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import pool from '../config/database.js';
 import { signToken } from '../utils/jwt.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
@@ -101,8 +101,10 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('🔍 Login attempt:', { email, password: '***' });
 
     if (!email || !password) {
+      console.log('❌ Missing fields');
       return res.status(400).json({
         error: {
           message: 'Email and password are required',
@@ -112,6 +114,7 @@ router.post('/login', async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase();
+    console.log('🔍 Normalized email:', normalizedEmail);
 
     // Find user
     const result = await pool.query(
@@ -119,7 +122,10 @@ router.post('/login', async (req, res) => {
       [normalizedEmail]
     );
 
+    console.log('🔍 User query result:', result.rows.length > 0 ? 'User found' : 'User not found');
+
     if (result.rows.length === 0) {
+      console.log('❌ User not found');
       return res.status(401).json({
         error: {
           message: 'Invalid credentials',
@@ -129,9 +135,11 @@ router.post('/login', async (req, res) => {
     }
 
     const user = result.rows[0];
+    console.log('🔍 User found:', { id: user.id, email: user.email, provider: user.provider, is_active: user.is_active });
 
     // Check if user is active
     if (!user.is_active) {
+      console.log('❌ Account deactivated');
       return res.status(403).json({
         error: {
           message: 'Account is deactivated',
@@ -142,6 +150,7 @@ router.post('/login', async (req, res) => {
 
     // Check if user has local authentication
     if (user.provider !== 'local' || !user.password_hash) {
+      console.log('❌ Provider mismatch:', { provider: user.provider, hasPassword: !!user.password_hash });
       return res.status(403).json({
         error: {
           message: 'Este usuario solo puede iniciar sesión con Google',
@@ -151,8 +160,12 @@ router.post('/login', async (req, res) => {
     }
 
     // Verify password
+    console.log('🔍 Verifying password...');
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    console.log('🔍 Password verification result:', isValidPassword);
+    
     if (!isValidPassword) {
+      console.log('❌ Invalid password');
       return res.status(401).json({
         error: {
           message: 'Invalid credentials',
