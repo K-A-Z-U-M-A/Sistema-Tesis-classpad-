@@ -37,16 +37,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  console.log('🔍 AuthContext - AuthProvider render:');
-  console.log('  - user:', authStore.user);
-  console.log('  - loading:', authStore.loading);
-  console.log('  - error:', authStore.error);
+  // Logs de depuración removidos para reducir ruido en consola
 
   // Inicializar autenticación al montar el componente
   useEffect(() => {
-    console.log('🔍 AuthContext - Initializing auth...');
     authStore.initializeAuth();
-  }, []);
+  }, []); // Removido authStore de las dependencias para evitar bucle infinito
 
   // Redirigir automáticamente al dashboard si ya hay sesión válida
   useEffect(() => {
