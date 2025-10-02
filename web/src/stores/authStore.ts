@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+// @ts-ignore
 import apiService from '../services/api';
 import { User, AuthState, LoginForm, RegisterForm } from '../types';
 
@@ -98,7 +99,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
-  resetPassword: async (email: string) => {
+  resetPassword: async (_email: string) => {
     try {
       set({ loading: true, error: null });
       // TODO: Implementar reset password con la nueva API

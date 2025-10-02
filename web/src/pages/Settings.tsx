@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Typography,
   Card,
   CardContent,
   Switch,
-  FormControlLabel,
+  // FormControlLabel,
   Divider,
   List,
   ListItem,
@@ -14,15 +14,15 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
+  // InputLabel,
   Button,
   Alert,
 } from '@mui/material';
 import {
-  Notifications,
-  Security,
-  Palette,
-  Language,
+  // Notifications,
+  // Security,
+  // Palette,
+  // Language,
   Email,
   Smartphone,
 } from '@mui/icons-material';

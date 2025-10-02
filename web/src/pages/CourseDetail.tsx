@@ -14,7 +14,7 @@ import {
   Avatar,
   Chip,
   Button,
-  Grid,
+  // Grid,
   Divider,
   CircularProgress,
   Fab,
@@ -27,7 +27,7 @@ import {
   Add,
   AttachFile,
   Comment,
-  CalendarToday,
+  // CalendarToday,
 } from '@mui/icons-material';
 
 // Datos simulados del curso
@@ -145,7 +145,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const CourseDetail = () => {
-  const { courseId } = useParams<{ courseId: string }>();
+  const { courseId: _courseId } = useParams<{ courseId: string }>();
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -158,7 +158,7 @@ const CourseDetail = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 
