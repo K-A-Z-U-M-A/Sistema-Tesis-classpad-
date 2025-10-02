@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -22,7 +22,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Alert
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import {
   School,
@@ -32,39 +33,72 @@ import {
   Assignment,
   CalendarToday,
   Search,
-  FilterList
+  FilterList,
+  Delete,
+  Edit,
+  ContentCopy
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
-import { useDemoData } from '../../contexts/DemoDataContext';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 const Courses = () => {
   const navigate = useNavigate();
-  const { courses, joinCourse } = useDemoData();
   const { userProfile } = useAuth();
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterSubject, setFilterSubject] = useState('');
-  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
-  const [joinCode, setJoinCode] = useState('');
+  const [filterTurn, setFilterTurn] = useState('');
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+  const [courseCode, setCourseCode] = useState('');
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null);
 
-  // Filtrar cursos según el rol del usuario
-  const userCourses = userProfile?.role === 'teacher'
-    ? courses.filter(c => c.teacher.uid === userProfile.uid)
-    : courses.filter(c => c.students.some(s => s.uid === userProfile?.uid));
+  // Load courses on component mount
+  useEffect(() => {
+    loadCourses();
+  }, []);
 
-  // Filtrar por búsqueda y asignatura
-  const filteredCourses = userCourses.filter(course => {
-    const matchesSearch = course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         course.subject.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSubject = !filterSubject || course.subject === filterSubject;
-    return matchesSearch && matchesSubject;
-  });
+  const loadCourses = async () => {
+    try {
+      setLoading(true);
+      let response;
+      
+      if (userProfile?.role === 'student') {
+        // Students see their enrolled courses
+        response = await api.request('/courses/my-courses');
+      } else {
+        // Teachers see their created courses
+        response = await api.request('/courses');
+      }
+      
+      if (response.success) setCourses(response.data);
+    } catch (error) {
+      console.error('Error loading courses:', error);
+      toast.error('Error al cargar los cursos');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Obtener asignaturas únicas para el filtro
-  const subjects = [...new Set(courses.map(c => c.subject))];
+  // Filtrar por búsqueda y turno, asegurando que el id sea válido (número o UUID)
+  const filteredCourses = courses
+    .filter(course => {
+      const id = course?.id;
+      const isNumericId = typeof id === 'number' || /^\d+$/.test(String(id || ''));
+      const isUuidId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(id || ''));
+      return isNumericId || isUuidId;
+    })
+    .filter(course => {
+      const matchesSearch = course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (course.turn && course.turn.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesTurn = !filterTurn || course.turn === filterTurn;
+      return matchesSearch && matchesTurn;
+    });
+
+  // Obtener turnos únicos para el filtro
+  const turns = [...new Set(courses.map(c => c.turn).filter(Boolean))];
 
   // Manejar menú de opciones del curso
   const handleMenuOpen = (event, course) => {
@@ -78,35 +112,46 @@ const Courses = () => {
   };
 
   // Unirse a un curso
-  const handleJoinCourse = () => {
-    if (!joinCode.trim()) {
-      toast.error('Ingresa un código de unión');
-      return;
-    }
-
-    const course = courses.find(c => c.joinCode === joinCode.trim());
-    if (!course) {
-      toast.error('Código de unión inválido');
-      return;
-    }
-
-    if (course.students.some(s => s.uid === userProfile?.uid)) {
-      toast.error('Ya estás inscrito en este curso');
+  const handleEnrollCourse = async () => {
+    if (!courseCode.trim()) {
+      toast.error('Ingresa un código de curso');
       return;
     }
 
     try {
-      joinCourse(course.id, {
-        uid: userProfile.uid,
-        name: userProfile.fullName,
-        email: userProfile.email
+      const response = await api.request('/courses/enroll', {
+        method: 'POST',
+        body: JSON.stringify({ course_code: courseCode.trim().toUpperCase() })
       });
-
-      toast.success('¡Te has unido al curso exitosamente!');
-      setJoinDialogOpen(false);
-      setJoinCode('');
+      if (response.success) {
+        toast.success('¡Te has matriculado en el curso exitosamente!');
+        setEnrollDialogOpen(false);
+        setCourseCode('');
+        loadCourses(); // Reload courses
+      }
     } catch (error) {
-      toast.error('Error al unirse al curso');
+      console.error('Error enrolling in course:', error);
+      const errorMessage = error.response?.data?.error?.message || 'Error al matricularse en el curso';
+      toast.error(errorMessage);
+    }
+  };
+
+  // Eliminar curso
+  const handleDeleteCourse = async (course) => {
+    if (!window.confirm(`¿Estás seguro de que quieres eliminar el curso "${course.name}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    try {
+      const response = await api.deleteCourse(course.id);
+      if (response.success) {
+        toast.success('Curso eliminado exitosamente');
+        loadCourses(); // Recargar la lista
+      }
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      const errorMessage = error.response?.data?.error?.message || 'Error al eliminar el curso';
+      toast.error(errorMessage);
     }
   };
 
@@ -119,6 +164,14 @@ const Courses = () => {
   const handleCreateCourse = () => {
     navigate('/create-course');
   };
+
+  if (loading) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+        <CircularProgress size={60} />
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -139,14 +192,16 @@ const Courses = () => {
           </Box>
 
           <Box display="flex" gap={2}>
-            <Button
-              variant="outlined"
-              startIcon={<Search />}
-              onClick={() => setJoinDialogOpen(true)}
-              sx={{ borderRadius: 2 }}
-            >
-              Unirse a Curso
-            </Button>
+            {userProfile?.role === 'student' && (
+              <Button
+                variant="outlined"
+                startIcon={<Search />}
+                onClick={() => setEnrollDialogOpen(true)}
+                sx={{ borderRadius: 2 }}
+              >
+                Matricularse en Curso
+              </Button>
+            )}
 
             {userProfile?.role === 'teacher' && (
               <Button
@@ -180,16 +235,16 @@ const Courses = () => {
           />
 
           <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>Filtrar por asignatura</InputLabel>
+            <InputLabel>Filtrar por turno</InputLabel>
             <Select
-              value={filterSubject}
-              onChange={(e) => setFilterSubject(e.target.value)}
-              label="Filtrar por asignatura"
+              value={filterTurn}
+              onChange={(e) => setFilterTurn(e.target.value)}
+              label="Filtrar por turno"
             >
-              <MenuItem value="">Todas las asignaturas</MenuItem>
-              {subjects.map((subject) => (
-                <MenuItem key={subject} value={subject}>
-                  {subject}
+              <MenuItem value="">Todos los turnos</MenuItem>
+              {turns.map((turn) => (
+                <MenuItem key={turn} value={turn}>
+                  {turn}
                 </MenuItem>
               ))}
             </Select>
@@ -253,7 +308,7 @@ const Courses = () => {
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {course.subject} • {course.grade}
+                      {course.turn} {course.grade && `• ${course.grade}`}
                     </Typography>
 
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -265,28 +320,47 @@ const Courses = () => {
                       <Box display="flex" alignItems="center" gap={1}>
                         <People sx={{ fontSize: 16, color: 'text.secondary' }} />
                         <Typography variant="body2" color="text.secondary">
-                          {course.students.length} estudiantes
+                          {course.student_count || 0} estudiantes
                         </Typography>
                       </Box>
 
                       <Chip
-                        label={course.isActive ? 'Activo' : 'Inactivo'}
-                        color={course.isActive ? 'success' : 'default'}
+                        label={course.is_active ? 'Activo' : 'Inactivo'}
+                        color={course.is_active ? 'success' : 'default'}
                         size="small"
                       />
                     </Box>
 
-                    {/* Código de unión */}
+                    {/* Código de curso */}
                     <Box display="flex" alignItems="center" gap={1}>
                       <Typography variant="caption" color="text.secondary">
                         Código:
                       </Typography>
                       <Chip
-                        label={course.joinCode}
+                        label={course.course_code || 'N/A'}
                         size="small"
                         variant="outlined"
-                        sx={{ fontFamily: 'monospace' }}
+                        sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}
                       />
+                      {course.course_code && (
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(course.course_code);
+                            toast.success('Código copiado al portapapeles');
+                          }}
+                          sx={{ 
+                            ml: 0.5,
+                            '&:hover': {
+                              backgroundColor: 'primary.light',
+                              color: 'white'
+                            }
+                          }}
+                        >
+                          <ContentCopy fontSize="small" />
+                        </IconButton>
+                      )}
                     </Box>
                   </CardContent>
                 </Card>
@@ -303,10 +377,10 @@ const Courses = () => {
           <Box textAlign="center" py={8}>
             <School sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
             <Typography variant="h5" gutterBottom color="text.secondary">
-              {searchTerm || filterSubject ? 'No se encontraron cursos' : 'No tienes cursos aún'}
+              {searchTerm || filterTurn ? 'No se encontraron cursos' : 'No tienes cursos aún'}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              {searchTerm || filterSubject
+              {searchTerm || filterTurn
                 ? 'Intenta ajustar los filtros de búsqueda'
                 : userProfile?.role === 'teacher'
                   ? 'Crea tu primer curso para comenzar'
@@ -327,7 +401,7 @@ const Courses = () => {
               <Button
                 variant="contained"
                 startIcon={<Search />}
-                onClick={() => setJoinDialogOpen(true)}
+                onClick={() => setEnrollDialogOpen(true)}
                 sx={{ borderRadius: 2 }}
               >
                 Unirse a un Curso
@@ -348,40 +422,46 @@ const Courses = () => {
           handleCourseClick(selectedCourse);
           handleMenuClose();
         }}>
+          <Edit sx={{ mr: 1 }} />
           Ver curso
         </MenuItem>
-        {userProfile?.role === 'teacher' && (
-          <MenuItem onClick={handleMenuClose}>
-            Editar curso
+        {userProfile?.role === 'teacher' && selectedCourse && (
+          <MenuItem 
+            onClick={() => {
+              handleMenuClose();
+              handleDeleteCourse(selectedCourse);
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <Delete sx={{ mr: 1 }} />
+            Eliminar curso
           </MenuItem>
         )}
-        <MenuItem onClick={handleMenuClose}>
-          Configuración
-        </MenuItem>
       </Menu>
 
       {/* Dialog para unirse a curso */}
-      <Dialog open={joinDialogOpen} onClose={() => setJoinDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Unirse a un Curso</DialogTitle>
+
+      <Dialog open={enrollDialogOpen} onClose={() => setEnrollDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Matricularse en un Curso</DialogTitle>
         <DialogContent>
           <Alert severity="info" sx={{ mb: 2 }}>
-            Ingresa el código de unión que te proporcionó tu profesor
+            Ingresa el código del curso que te proporcionó tu profesor
           </Alert>
           <TextField
             fullWidth
-            label="Código de Unión"
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value)}
+            label="Código del Curso"
+            value={courseCode}
+            onChange={(e) => setCourseCode(e.target.value.toUpperCase())}
             placeholder="Ej: MATH2024"
             sx={{ mt: 1 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setJoinDialogOpen(false)}>
+          <Button onClick={() => setEnrollDialogOpen(false)}>
             Cancelar
           </Button>
-          <Button onClick={handleJoinCourse} variant="contained">
-            Unirse
+          <Button onClick={handleEnrollCourse} variant="contained">
+            Matricularse
           </Button>
         </DialogActions>
       </Dialog>

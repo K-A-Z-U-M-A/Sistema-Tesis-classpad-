@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import NotificationBell from '../Notifications/NotificationBell';
 
 const drawerWidth = 280;
 
@@ -46,7 +47,7 @@ const menuItems = [
   { text: 'Tareas', icon: <Assignment />, path: '/assignments' },
   { text: 'Asistencia', icon: <Assessment />, path: '/attendance' },
   { text: 'Mensajes', icon: <Message />, path: '/messages' },
-  { text: 'Personas', icon: <People />, path: '/people' },
+  { text: 'Alumnos', icon: <People />, path: '/people' },
 ];
 
 const teacherMenuItems = [
@@ -286,11 +287,7 @@ export default function AppLayout({ children }) {
           </Typography>
 
           {/* Notificaciones */}
-          <IconButton color="inherit" sx={{ mr: 1 }}>
-            <Badge badgeContent={4} color="error">
-              <Notifications />
-            </Badge>
-          </IconButton>
+          <NotificationBell />
 
           {/* Menú de perfil */}
           <IconButton

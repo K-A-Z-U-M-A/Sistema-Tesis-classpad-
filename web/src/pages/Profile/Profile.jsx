@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/AuthContext.tsx";
+import api from "../../services/api";
 import {
   Container,
   Paper,
@@ -43,6 +44,7 @@ export default function Profile() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState([]);
+  const [stats, setStats] = useState({ courses_count: 0, assignments_count: 0 });
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -92,94 +94,44 @@ export default function Profile() {
   };
 
   useEffect(() => {
-    console.log("🔍 Profile - useEffect triggered");
-    if (user) {
-      setLoading(false);
-      setEditForm({
-        displayName: user.display_name || '',
-        photoURL: user.photo_url || '',
-        description: user.description || ''
-      });
-      loadTeacherCourses();
-    }
-  }, [user]);
-
-  const loadTeacherCourses = async () => {
-    try {
-      const token = localStorage.getItem('authToken');
-      if (!token || !user) return;
-
-      const res = await fetch(`/api/teachers/${user.id}/courses`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (res.ok) {
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const data = await res.json();
-          setCourses(data.data?.courses || []);
-        } else {
-          console.warn('Response is not JSON, skipping courses load');
-          setCourses([]);
-        }
-      } else {
-        console.warn(`Failed to load courses: ${res.status}`);
+    const load = async () => {
+      try {
+        const me = await api.getMyProfile();
+        const meUser = me.data?.user || {};
+        setEditForm({
+          displayName: meUser.display_name || '',
+          photoURL: meUser.photo_url || '',
+          description: meUser.description || ''
+        });
+        setStats(me.data?.statistics || { courses_count: 0, assignments_count: 0 });
+      } catch (e) {
+        console.error('Error loading my profile:', e);
+      }
+      try {
+        const myCourses = await api.getMyCourses();
+        setCourses(myCourses.data?.courses || []);
+      } catch (e) {
+        console.error('Error loading my courses:', e);
         setCourses([]);
       }
-    } catch (error) {
-      console.error('Error loading courses:', error);
-      setCourses([]);
-    }
-  };
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  // removed old loadTeacherCourses (now using api.getMyCourses)
 
   const handleEditProfile = async () => {
     try {
       setEditLoading(true);
       
-      // Usar el endpoint /users/me en lugar de /users/:id
-      const token = localStorage.getItem('authToken');
-      if (!token) throw new Error('No hay token de autenticación');
-
-      console.log('🔍 Sending profile update to /api/users/me');
-      console.log('🔍 Update data:', {
+      const data = await api.updateMyProfile({
         displayName: editForm.displayName,
         photoURL: editForm.photoURL,
-        description: editForm.description
       });
-
-      const response = await fetch('/api/users/me', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          displayName: editForm.displayName,
-          photoURL: editForm.photoURL,
-          description: editForm.description
-        })
-      });
-
-      console.log('🔍 Response status:', response.status);
-      console.log('🔍 Response ok:', response.ok);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('🔍 Error response:', errorText);
-        throw new Error(`Error ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('🔍 Success response:', data);
       
       // Actualizar el usuario en el contexto
-      if (data.data?.user) {
-        // El AuthContext se encargará de actualizar el estado
-        window.location.reload(); // Recarga temporal para reflejar cambios
-      }
+      if (data.data?.user) window.location.reload();
       
       setEditDialogOpen(false);
     } catch (error) {
@@ -346,7 +298,7 @@ export default function Profile() {
                     <Box textAlign="center">
                       <SchoolIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
                       <Typography variant="h4" color="primary">
-                        {courses.length}
+                        {stats.courses_count}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         Cursos
@@ -355,12 +307,12 @@ export default function Profile() {
                   </Grid>
                   <Grid item xs={6}>
                     <Box textAlign="center">
-                      <PeopleIcon color="secondary" sx={{ fontSize: 40, mb: 1 }} />
+                      <AssignmentIcon color="secondary" sx={{ fontSize: 40, mb: 1 }} />
                       <Typography variant="h4" color="secondary">
-                        0
+                        {stats.assignments_count}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Estudiantes
+                        Tareas
                       </Typography>
                     </Box>
                   </Grid>
@@ -400,13 +352,18 @@ export default function Profile() {
                             </Avatar>
                           </ListItemAvatar>
                           <ListItemText
-                            primary={course.name}
+                            disableTypography
+                            primary={
+                              <Typography variant="body1" component="div">
+                                {course.name}
+                              </Typography>
+                            }
                             secondary={
-                              <Box>
-                                <Typography variant="body2" color="text.secondary">
+                              <Box component="div">
+                                <Typography variant="body2" component="span" color="text.secondary" sx={{ display: 'block' }}>
                                   {course.description || 'Sin descripción'}
                                 </Typography>
-                                <Box display="flex" gap={1} mt={1}>
+                                <Box display="flex" gap={1} mt={1} component="div">
                                   <Chip 
                                     size="small" 
                                     label={`${course.studentCount || 0} estudiantes`}

@@ -2,6 +2,8 @@ import readline from 'readline';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import pkg from 'pg';
+const { Pool } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,16 +22,16 @@ function question(prompt) {
 async function configureDatabase() {
   console.log('🔧 Database Configuration');
   console.log('========================\n');
-  
+
   console.log('Available database engines:');
   console.log('1. memory - In-memory database (for testing)');
   console.log('2. sqlite - SQLite database (file-based)');
   console.log('3. postgresql - PostgreSQL database (production)\n');
-  
+
   const engineChoice = await question('Select database engine (1-3, default: 1): ') || '1';
-  
+
   let engine, host, port, database, user, password, path;
-  
+
   switch (engineChoice) {
     case '2':
       engine = 'sqlite';
@@ -47,20 +49,20 @@ async function configureDatabase() {
       engine = 'memory';
       break;
   }
-  
+
   // Server configuration
   const serverPort = await question('Server port (default: 3001): ') || '3001';
   const corsOrigin = await question('CORS origin (default: http://localhost:5173): ') || 'http://localhost:5173';
-  
+
   // JWT configuration
   const jwtSecret = await question('JWT secret (default: supersecret_jwt_key): ') || 'supersecret_jwt_key';
   const jwtExpiresIn = await question('JWT expiration (default: 1h): ') || '1h';
-  
+
   // Google OAuth configuration
   const googleClientId = await question('Google Client ID: ');
   const googleClientSecret = await question('Google Client Secret: ');
   const googleCallbackUrl = await question('Google Callback URL (default: http://localhost:3001/api/auth/google/callback): ') || 'http://localhost:3001/api/auth/google/callback';
-  
+
   // Build .env content
   let envContent = `# Database Configuration
 DB_ENGINE=${engine}
@@ -100,11 +102,11 @@ GOOGLE_CALLBACK_URL=${googleCallbackUrl}
   try {
     fs.writeFileSync(join(__dirname, '../.env'), envContent);
     console.log('\n✅ .env file updated successfully!');
-    
+
     if (engine === 'postgresql') {
       console.log('\n🧪 Testing PostgreSQL connection...');
       try {
-        const { Pool } = await import('pg');
+        // Pool is already imported at the top
         const testPool = new Pool({
           host,
           port: parseInt(port),
@@ -115,14 +117,14 @@ GOOGLE_CALLBACK_URL=${googleCallbackUrl}
 
         const client = await testPool.connect();
         console.log('✅ Successfully connected to PostgreSQL!');
-        
+
         // Test query
         const result = await client.query('SELECT version()');
         console.log('PostgreSQL version:', result.rows[0].version);
-        
+
         client.release();
         await testPool.end();
-        
+
         // Check if our database exists
         const adminPool = new Pool({
           host,
@@ -146,10 +148,10 @@ GOOGLE_CALLBACK_URL=${googleCallbackUrl}
         }
 
         await adminPool.end();
-        
+
         console.log('\n🎉 PostgreSQL configuration completed successfully!');
         console.log('You can now run: npm run dev');
-        
+
       } catch (error) {
         console.error('❌ Failed to connect to PostgreSQL:', error.message);
         console.log('\nPlease check your credentials and try again.');
@@ -163,11 +165,11 @@ GOOGLE_CALLBACK_URL=${googleCallbackUrl}
       console.log('\n🎉 In-memory database configuration completed!');
       console.log('You can now run: npm run dev');
     }
-    
+
   } catch (error) {
     console.error('❌ Failed to write .env file:', error.message);
   }
-  
+
   rl.close();
 }
 

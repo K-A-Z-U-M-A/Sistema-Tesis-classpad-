@@ -12,7 +12,7 @@ import { DemoDataProvider } from './contexts/DemoDataContext';
 import { theme } from './theme';
 
 // Layout
-import AppLayout from './components/Layout/AppLayout';
+import AppLayout from './components/layout/AppLayout.jsx';
 
 // Pages
 import Login from './pages/auth/Login.jsx';
@@ -21,7 +21,11 @@ import AuthCallback from './pages/auth/AuthCallback.jsx';
 import Dashboard from './pages/Dashboard/Dashboard';
 import CreateCourse from './pages/Courses/CreateCourse';
 import Courses from './pages/Courses/Courses';
+import CourseDetail from './pages/Courses/CourseDetail';
+import CreateUnit from './pages/Courses/CreateUnit';
 import Assignments from './pages/Assignments/Assignments';
+import AssignmentDetail from './pages/Assignments/AssignmentDetail';
+import EditAssignment from './pages/Assignments/EditAssignment';
 import Attendance from './pages/Attendance/Attendance';
 import Messages from './pages/Messages/Messages';
 import People from './pages/People/People';
@@ -29,28 +33,34 @@ import Profile from './pages/Profile/Profile';
 import Settings from './pages/Settings/Settings';
 
 // Componente de ruta protegida
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, requiredRole = null }) => {
   const { currentUser, loading } = useAuth();
   
-  console.log('🔍 ProtectedRoute - Render:', { 
-    currentUser: !!currentUser, 
-    loading, 
-    childrenType: children?.type?.name,
-    childrenProps: children?.props,
-    children: children
-  });
+  // Logs de depuración removidos para reducir ruido en consola
   
   if (loading) {
-    console.log('🔍 ProtectedRoute - Loading, showing loading message');
-    return <div>Cargando...</div>; // En producción usar un spinner
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '18px'
+      }}>
+        Cargando...
+      </div>
+    );
   }
   
   if (!currentUser) {
-    console.log('🔍 ProtectedRoute - No currentUser, redirecting to login');
     return <Navigate to="/login" replace />;
   }
   
-  console.log('🔍 ProtectedRoute - User authenticated, rendering children');
+  // Verificar rol si es requerido
+  if (requiredRole && currentUser.role !== requiredRole) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
   return children;
 };
 
@@ -118,6 +128,38 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       
+      <Route path="/courses/:courseId" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <CourseDetail />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/courses/:courseId/units/new" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <CreateUnit />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/courses/:courseId/assignments/:assignmentId" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <AssignmentDetail />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/courses/:courseId/assignments/:assignmentId/edit" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <EditAssignment />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+      
       <Route path="/assignments" element={
         <ProtectedRoute>
           <AppLayout>
@@ -176,7 +218,12 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
         <AuthProvider>
           <DemoDataProvider>
             <AppRoutes />
