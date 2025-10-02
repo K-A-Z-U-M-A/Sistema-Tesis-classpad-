@@ -74,45 +74,94 @@ router.get('/', authMiddleware, async (req, res) => {
         [req.user.id]
       );
       
-      // Get counts for each course
+      // Get counts and students for each course
       courses = await Promise.all(result.rows.map(async (course) => {
-        const [studentCount, assignmentCount] = await Promise.all([
+        const [studentCount, assignmentCount, studentsResult] = await Promise.all([
           pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
-          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND status = $2', [course.id, 'published'])
+          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND status = $2', [course.id, 'published']),
+          pool.query(`
+            SELECT u.id, u.display_name, u.email, u.photo_url,
+                   COALESCE(cs.enrolled_at, e.enrolled_at) as enrolled_at,
+                   COALESCE(cs.status, e.status) as status
+             FROM (
+               SELECT DISTINCT student_id, enrolled_at, status
+               FROM course_students 
+               WHERE course_id = $1
+               UNION
+               SELECT DISTINCT student_id, enrolled_at, status
+               FROM enrollments 
+               WHERE course_id = $1 AND status = 'active'
+             ) combined
+             JOIN users u ON combined.student_id = u.id
+             LEFT JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1
+             LEFT JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1
+             ORDER BY enrolled_at
+          `, [course.id])
         ]);
         
         return {
           ...course,
           student_count: parseInt(studentCount.rows[0].count),
-          assignment_count: parseInt(assignmentCount.rows[0].count)
+          assignment_count: parseInt(assignmentCount.rows[0].count),
+          students: studentsResult.rows,
+          teacher: {
+            id: course.owner_id,
+            display_name: course.owner_name,
+            photo_url: course.owner_photo
+          }
         };
       }));
     } else {
-      // Get courses where user is student
+      // Get courses where user is student (from both course_students and enrollments)
       const result = await pool.query(
-        `SELECT c.*, 
+        `SELECT DISTINCT c.*, 
                 u.display_name as owner_name,
                 u.photo_url as owner_photo,
-                cs.enrolled_at
+                COALESCE(cs.enrolled_at, e.enrolled_at) as enrolled_at
          FROM courses c
          LEFT JOIN users u ON c.owner_id = u.id
-         LEFT JOIN course_students cs ON c.id = cs.course_id AND cs.student_id = $1
-         WHERE cs.student_id = $1 AND cs.status = 'active'
-         ORDER BY cs.enrolled_at DESC`,
+         LEFT JOIN course_students cs ON c.id = cs.course_id AND cs.student_id = $1 AND cs.status = 'active'
+         LEFT JOIN enrollments e ON c.id = e.course_id AND e.student_id = $1 AND e.status = 'active'
+         WHERE (cs.student_id = $1 OR e.student_id = $1)
+         ORDER BY COALESCE(cs.enrolled_at, e.enrolled_at) DESC`,
         [req.user.id]
       );
       
-      // Get counts for each course
+      // Get counts and students for each course
       courses = await Promise.all(result.rows.map(async (course) => {
-        const [studentCount, assignmentCount] = await Promise.all([
+        const [studentCount, assignmentCount, studentsResult] = await Promise.all([
           pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
-          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND status = $2', [course.id, 'published'])
+          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND status = $2', [course.id, 'published']),
+          pool.query(`
+            SELECT u.id, u.display_name, u.email, u.photo_url,
+                   COALESCE(cs.enrolled_at, e.enrolled_at) as enrolled_at,
+                   COALESCE(cs.status, e.status) as status
+             FROM (
+               SELECT DISTINCT student_id, enrolled_at, status
+               FROM course_students 
+               WHERE course_id = $1
+               UNION
+               SELECT DISTINCT student_id, enrolled_at, status
+               FROM enrollments 
+               WHERE course_id = $1 AND status = 'active'
+             ) combined
+             JOIN users u ON combined.student_id = u.id
+             LEFT JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1
+             LEFT JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1
+             ORDER BY enrolled_at
+          `, [course.id])
         ]);
         
         return {
           ...course,
           student_count: parseInt(studentCount.rows[0].count),
-          assignment_count: parseInt(assignmentCount.rows[0].count)
+          assignment_count: parseInt(assignmentCount.rows[0].count),
+          students: studentsResult.rows,
+          teacher: {
+            id: course.owner_id,
+            display_name: course.owner_name,
+            photo_url: course.owner_photo
+          }
         };
       }));
     }

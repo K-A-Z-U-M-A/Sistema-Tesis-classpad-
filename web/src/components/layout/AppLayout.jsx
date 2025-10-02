@@ -38,13 +38,14 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import NotificationBell from '../Notifications/NotificationBell';
+import { useAssignmentCount } from '../../hooks/useAssignmentCount';
 
 const drawerWidth = 280;
 
 const menuItems = [
   { text: 'Inicio', icon: <Home />, path: '/dashboard' },
   { text: 'Mis Cursos', icon: <School />, path: '/courses' },
-  { text: 'Tareas', icon: <Assignment />, path: '/assignments' },
+  { text: 'Tareas', icon: <Assignment />, path: '/assignments', hasBadge: true },
   { text: 'Asistencia', icon: <Assessment />, path: '/attendance' },
   { text: 'Mensajes', icon: <Message />, path: '/messages' },
   { text: 'Alumnos', icon: <People />, path: '/people' },
@@ -63,6 +64,7 @@ export default function AppLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { userProfile, logout } = useAuth();
+  const pendingAssignmentsCount = useAssignmentCount();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -160,7 +162,13 @@ export default function AppLayout({ children }) {
                     : theme.palette.text.secondary,
                 }}
               >
-                {item.icon}
+                {item.hasBadge && pendingAssignmentsCount > 0 ? (
+                  <Badge badgeContent={pendingAssignmentsCount} color="error">
+                    {item.icon}
+                  </Badge>
+                ) : (
+                  item.icon
+                )}
               </ListItemIcon>
               <ListItemText primary={item.text} />
             </ListItemButton>
