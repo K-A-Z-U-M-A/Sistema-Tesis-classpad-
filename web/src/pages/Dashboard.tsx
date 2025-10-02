@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
   Grid,
   Card,
   CardContent,
-  CardActions,
+  // CardActions,
   Button,
   Chip,
   Avatar,
@@ -23,9 +23,9 @@ import {
   Notifications,
   CalendarToday,
   Add,
-  Person,
-  TrendingUp,
-  CheckCircle,
+  // Person,
+  // TrendingUp,
+  // CheckCircle,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
