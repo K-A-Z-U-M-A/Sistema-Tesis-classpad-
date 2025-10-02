@@ -168,6 +168,22 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       
+      <Route path="/assignments/:assignmentId" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <AssignmentDetail />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/assignments/:assignmentId/edit" element={
+        <ProtectedRoute>
+          <AppLayout>
+            <EditAssignment />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+      
       <Route path="/attendance" element={
         <ProtectedRoute>
           <AppLayout>

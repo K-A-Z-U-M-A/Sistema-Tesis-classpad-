@@ -35,7 +35,7 @@ import MaterialList from '../../components/MaterialList';
 import AssignmentMaterialUpload from '../../components/AssignmentMaterialUpload';
 
 const EditAssignment = () => {
-  const { courseId, assignmentId } = useParams();
+  const { courseId: urlCourseId, assignmentId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   
@@ -60,10 +60,13 @@ const EditAssignment = () => {
   });
 
   const isTeacher = user?.role === 'teacher';
+  
+  // Get courseId from assignment data or URL params
+  const courseId = assignment?.courseId || urlCourseId;
 
   useEffect(() => {
     if (!isTeacher) {
-      navigate(`/courses/${courseId}`);
+      navigate(`/assignments/${assignmentId}`);
       return;
     }
     loadAssignmentData();

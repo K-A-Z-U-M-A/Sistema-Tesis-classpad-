@@ -29,7 +29,7 @@ import StudentSubmission from '../../components/StudentSubmission';
 import TeacherSubmissions from '../../components/TeacherSubmissions';
 
 const AssignmentDetail = () => {
-  const { courseId, assignmentId } = useParams();
+  const { courseId: urlCourseId, assignmentId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   
@@ -41,6 +41,13 @@ const AssignmentDetail = () => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   
   const isTeacher = user?.role === 'teacher';
+  
+  // Get courseId from assignment data or URL params
+  const courseId = assignment?.courseId || assignment?.course_id || urlCourseId;
+  
+  console.log('🔍 AssignmentDetail - courseId:', courseId);
+  console.log('🔍 AssignmentDetail - assignment:', assignment);
+  console.log('🔍 AssignmentDetail - urlCourseId:', urlCourseId);
 
   useEffect(() => {
     loadAssignmentData();
@@ -496,6 +503,7 @@ const AssignmentDetail = () => {
         <Box sx={{ mt: 3 }}>
           <TeacherSubmissions
             assignmentId={assignmentId}
+            courseId={courseId}
           />
         </Box>
       )}

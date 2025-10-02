@@ -321,19 +321,30 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
       throw queryError;
     }
 
-    // Get attachments for each assignment
+    // Get attachments and submissions for each assignment
     const assignments = [];
     for (const assignment of assignmentsResult.rows) {
-      const attachmentsResult = await pool.query(
-        `SELECT * FROM assignment_attachments 
-         WHERE assignment_id = $1 
-         ORDER BY order_index, created_at`,
-        [assignment.id]
-      );
+      const [attachmentsResult, submissionsResult] = await Promise.all([
+        pool.query(
+          `SELECT * FROM assignment_attachments 
+           WHERE assignment_id = $1 
+           ORDER BY order_index, created_at`,
+          [assignment.id]
+        ),
+        pool.query(
+          `SELECT s.*, u.display_name as student_name, u.email as student_email
+           FROM submissions s
+           JOIN users u ON s.student_id = u.id
+           WHERE s.assignment_id = $1
+           ORDER BY s.submitted_at DESC`,
+          [assignment.id]
+        )
+      ]);
       
       assignments.push({
         ...assignment,
-        attachments: attachmentsResult.rows
+        attachments: attachmentsResult.rows,
+        submissions: submissionsResult.rows
       });
     }
 
@@ -1360,6 +1371,88 @@ router.delete('/materials/:materialId', authMiddleware, async (req, res) => {
     console.error('Error deleting assignment material:', error);
     res.status(500).json({ 
       error: { message: 'Error interno del servidor', code: 'DELETE_ASSIGNMENT_MATERIAL_FAILED' } 
+    });
+  }
+});
+
+// GET /api/assignments/:assignmentId - Get a specific assignment by ID
+router.get('/:assignmentId', authMiddleware, async (req, res) => {
+  try {
+    const assignmentId = req.params.assignmentId;
+    
+    if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
+      return res.status(400).json({ error: { message: 'ID de tarea inválido', code: 'INVALID_ASSIGNMENT_ID' } });
+    }
+
+    // Get assignment with course information
+    const cast = isUuid(assignmentId) ? '::uuid' : '::int';
+    const assignmentResult = await pool.query(`
+      SELECT a.*, u.name as unit_name, c.id as course_id, c.name as course_name, c.subject as course_subject,
+             owner.display_name as owner_name, owner.photo_url as owner_photo
+      FROM assignments a
+      JOIN units u ON a.unit_id = u.id
+      JOIN courses c ON u.course_id = c.id
+      JOIN users owner ON c.owner_id = owner.id
+      WHERE a.id = $1${cast}
+    `, [assignmentId]);
+
+    if (assignmentResult.rows.length === 0) {
+      return res.status(404).json({ 
+        error: { message: 'Tarea no encontrada', code: 'ASSIGNMENT_NOT_FOUND' } 
+      });
+    }
+
+    const assignment = assignmentResult.rows[0];
+    const courseId = assignment.course_id;
+
+    // Check if user has access to this course
+    const hasAccess = await hasCourseAccess(req.user.id, courseId);
+    if (!hasAccess) {
+      return res.status(403).json({ 
+        error: { message: 'No tienes acceso a esta tarea', code: 'ACCESS_DENIED' } 
+      });
+    }
+
+    // Get attachments
+    const attachmentsResult = await pool.query(`
+      SELECT * FROM assignment_attachments 
+      WHERE assignment_id = $1${cast}
+      ORDER BY created_at
+    `, [assignmentId]);
+
+    // Get submissions
+    const submissionsResult = await pool.query(`
+      SELECT s.*, u.display_name as student_name, u.email as student_email
+      FROM submissions s
+      JOIN users u ON s.student_id = u.id
+      WHERE s.assignment_id = $1${cast}
+      ORDER BY s.submitted_at DESC
+    `, [assignmentId]);
+
+    res.json({
+      success: true,
+      data: {
+        assignment: {
+          ...assignment,
+          courseId: courseId,
+          courseName: assignment.course_name,
+          courseSubject: assignment.course_subject,
+          unitName: assignment.unit_name,
+          teacher: {
+            id: assignment.owner_id,
+            display_name: assignment.owner_name,
+            photo_url: assignment.owner_photo
+          }
+        },
+        attachments: attachmentsResult.rows,
+        submissions: submissionsResult.rows
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting assignment:', error);
+    res.status(500).json({ 
+      error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_FAILED' } 
     });
   }
 });
