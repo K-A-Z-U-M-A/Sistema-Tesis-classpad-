@@ -174,32 +174,61 @@ const Courses = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+        <Box 
+          display="flex" 
+          justifyContent="space-between" 
+          alignItems={{ xs: 'flex-start', sm: 'center' }} 
+          mb={4}
+          flexDirection={{ xs: 'column', sm: 'row' }}
+          gap={{ xs: 2, sm: 0 }}
+        >
           <Box>
-            <Typography variant="h3" gutterBottom fontWeight="bold">
+            <Typography 
+              variant="h3" 
+              gutterBottom 
+              fontWeight="bold"
+              sx={{ fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' } }}
+            >
               Mis Cursos
             </Typography>
-            <Typography variant="h6" color="text.secondary">
+            <Typography 
+              variant="h6" 
+              color="text.secondary"
+              sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+            >
               {userProfile?.role === 'teacher' ? 'Cursos que impartes' : 'Cursos en los que participas'}
             </Typography>
           </Box>
 
-          <Box display="flex" gap={2}>
+          <Box 
+            display="flex" 
+            gap={2}
+            width={{ xs: '100%', sm: 'auto' }}
+            flexDirection={{ xs: 'column', sm: 'row' }}
+          >
             {userProfile?.role === 'student' && (
               <Button
                 variant="outlined"
                 startIcon={<Search />}
                 onClick={() => setEnrollDialogOpen(true)}
-                sx={{ borderRadius: 2 }}
+                sx={{ 
+                  borderRadius: 2,
+                  width: { xs: '100%', sm: 'auto' }
+                }}
               >
-                Matricularse en Curso
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                  Matricularse en Curso
+                </Box>
+                <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                  Matricularse
+                </Box>
               </Button>
             )}
 
@@ -208,7 +237,10 @@ const Courses = () => {
                 variant="contained"
                 startIcon={<Add />}
                 onClick={handleCreateCourse}
-                sx={{ borderRadius: 2 }}
+                sx={{ 
+                  borderRadius: 2,
+                  width: { xs: '100%', sm: 'auto' }
+                }}
               >
                 Crear Curso
               </Button>
@@ -223,7 +255,18 @@ const Courses = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
       >
-        <Box display="flex" gap={2} mb={4} flexWrap="wrap">
+        <Box 
+          display="flex" 
+          gap={2} 
+          mb={4} 
+          flexWrap="wrap"
+          sx={{
+            '& > *': {
+              minWidth: { xs: '100%', sm: 'auto' },
+              flex: { xs: '1 1 100%', sm: '0 1 auto' }
+            }
+          }}
+        >
           <TextField
             placeholder="Buscar cursos..."
             value={searchTerm}
@@ -231,10 +274,20 @@ const Courses = () => {
             InputProps={{
               startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
             }}
-            sx={{ minWidth: 300 }}
+            sx={{ 
+              minWidth: { xs: '100%', sm: 300 },
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2
+              }
+            }}
           />
 
-          <FormControl sx={{ minWidth: 200 }}>
+          <FormControl sx={{ 
+            minWidth: { xs: '100%', sm: 200 },
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2
+            }
+          }}>
             <InputLabel>Filtrar por turno</InputLabel>
             <Select
               value={filterTurn}
@@ -254,9 +307,9 @@ const Courses = () => {
 
       {/* Lista de cursos */}
       {filteredCourses.length > 0 ? (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {filteredCourses.map((course, index) => (
-            <Grid item xs={12} sm={6} md={4} key={course.id}>
+            <Grid item xs={12} sm={6} lg={4} key={course.id}>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -270,17 +323,24 @@ const Courses = () => {
                       transform: 'translateY(-4px)',
                       boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
                     },
-                    transition: 'all 0.3s ease'
+                    transition: 'all 0.3s ease',
+                    borderRadius: 3
                   }}
                   onClick={() => handleCourseClick(course)}
                 >
-                  <CardContent>
+                  <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                     {/* Header del curso */}
-                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                    <Box 
+                      display="flex" 
+                      alignItems="center" 
+                      justifyContent="space-between" 
+                      mb={2}
+                      sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 0 } }}
+                    >
                       <Box
                         sx={{
-                          width: 50,
-                          height: 50,
+                          width: { xs: 40, sm: 50 },
+                          height: { xs: 40, sm: 50 },
                           borderRadius: 2,
                           backgroundColor: course.color,
                           display: 'flex',
@@ -288,7 +348,7 @@ const Courses = () => {
                           justifyContent: 'center'
                         }}
                       >
-                        <School sx={{ color: 'white', fontSize: 24 }} />
+                        <School sx={{ color: 'white', fontSize: { xs: 20, sm: 24 } }} />
                       </Box>
 
                       <IconButton
@@ -297,29 +357,72 @@ const Courses = () => {
                           e.stopPropagation();
                           handleMenuOpen(e, course);
                         }}
+                        sx={{ 
+                          alignSelf: { xs: 'flex-end', sm: 'auto' },
+                          mt: { xs: -1, sm: 0 }
+                        }}
                       >
                         <MoreVert />
                       </IconButton>
                     </Box>
 
                     {/* Información del curso */}
-                    <Typography variant="h6" gutterBottom fontWeight="bold">
+                    <Typography 
+                      variant="h6" 
+                      gutterBottom 
+                      fontWeight="bold"
+                      sx={{ 
+                        fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                        lineHeight: { xs: 1.3, sm: 1.4 }
+                      }}
+                    >
                       {course.name}
                     </Typography>
 
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      gutterBottom
+                      sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                    >
                       {course.turn} {course.grade && `• ${course.grade}`}
                     </Typography>
 
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        mb: 2,
+                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                        lineHeight: { xs: 1.4, sm: 1.5 },
+                        display: '-webkit-box',
+                        WebkitLineClamp: { xs: 2, sm: 3 },
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}
+                    >
                       {course.description}
                     </Typography>
 
                     {/* Estadísticas del curso */}
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Box 
+                      display="flex" 
+                      justifyContent="space-between" 
+                      alignItems="center" 
+                      mb={2}
+                      sx={{ 
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        gap: { xs: 1, sm: 0 },
+                        alignItems: { xs: 'flex-start', sm: 'center' }
+                      }}
+                    >
                       <Box display="flex" alignItems="center" gap={1}>
-                        <People sx={{ fontSize: 16, color: 'text.secondary' }} />
-                        <Typography variant="body2" color="text.secondary">
+                        <People sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }} />
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary"
+                          sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                        >
                           {course.student_count || 0} estudiantes
                         </Typography>
                       </Box>
@@ -328,19 +431,40 @@ const Courses = () => {
                         label={course.is_active ? 'Activo' : 'Inactivo'}
                         color={course.is_active ? 'success' : 'default'}
                         size="small"
+                        sx={{ 
+                          fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                          height: { xs: 24, sm: 28 }
+                        }}
                       />
                     </Box>
 
                     {/* Código de curso */}
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Typography variant="caption" color="text.secondary">
+                    <Box 
+                      display="flex" 
+                      alignItems="center" 
+                      gap={1}
+                      sx={{ 
+                        flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                        gap: { xs: 0.5, sm: 1 }
+                      }}
+                    >
+                      <Typography 
+                        variant="caption" 
+                        color="text.secondary"
+                        sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                      >
                         Código:
                       </Typography>
                       <Chip
                         label={course.course_code || 'N/A'}
                         size="small"
                         variant="outlined"
-                        sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}
+                        sx={{ 
+                          fontFamily: 'monospace', 
+                          fontWeight: 'bold',
+                          fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                          height: { xs: 24, sm: 28 }
+                        }}
                       />
                       {course.course_code && (
                         <IconButton
@@ -351,11 +475,12 @@ const Courses = () => {
                             toast.success('Código copiado al portapapeles');
                           }}
                           sx={{ 
-                            ml: 0.5,
+                            ml: { xs: 0, sm: 0.5 },
                             '&:hover': {
                               backgroundColor: 'primary.light',
                               color: 'white'
-                            }
+                            },
+                            p: { xs: 0.5, sm: 1 }
                           }}
                         >
                           <ContentCopy fontSize="small" />

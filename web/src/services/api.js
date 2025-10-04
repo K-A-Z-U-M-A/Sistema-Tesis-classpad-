@@ -149,6 +149,10 @@ class ApiService {
     return this.request('/users/me/courses');
   }
 
+  getMyAssignments() {
+    return this.request('/users/me/assignments');
+  }
+
   // Course management
   createCourse(data) {
     return this.request('/courses', { method: 'POST', body: JSON.stringify(data) });
