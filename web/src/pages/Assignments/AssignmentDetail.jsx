@@ -168,31 +168,38 @@ const AssignmentDetail = () => {
 
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ mb: { xs: 2, sm: 4 } }}>
         <Button 
           startIcon={<ArrowBack />} 
           onClick={() => navigate(`/courses/${courseId}`)}
           sx={{ 
-            mb: 3,
+            mb: { xs: 2, sm: 3 },
             color: 'text.secondary',
             '&:hover': {
               backgroundColor: 'action.hover',
               color: 'text.primary'
-            }
+            },
+            fontSize: { xs: '0.875rem', sm: '1rem' }
           }}
         >
           Volver al curso
         </Button>
         
         <Paper elevation={1} sx={{ 
-          p: 3, 
-          borderRadius: 2,
+          p: { xs: 2, sm: 3 }, 
+          borderRadius: 3,
           mb: 3
         }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Box sx={{ flex: 1 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'flex-start',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: { xs: 2, sm: 0 }
+          }}>
+            <Box sx={{ flex: 1, width: '100%' }}>
               <Typography 
                 variant="h4" 
                 component="h1" 
@@ -200,33 +207,45 @@ const AssignmentDetail = () => {
                 sx={{ 
                   fontWeight: 600,
                   mb: 2,
-                  color: 'text.primary'
+                  color: 'text.primary',
+                  fontSize: { xs: '1.5rem', sm: '2.125rem' },
+                  lineHeight: { xs: 1.3, sm: 1.4 }
                 }}
               >
                 {assignment?.title || 'Cargando...'}
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1, 
+                flexWrap: 'wrap',
+                justifyContent: { xs: 'center', sm: 'flex-start' }
+              }}>
                 <Chip
                   label={assignment?.status === 'published' ? 'Publicado' : 'Borrador'}
                   color={assignment?.status === 'published' ? 'success' : 'default'}
                   size="small"
+                  sx={{ 
+                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                    height: { xs: 24, sm: 28 }
+                  }}
                 />
                 {assignment?.due_date && (
                   <Chip
-                    icon={<Schedule />}
+                    icon={<Schedule sx={{ fontSize: { xs: 14, sm: 16 } }} />}
                     label={`Vence: ${new Date(assignment.due_date).toLocaleDateString()}`}
                     color="warning"
                     variant="filled"
                     size="medium"
                     sx={{
                       fontWeight: 600,
-                      fontSize: '0.875rem',
+                      fontSize: { xs: '0.75rem', sm: '0.875rem' },
                       backgroundColor: '#ff9800',
                       color: 'white',
                       '& .MuiChip-icon': {
                         color: 'white'
                       },
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      height: { xs: 28, sm: 32 }
                     }}
                   />
                 )}
@@ -234,12 +253,21 @@ const AssignmentDetail = () => {
             </Box>
             
             {isTeacher && (
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1,
+                width: { xs: '100%', sm: 'auto' },
+                justifyContent: { xs: 'center', sm: 'flex-end' }
+              }}>
                 <Button
                   variant="outlined"
                   startIcon={<Edit />}
                   onClick={handleEditAssignment}
                   size="small"
+                  sx={{ 
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    px: { xs: 2, sm: 3 }
+                  }}
                 >
                   Editar
                 </Button>
@@ -249,6 +277,10 @@ const AssignmentDetail = () => {
                   startIcon={<Delete />}
                   onClick={handleDeleteAssignment}
                   size="small"
+                  sx={{ 
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    px: { xs: 2, sm: 3 }
+                  }}
                 >
                   Eliminar
                 </Button>
@@ -260,27 +292,51 @@ const AssignmentDetail = () => {
 
 
       {/* Información general de la tarea */}
-      <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3 }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            mb: 3, 
+            fontWeight: 600,
+            fontSize: { xs: '1.1rem', sm: '1.25rem' }
+          }}
+        >
           Información de la Tarea
         </Typography>
         <Box sx={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: 2 
+          gridTemplateColumns: { 
+            xs: 'repeat(1, 1fr)', 
+            sm: 'repeat(2, 1fr)', 
+            md: 'repeat(auto-fit, minmax(200px, 1fr))' 
+          }, 
+          gap: { xs: 1.5, sm: 2 }
         }}>
           {assignment?.points && (
             <Box sx={{ 
-              p: 2, 
+              p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
               borderRadius: 2,
               textAlign: 'center'
             }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  mb: 1,
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}
+              >
                 Puntos Máximos
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                  fontWeight: 600,
+                  fontSize: { xs: '1.5rem', sm: '1.75rem' }
+                }}
+              >
                 {assignment.points}
               </Typography>
             </Box>
@@ -288,16 +344,29 @@ const AssignmentDetail = () => {
           
           {assignment?.due_date && (
             <Box sx={{ 
-              p: 2, 
+              p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
               borderRadius: 2,
               textAlign: 'center'
             }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  mb: 1,
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}
+              >
                 Fecha Límite
               </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  fontWeight: 500,
+                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                }}
+              >
                 {new Date(assignment.due_date).toLocaleDateString('es-ES', {
                   weekday: 'short',
                   day: 'numeric',
@@ -309,16 +378,29 @@ const AssignmentDetail = () => {
 
           {assignment?.due_time && (
             <Box sx={{ 
-              p: 2, 
+              p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
               borderRadius: 2,
               textAlign: 'center'
             }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  mb: 1,
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}
+              >
                 Hora Límite
               </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  fontWeight: 500,
+                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                }}
+              >
                 {assignment.due_time}
               </Typography>
             </Box>
@@ -326,16 +408,29 @@ const AssignmentDetail = () => {
 
           {isTeacher && assignment?.created_by_name && (
             <Box sx={{ 
-              p: 2, 
+              p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
               borderRadius: 2,
               textAlign: 'center'
             }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  mb: 1,
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}
+              >
                 Creado por
               </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  fontWeight: 500,
+                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                }}
+              >
                 {assignment.created_by_name}
               </Typography>
             </Box>
@@ -343,16 +438,29 @@ const AssignmentDetail = () => {
 
           {isTeacher && assignment?.created_at && (
             <Box sx={{ 
-              p: 2, 
+              p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
               borderRadius: 2,
               textAlign: 'center'
             }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                sx={{ 
+                  mb: 1,
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                }}
+              >
                 Fecha de Creación
               </Typography>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  fontWeight: 500,
+                  fontSize: { xs: '0.875rem', sm: '1rem' }
+                }}
+              >
                 {new Date(assignment.created_at).toLocaleDateString('es-ES')}
               </Typography>
             </Box>
@@ -361,17 +469,28 @@ const AssignmentDetail = () => {
       </Paper>
 
       {/* Descripción e Instrucciones */}
-      <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3 }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            mb: 3, 
+            fontWeight: 600,
+            fontSize: { xs: '1.1rem', sm: '1.25rem' }
+          }}
+        >
           Descripción e Instrucciones
         </Typography>
 
         {(assignment?.description || assignment?.instructions) ? (
-          <Typography variant="body1" sx={{
-            whiteSpace: 'pre-wrap',
-            lineHeight: 1.6,
-            color: 'text.primary'
-          }}>
+          <Typography 
+            variant="body1" 
+            sx={{
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.6,
+              color: 'text.primary',
+              fontSize: { xs: '0.875rem', sm: '1rem' }
+            }}
+          >
             {assignment?.description || assignment?.instructions}
           </Typography>
         ) : (
@@ -381,14 +500,23 @@ const AssignmentDetail = () => {
             color: 'text.secondary'
           }}>
             <Assignment sx={{
-              fontSize: 48,
+              fontSize: { xs: 36, sm: 48 },
               mb: 2,
               opacity: 0.5
             }} />
-            <Typography variant="body1" sx={{ mb: 1 }}>
+            <Typography 
+              variant="body1" 
+              sx={{ 
+                mb: 1,
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
               Sin descripción disponible
             </Typography>
-            <Typography variant="body2">
+            <Typography 
+              variant="body2"
+              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+            >
               Esta tarea no incluye descripción o instrucciones adicionales
             </Typography>
           </Box>
@@ -396,14 +524,39 @@ const AssignmentDetail = () => {
       </Paper>
 
       {/* Materiales */}
-      <Paper elevation={2} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AttachFile color="primary" />
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+      <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 3,
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: { xs: 2, sm: 0 }
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            justifyContent: { xs: 'center', sm: 'flex-start' }
+          }}>
+            <AttachFile color="primary" sx={{ fontSize: { xs: 20, sm: 24 } }} />
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 600,
+                fontSize: { xs: '1.1rem', sm: '1.25rem' }
+              }}
+            >
               Materiales
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+            <Typography 
+              variant="body2" 
+              color="text.secondary" 
+              sx={{ 
+                ml: 1,
+                fontSize: { xs: '0.75rem', sm: '0.875rem' }
+              }}
+            >
               ({attachments.length + materials.length})
             </Typography>
           </Box>
@@ -413,6 +566,10 @@ const AssignmentDetail = () => {
               startIcon={<Add />}
               onClick={() => setUploadDialogOpen(true)}
               size="small"
+              sx={{ 
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                px: { xs: 2, sm: 3 }
+              }}
             >
               Agregar
             </Button>
@@ -474,14 +631,23 @@ const AssignmentDetail = () => {
             color: 'text.secondary'
           }}>
             <AttachFile sx={{ 
-              fontSize: 48, 
+              fontSize: { xs: 36, sm: 48 }, 
               mb: 2,
               opacity: 0.5
             }} />
-            <Typography variant="body1" sx={{ mb: 1 }}>
+            <Typography 
+              variant="body1" 
+              sx={{ 
+                mb: 1,
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            >
               No hay materiales disponibles
             </Typography>
-            <Typography variant="body2">
+            <Typography 
+              variant="body2"
+              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+            >
               Esta tarea no incluye materiales de apoyo
             </Typography>
           </Box>
@@ -490,7 +656,7 @@ const AssignmentDetail = () => {
 
       {/* Sección de Entrega para Estudiantes */}
       {!isTeacher && (
-        <Box sx={{ mt: 3 }}>
+        <Box sx={{ mt: { xs: 2, sm: 3 } }}>
           <StudentSubmission
             assignmentId={assignmentId}
             assignment={assignment}
@@ -500,7 +666,7 @@ const AssignmentDetail = () => {
 
       {/* Sección de Entregas para Docentes */}
       {isTeacher && (
-        <Box sx={{ mt: 3 }}>
+        <Box sx={{ mt: { xs: 2, sm: 3 } }}>
           <TeacherSubmissions
             assignmentId={assignmentId}
             courseId={courseId}

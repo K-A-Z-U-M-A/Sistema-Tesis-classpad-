@@ -42,6 +42,11 @@ import { useAssignmentCount } from '../../hooks/useAssignmentCount';
 
 const drawerWidth = 280;
 
+// Responsive drawer width
+const getDrawerWidth = (isMobile) => {
+  return isMobile ? '100%' : drawerWidth;
+};
+
 const menuItems = [
   { text: 'Inicio', icon: <Home />, path: '/dashboard' },
   { text: 'Mis Cursos', icon: <School />, path: '/courses' },
@@ -103,7 +108,7 @@ export default function AppLayout({ children }) {
       {/* Header del drawer */}
       <Box
         sx={{
-          p: 3,
+          p: { xs: 2, sm: 3 },
           borderBottom: `1px solid ${theme.palette.divider}`,
           backgroundColor: theme.palette.background.paper,
         }}
@@ -118,6 +123,7 @@ export default function AppLayout({ children }) {
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             textAlign: 'center',
+            fontSize: { xs: '1.5rem', sm: '2.125rem' }
           }}
         >
           ClassPad
@@ -128,6 +134,7 @@ export default function AppLayout({ children }) {
             textAlign: 'center',
             color: theme.palette.text.secondary,
             mt: 1,
+            fontSize: { xs: '0.75rem', sm: '0.875rem' }
           }}
         >
           Plataforma Educativa
@@ -135,7 +142,7 @@ export default function AppLayout({ children }) {
       </Box>
 
       {/* Menú principal */}
-      <List sx={{ flex: 1, px: 2, py: 1 }}>
+      <List sx={{ flex: 1, px: { xs: 1, sm: 2 }, py: 1 }}>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
             <ListItemButton
@@ -153,6 +160,8 @@ export default function AppLayout({ children }) {
                     ? theme.palette.primary.dark
                     : theme.palette.action.hover,
                 },
+                py: { xs: 1.5, sm: 2 },
+                px: { xs: 1.5, sm: 2 }
               }}
             >
               <ListItemIcon
@@ -160,6 +169,7 @@ export default function AppLayout({ children }) {
                   color: isActive(item.path)
                     ? theme.palette.primary.contrastText
                     : theme.palette.text.secondary,
+                  minWidth: { xs: 40, sm: 56 }
                 }}
               >
                 {item.hasBadge && pendingAssignmentsCount > 0 ? (
@@ -170,7 +180,15 @@ export default function AppLayout({ children }) {
                   item.icon
                 )}
               </ListItemIcon>
-              <ListItemText primary={item.text} />
+              <ListItemText 
+                primary={item.text}
+                sx={{
+                  '& .MuiListItemText-primary': {
+                    fontWeight: isActive(item.path) ? 600 : 400,
+                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                  },
+                }}
+              />
             </ListItemButton>
           </ListItem>
         ))}
@@ -235,16 +253,33 @@ export default function AppLayout({ children }) {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Avatar
-            src={userProfile?.photoURL}
-            sx={{ width: 40, height: 40, mr: 2 }}
+            src={userProfile?.photoURL || userProfile?.photo_url}
+            sx={{ 
+              width: { xs: 35, sm: 40 }, 
+              height: { xs: 35, sm: 40 }, 
+              mr: 2,
+              bgcolor: userProfile?.photoURL || userProfile?.photo_url ? 'transparent' : 'primary.main'
+            }}
           >
-            {userProfile?.displayName?.charAt(0) || 'U'}
+            {userProfile?.displayName?.charAt(0)?.toUpperCase() || 
+             userProfile?.display_name?.charAt(0)?.toUpperCase() || 
+             'U'}
           </Avatar>
           <Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {userProfile?.displayName || 'Usuario'}
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontWeight: 600,
+                fontSize: { xs: '0.875rem', sm: '0.875rem' }
+              }}
+            >
+              {userProfile?.displayName || userProfile?.display_name || 'Usuario'}
             </Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography 
+              variant="caption" 
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+            >
               {userProfile?.role === 'teacher' ? 'Docente' : 'Estudiante'}
             </Typography>
           </Box>
@@ -277,37 +312,63 @@ export default function AppLayout({ children }) {
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
+          zIndex: theme.zIndex.drawer + 1
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ px: { xs: 1, sm: 2 } }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
+            sx={{ 
+              mr: { xs: 1, sm: 2 }, 
+              display: { md: 'none' },
+              p: { xs: 1, sm: 1.5 }
+            }}
           >
             <MenuIcon />
           </IconButton>
 
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography 
+            variant="h6" 
+            noWrap 
+            component="div" 
+            sx={{ 
+              flexGrow: 1,
+              fontSize: { xs: '1rem', sm: '1.25rem' },
+              fontWeight: 600
+            }}
+          >
             {menuItems.find(item => isActive(item.path))?.text || 'ClassPad'}
           </Typography>
 
           {/* Notificaciones */}
-          <NotificationBell />
+          <Box sx={{ mr: { xs: 1, sm: 2 } }}>
+            <NotificationBell />
+          </Box>
 
           {/* Menú de perfil */}
           <IconButton
             color="inherit"
             onClick={handleProfileMenuOpen}
-            sx={{ ml: 1 }}
+            sx={{ 
+              ml: { xs: 0.5, sm: 1 },
+              p: { xs: 0.5, sm: 1 }
+            }}
           >
             <Avatar
-              src={userProfile?.photoURL}
-              sx={{ width: 32, height: 32 }}
+              src={userProfile?.photoURL || userProfile?.photo_url}
+              sx={{ 
+                width: { xs: 28, sm: 32 }, 
+                height: { xs: 28, sm: 32 },
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                bgcolor: userProfile?.photoURL || userProfile?.photo_url ? 'transparent' : 'primary.main'
+              }}
             >
-              {userProfile?.displayName?.charAt(0) || 'U'}
+              {userProfile?.displayName?.charAt(0)?.toUpperCase() || 
+               userProfile?.display_name?.charAt(0)?.toUpperCase() || 
+               'U'}
             </Avatar>
           </IconButton>
         </Toolbar>
@@ -355,9 +416,11 @@ export default function AppLayout({ children }) {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 2, sm: 3 },
           width: { md: `calc(100% - ${drawerWidth}px)` },
-          mt: '64px', // Altura del AppBar
+          mt: { xs: '56px', sm: '64px' }, // Altura del AppBar responsive
+          minHeight: 'calc(100vh - 64px)',
+          backgroundColor: theme.palette.background.default
         }}
       >
         {children}

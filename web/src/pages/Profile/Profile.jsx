@@ -96,6 +96,7 @@ export default function Profile() {
   useEffect(() => {
     const load = async () => {
       try {
+        // Cargar perfil del usuario
         const me = await api.getMyProfile();
         const meUser = me.data?.user || {};
         setEditForm({
@@ -103,15 +104,48 @@ export default function Profile() {
           photoURL: meUser.photo_url || '',
           description: meUser.description || ''
         });
-        setStats(me.data?.statistics || { courses_count: 0, assignments_count: 0 });
-      } catch (e) {
-        console.error('Error loading my profile:', e);
-      }
-      try {
+
+        // Cargar cursos del usuario
         const myCourses = await api.getMyCourses();
-        setCourses(myCourses.data?.courses || []);
+        const userCourses = myCourses.data?.courses || [];
+        setCourses(userCourses);
+
+        // Cargar tareas del usuario
+        const myAssignments = await api.getMyAssignments();
+        const userAssignments = myAssignments.data?.assignments || [];
+
+        // Calcular estadísticas reales basadas en los datos obtenidos
+        const realStats = {
+          courses_count: userCourses.length,
+          assignments_count: userAssignments.length,
+          completed_assignments: userAssignments.filter(a => a.status === 'completed' || a.status === 'submitted').length,
+          average_grade: 0 // Se puede calcular si hay calificaciones
+        };
+
+        // Si el backend devuelve estadísticas, usarlas; si no, usar las calculadas
+        const backendStats = me.data?.statistics || {};
+        setStats({
+          courses_count: backendStats.courses_count || realStats.courses_count,
+          assignments_count: backendStats.assignments_count || realStats.assignments_count,
+          completed_assignments: backendStats.completed_assignments || realStats.completed_assignments,
+          average_grade: backendStats.average_grade || realStats.average_grade
+        });
+
+        console.log('📊 Profile Stats:', {
+          backend: backendStats,
+          calculated: realStats,
+          final: {
+            courses_count: backendStats.courses_count || realStats.courses_count,
+            assignments_count: backendStats.assignments_count || realStats.assignments_count,
+            completed_assignments: backendStats.completed_assignments || realStats.completed_assignments,
+            average_grade: backendStats.average_grade || realStats.average_grade
+          }
+        });
+
       } catch (e) {
-        console.error('Error loading my courses:', e);
+        console.error('Error loading profile data:', e);
+        // En caso de error, usar valores por defecto
+        setStats({ courses_count: 0, assignments_count: 0, completed_assignments: 0, average_grade: 0 });
         setCourses([]);
       }
       setLoading(false);
@@ -171,47 +205,90 @@ export default function Profile() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
       {/* Header del perfil */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
-          <Grid container spacing={4} alignItems="center">
-            <Grid item>
-              <Avatar
-                src={user.photo_url}
-                sx={{ width: 120, height: 120, fontSize: '3rem' }}
-              >
-                {user.display_name?.charAt(0)?.toUpperCase() || 'U'}
-              </Avatar>
+        <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 }, mb: 4, borderRadius: 3 }}>
+          <Grid container spacing={{ xs: 2, sm: 4 }} alignItems="center">
+            <Grid item xs={12} sm="auto">
+              <Box display="flex" justifyContent={{ xs: 'center', sm: 'flex-start' }}>
+                <Avatar
+                  src={user.photo_url || user.photoURL}
+                  sx={{ 
+                    width: { xs: 80, sm: 120 }, 
+                    height: { xs: 80, sm: 120 }, 
+                    fontSize: { xs: '2rem', sm: '3rem' },
+                    bgcolor: user.photo_url || user.photoURL ? 'transparent' : 'primary.main'
+                  }}
+                >
+                  {user.display_name?.charAt(0)?.toUpperCase() || 
+                   user.displayName?.charAt(0)?.toUpperCase() || 
+                   'U'}
+                </Avatar>
+              </Box>
             </Grid>
-            <Grid item xs>
-              <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+            <Grid item xs={12} sm>
+              <Box 
+                display="flex" 
+                justifyContent={{ xs: 'center', sm: 'space-between' }} 
+                alignItems={{ xs: 'center', sm: 'flex-start' }}
+                flexDirection={{ xs: 'column', sm: 'row' }}
+                textAlign={{ xs: 'center', sm: 'left' }}
+                gap={{ xs: 2, sm: 0 }}
+              >
                 <Box>
-                  <Typography variant="h3" component="h1" gutterBottom>
+                  <Typography 
+                    variant="h3" 
+                    component="h1" 
+                    gutterBottom
+                    sx={{ 
+                      fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' },
+                      textAlign: { xs: 'center', sm: 'left' }
+                    }}
+                  >
                     {user.display_name || 'Usuario'}
                   </Typography>
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
-                    <EmailIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                  <Typography 
+                    variant="h6" 
+                    color="text.secondary" 
+                    gutterBottom
+                    sx={{ 
+                      fontSize: { xs: '1rem', sm: '1.25rem' },
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: { xs: 'center', sm: 'flex-start' },
+                      gap: 1
+                    }}
+                  >
+                    <EmailIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />
                     {user.email}
                   </Typography>
-                  <Box display="flex" gap={1} mt={2}>
+                  <Box 
+                    display="flex" 
+                    gap={1} 
+                    mt={2}
+                    flexWrap="wrap"
+                    justifyContent={{ xs: 'center', sm: 'flex-start' }}
+                  >
                     <Chip 
                       icon={<PersonIcon />}
                       label={user.role === 'teacher' ? 'Docente' : user.role}
                       color="primary"
                       variant="outlined"
+                      size="small"
                     />
                     <Chip 
                       label={user.provider === 'local' ? 'Email' : 'Google'}
                       color="secondary"
                       variant="outlined"
+                      size="small"
                     />
                     {user.is_active && (
-                      <Chip label="Activo" color="success" variant="outlined" />
+                      <Chip label="Activo" color="success" variant="outlined" size="small" />
                     )}
                   </Box>
                 </Box>
@@ -219,7 +296,11 @@ export default function Profile() {
                   variant="contained"
                   startIcon={<EditIcon />}
                   onClick={() => setEditDialogOpen(true)}
-                  sx={{ ml: 2 }}
+                  sx={{ 
+                    ml: { xs: 0, sm: 2 },
+                    mt: { xs: 2, sm: 0 },
+                    width: { xs: '100%', sm: 'auto' }
+                  }}
                 >
                   Editar Perfil
                 </Button>
@@ -229,7 +310,7 @@ export default function Profile() {
         </Paper>
       </motion.div>
 
-      <Grid container spacing={4}>
+      <Grid container spacing={{ xs: 2, sm: 4 }}>
         {/* Información personal */}
         <Grid item xs={12} md={6}>
           <motion.div
@@ -237,9 +318,13 @@ export default function Profile() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Card>
-              <CardContent>
-                <Typography variant="h5" gutterBottom>
+            <Card sx={{ borderRadius: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography 
+                  variant="h5" 
+                  gutterBottom
+                  sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                >
                   Información Personal
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
@@ -286,9 +371,13 @@ export default function Profile() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <Card>
-              <CardContent>
-                <Typography variant="h5" gutterBottom>
+            <Card sx={{ borderRadius: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography 
+                  variant="h5" 
+                  gutterBottom
+                  sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                >
                   Estadísticas
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
@@ -296,22 +385,44 @@ export default function Profile() {
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
                     <Box textAlign="center">
-                      <SchoolIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-                      <Typography variant="h4" color="primary">
+                      <SchoolIcon 
+                        color="primary" 
+                        sx={{ fontSize: { xs: 30, sm: 40 }, mb: 1 }} 
+                      />
+                      <Typography 
+                        variant="h4" 
+                        color="primary"
+                        sx={{ fontSize: { xs: '1.8rem', sm: '2.125rem' } }}
+                      >
                         {stats.courses_count}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                      >
                         Cursos
                       </Typography>
                     </Box>
                   </Grid>
                   <Grid item xs={6}>
                     <Box textAlign="center">
-                      <AssignmentIcon color="secondary" sx={{ fontSize: 40, mb: 1 }} />
-                      <Typography variant="h4" color="secondary">
+                      <AssignmentIcon 
+                        color="secondary" 
+                        sx={{ fontSize: { xs: 30, sm: 40 }, mb: 1 }} 
+                      />
+                      <Typography 
+                        variant="h4" 
+                        color="secondary"
+                        sx={{ fontSize: { xs: '1.8rem', sm: '2.125rem' } }}
+                      >
                         {stats.assignments_count}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                      >
                         Tareas
                       </Typography>
                     </Box>
@@ -329,15 +440,19 @@ export default function Profile() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            <Card>
-              <CardContent>
-                <Typography variant="h5" gutterBottom>
+            <Card sx={{ borderRadius: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography 
+                  variant="h5" 
+                  gutterBottom
+                  sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                >
                   Mis Cursos
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 
                 {courses.length > 0 ? (
-                  <List>
+                  <List sx={{ p: 0 }}>
                     {courses.map((course, index) => (
                       <motion.div
                         key={course.id}
@@ -345,7 +460,12 @@ export default function Profile() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.3, delay: index * 0.1 }}
                       >
-                        <ListItem>
+                        <ListItem 
+                          sx={{ 
+                            px: { xs: 0, sm: 1 },
+                            py: { xs: 1, sm: 2 }
+                          }}
+                        >
                           <ListItemAvatar>
                             <Avatar sx={{ bgcolor: 'primary.main' }}>
                               <SchoolIcon />
