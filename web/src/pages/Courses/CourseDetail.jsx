@@ -502,18 +502,24 @@ const CourseDetail = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <Box display="flex" alignItems="center" gap={2} mb={4}>
+        <Box 
+          display="flex" 
+          alignItems={{ xs: 'flex-start', sm: 'center' }} 
+          gap={2} 
+          mb={4}
+          flexDirection={{ xs: 'column', sm: 'row' }}
+        >
           <Box
             sx={{
-              width: 60,
-              height: 60,
+              width: { xs: 50, sm: 60 },
+              height: { xs: 50, sm: 60 },
               borderRadius: 2,
               backgroundColor: course.color,
               display: 'flex',
@@ -521,28 +527,53 @@ const CourseDetail = () => {
               justifyContent: 'center'
             }}
           >
-            <School sx={{ color: 'white', fontSize: 30 }} />
+            <School sx={{ color: 'white', fontSize: { xs: 24, sm: 30 } }} />
           </Box>
-          <Box flex={1}>
-            <Typography variant="h3" fontWeight="bold">
+          <Box flex={1} width="100%">
+            <Typography 
+              variant="h3" 
+              fontWeight="bold"
+              sx={{ fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' } }}
+            >
               {course.name}
             </Typography>
-            <Typography variant="h6" color="text.secondary">
+            <Typography 
+              variant="h6" 
+              color="text.secondary"
+              sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+            >
               {course.turn} {course.grade && `• ${course.grade}`}
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography 
+              variant="body1" 
+              color="text.secondary"
+              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+            >
               {course.description}
             </Typography>
             {course.course_code && (
-              <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="body2" color="text.secondary">
+              <Box sx={{ 
+                mt: 2, 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
+                flexWrap: 'wrap'
+              }}>
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary"
+                  sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                >
                   Código de la clase:
                 </Typography>
                 <Chip 
                   label={course.course_code} 
                   color="primary" 
                   variant="outlined"
-                  sx={{ fontWeight: 'bold' }}
+                  sx={{ 
+                    fontWeight: 'bold',
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                  }}
                 />
                 <Button
                   size="small"
@@ -550,7 +581,10 @@ const CourseDetail = () => {
                   startIcon={<ContentCopy />}
                   onClick={() => {
                     navigator.clipboard.writeText(course.course_code);
-                    // You can add a toast notification here
+                    toast.success('Código copiado al portapapeles');
+                  }}
+                  sx={{ 
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
                   }}
                 >
                   Copiar
@@ -562,15 +596,30 @@ const CourseDetail = () => {
             <Chip
               label={course.is_active ? 'Activo' : 'Inactivo'}
               color={course.is_active ? 'success' : 'default'}
+              sx={{ 
+                fontSize: { xs: '0.75rem', sm: '0.875rem' }
+              }}
             />
           </Box>
         </Box>
       </motion.div>
 
       {/* Tabs */}
-      <Card>
+      <Card sx={{ borderRadius: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={activeTab} onChange={handleTabChange}>
+          <Tabs 
+            value={activeTab} 
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              '& .MuiTab-root': {
+                fontSize: { xs: '0.875rem', sm: '1rem' },
+                minWidth: { xs: 'auto', sm: 'auto' },
+                px: { xs: 1, sm: 2 }
+              }
+            }}
+          >
             <Tab label="Unidades" />
             <Tab label="Tareas" />
             <Tab label="Mensajes" />
@@ -582,9 +631,26 @@ const CourseDetail = () => {
           {/* Tab Content */}
           {activeTab === 0 && (
             <Box>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                <Typography variant="h5" fontWeight="bold" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <FolderOpen color="primary" />
+              <Box 
+                display="flex" 
+                justifyContent="space-between" 
+                alignItems={{ xs: 'flex-start', sm: 'center' }} 
+                mb={3}
+                flexDirection={{ xs: 'column', sm: 'row' }}
+                gap={{ xs: 2, sm: 0 }}
+              >
+                <Typography 
+                  variant="h5" 
+                  fontWeight="bold" 
+                  component="div" 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1,
+                    fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                  }}
+                >
+                  <FolderOpen color="primary" sx={{ fontSize: { xs: 20, sm: 24 } }} />
                   Unidades del Curso
                 </Typography>
                 {isTeacher && (
@@ -592,7 +658,10 @@ const CourseDetail = () => {
                     variant="contained"
                     startIcon={<Add />}
                     onClick={() => setNewUnitDialog(true)}
-                    sx={{ borderRadius: 2 }}
+                    sx={{ 
+                      borderRadius: 2,
+                      width: { xs: '100%', sm: 'auto' }
+                    }}
                   >
                     Nueva Unidad
                   </Button>
@@ -609,50 +678,101 @@ const CourseDetail = () => {
                       sx={{ 
                         border: '1px solid',
                         borderColor: 'divider',
-                        borderRadius: 2,
+                        borderRadius: 3,
                         '&:before': { display: 'none' },
-                        boxShadow: 'none'
+                        boxShadow: 'none',
+                        '&:hover': {
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        },
+                        transition: 'all 0.3s ease'
                       }}
                     >
                       <AccordionSummary
                         expandIcon={<ExpandMore />}
                         sx={{ 
                           backgroundColor: 'grey.50',
-                          borderRadius: '8px 8px 0 0',
+                          borderRadius: '12px 12px 0 0',
                           '&.Mui-expanded': {
-                            borderRadius: '8px 8px 0 0'
-                          }
+                            borderRadius: '12px 12px 0 0'
+                          },
+                          px: { xs: 1, sm: 2 },
+                          py: { xs: 1, sm: 1.5 }
                         }}
                       >
-                        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 2 }}>
-                          <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-                            <Folder color="white" />
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          width: '100%', 
+                          gap: { xs: 1, sm: 2 }
+                        }}>
+                          <Avatar sx={{ 
+                            bgcolor: 'primary.main', 
+                            width: { xs: 35, sm: 40 }, 
+                            height: { xs: 35, sm: 40 }
+                          }}>
+                            <Folder color="white" sx={{ fontSize: { xs: 18, sm: 20 } }} />
                           </Avatar>
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="h6" fontWeight="bold">
+                          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                            <Typography 
+                              variant="h6" 
+                              fontWeight="bold"
+                              sx={{ 
+                                fontSize: { xs: '1rem', sm: '1.25rem' },
+                                lineHeight: { xs: 1.3, sm: 1.4 }
+                              }}
+                            >
                               {unit.title}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            <Typography 
+                              variant="body2" 
+                              color="text.secondary" 
+                              sx={{ 
+                                mt: 0.5,
+                                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                                display: '-webkit-box',
+                                WebkitLineClamp: 1,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden'
+                              }}
+                            >
                               {unit.description}
                             </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                            <Box sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: { xs: 0.5, sm: 1 }, 
+                              mt: 1,
+                              flexWrap: 'wrap'
+                            }}>
                               <Chip
                                 label={unit.is_published ? 'Publicada' : 'Borrador'}
                                 color={unit.is_published ? 'success' : 'default'}
                                 size="small"
                                 icon={unit.is_published ? <Bookmark /> : <BookmarkBorder />}
+                                sx={{ 
+                                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                  height: { xs: 24, sm: 28 }
+                                }}
                               />
                               <Chip
                                 label={`${unitMaterialsMap[unit.id]?.length || 0} materiales`}
                                 variant="outlined"
                                 size="small"
                                 icon={<AttachFile />}
+                                sx={{ 
+                                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                  height: { xs: 24, sm: 28 }
+                                }}
                               />
                               <Chip
                                 label={`${unitAssignmentsMap[unit.id]?.length || 0} tareas`}
                                 variant="outlined"
                                 size="small"
                                 icon={<Assignment />}
+                                sx={{ 
+                                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                  height: { xs: 24, sm: 28 }
+                                }}
                               />
                             </Box>
                           </Box>
@@ -664,17 +784,33 @@ const CourseDetail = () => {
                                 setUnitMenuAnchor(e.currentTarget); 
                                 setUnitMenuUnit(unit); 
                               }}
+                              sx={{ 
+                                alignSelf: { xs: 'flex-start', sm: 'center' },
+                                mt: { xs: -0.5, sm: 0 }
+                              }}
                             >
                               <MoreVert />
                             </IconButton>
                           )}
                         </Box>
                       </AccordionSummary>
-                      <AccordionDetails sx={{ pt: 0 }}>
-                        <Box sx={{ pl: 6 }}>
+                      <AccordionDetails sx={{ pt: 0, px: { xs: 1, sm: 2 } }}>
+                        <Box sx={{ pl: { xs: 0, sm: 6 } }}>
                           {/* Materiales de la unidad */}
-                          <Paper elevation={0} sx={{ p: 2, mb: 2, backgroundColor: 'grey.25', borderRadius: 2 }}>
-                            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                          <Paper elevation={0} sx={{ 
+                            p: { xs: 1.5, sm: 2 }, 
+                            mb: 2, 
+                            backgroundColor: 'grey.25', 
+                            borderRadius: 2 
+                          }}>
+                            <Box 
+                              display="flex" 
+                              justifyContent="space-between" 
+                              alignItems={{ xs: 'flex-start', sm: 'center' }} 
+                              mb={2}
+                              flexDirection={{ xs: 'column', sm: 'row' }}
+                              gap={{ xs: 1, sm: 0 }}
+                            >
                               <Typography variant="subtitle1" fontWeight="bold" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <AttachFile color="primary" />
                                 Materiales de Estudio
@@ -970,35 +1106,73 @@ const CourseDetail = () => {
 
           {activeTab === 2 && (
             <Box>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                <Typography variant="h5" fontWeight="bold">
+              <Box 
+                display="flex" 
+                justifyContent="space-between" 
+                alignItems={{ xs: 'flex-start', sm: 'center' }} 
+                mb={3}
+                flexDirection={{ xs: 'column', sm: 'row' }}
+                gap={{ xs: 2, sm: 0 }}
+              >
+                <Typography 
+                  variant="h5" 
+                  fontWeight="bold"
+                  sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+                >
                   Mensajes y Anuncios
                 </Typography>
                 <Button
                   variant="contained"
                   startIcon={<Add />}
                   onClick={() => setNewMessageDialog(true)}
+                  sx={{ 
+                    width: { xs: '100%', sm: 'auto' }
+                  }}
                 >
                   Nuevo Mensaje
                 </Button>
               </Box>
 
               {messages.length > 0 ? (
-                <List>
+                <List sx={{ p: 0 }}>
                   {messages.map((message, index) => (
                     <React.Fragment key={message.id}>
-                      <ListItem alignItems="flex-start">
-                        <ListItemAvatar>
-                          <Avatar src={message.author_photo}>
-                            {message.author_name?.charAt(0)}
+                      <ListItem 
+                        alignItems="flex-start"
+                        sx={{ 
+                          px: { xs: 0, sm: 1 },
+                          py: { xs: 1, sm: 2 }
+                        }}
+                      >
+                        <ListItemAvatar sx={{ minWidth: { xs: 40, sm: 56 } }}>
+                          <Avatar 
+                            src={message.author_photo}
+                            sx={{ 
+                              width: { xs: 35, sm: 40 }, 
+                              height: { xs: 35, sm: 40 }
+                            }}
+                          >
+                            {message.author_name?.charAt(0)?.toUpperCase()}
                           </Avatar>
                         </ListItemAvatar>
                         <ListItemText
                           component="div"
+                          sx={{ m: 0 }}
                           primary={
-                            <Box component="div" display="flex" alignItems="center" gap={1}>
+                            <Box 
+                              component="div" 
+                              display="flex" 
+                              alignItems="center" 
+                              gap={1}
+                              flexDirection={{ xs: 'column', sm: 'row' }}
+                              alignItems={{ xs: 'flex-start', sm: 'center' }}
+                            >
                               <Box display="flex" alignItems="center" gap={0.5}>
-                                <Typography variant="subtitle1" fontWeight="bold">
+                                <Typography 
+                                  variant="subtitle1" 
+                                  fontWeight="bold"
+                                  sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                                >
                                   {message.author_name}
                                 </Typography>
                                 {getUserRole(message) === 'teacher' && (
@@ -1006,43 +1180,69 @@ const CourseDetail = () => {
                                     fontSize="small" 
                                     color="primary" 
                                     sx={{ 
-                                      fontSize: '18px',
+                                      fontSize: { xs: 16, sm: 18 },
                                       filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))'
                                     }} 
                                   />
                                 )}
                               </Box>
-                              <Chip
-                                label={getUserRole(message) === 'teacher' ? 'Profesor' : 'Alumno'}
-                                size="small"
-                                color={getUserRole(message) === 'teacher' ? 'primary' : 'default'}
-                                variant={getUserRole(message) === 'teacher' ? 'filled' : 'outlined'}
-                              />
-                              <Chip
-                                label={getMessageTypeLabel(message.type)}
-                                size="small"
-                                color={
-                                  message.type === 'announcement' ? 'info' :
-                                  message.type === 'discussion' ? 'secondary' :
-                                  message.type === 'question' ? 'warning' : 'primary'
-                                }
-                              />
-                              {message.is_pinned && (
+                              <Box sx={{ 
+                                display: 'flex', 
+                                gap: { xs: 0.5, sm: 1 },
+                                flexWrap: 'wrap',
+                                alignItems: 'center'
+                              }}>
                                 <Chip
-                                  label="Fijado"
+                                  label={getUserRole(message) === 'teacher' ? 'Profesor' : 'Alumno'}
                                   size="small"
-                                  color="secondary"
+                                  color={getUserRole(message) === 'teacher' ? 'primary' : 'default'}
+                                  variant={getUserRole(message) === 'teacher' ? 'filled' : 'outlined'}
+                                  sx={{ 
+                                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                    height: { xs: 24, sm: 28 }
+                                  }}
                                 />
-                              )}
-                              {message.updated_at && message.updated_at !== message.created_at && (
                                 <Chip
-                                  label="Editado"
+                                  label={getMessageTypeLabel(message.type)}
                                   size="small"
-                                  color="warning"
-                                  variant="outlined"
+                                  color={
+                                    message.type === 'announcement' ? 'info' :
+                                    message.type === 'discussion' ? 'secondary' :
+                                    message.type === 'question' ? 'warning' : 'primary'
+                                  }
+                                  sx={{ 
+                                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                    height: { xs: 24, sm: 28 }
+                                  }}
                                 />
-                              )}
-                              <Box sx={{ ml: 'auto' }}>
+                                {message.is_pinned && (
+                                  <Chip
+                                    label="Fijado"
+                                    size="small"
+                                    color="secondary"
+                                    sx={{ 
+                                      fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                      height: { xs: 24, sm: 28 }
+                                    }}
+                                  />
+                                )}
+                                {message.updated_at && message.updated_at !== message.created_at && (
+                                  <Chip
+                                    label="Editado"
+                                    size="small"
+                                    color="warning"
+                                    variant="outlined"
+                                    sx={{ 
+                                      fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                                      height: { xs: 24, sm: 28 }
+                                    }}
+                                  />
+                                )}
+                              </Box>
+                              <Box sx={{ 
+                                ml: { xs: 0, sm: 'auto' },
+                                alignSelf: { xs: 'flex-end', sm: 'center' }
+                              }}>
                                 <IconButton
                                   size="small"
                                   onClick={(e) => handleMessageMenuOpen(e, message)}
@@ -1086,12 +1286,31 @@ const CourseDetail = () => {
                                   </Box>
                                 </Box>
                               ) : (
-                                <Typography variant="body2" sx={{ mb: 1 }}>
+                                <Typography 
+                                  variant="body2" 
+                                  sx={{ 
+                                    mb: 1,
+                                    fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                                    lineHeight: { xs: 1.4, sm: 1.5 }
+                                  }}
+                                >
                                   {message.content}
                                 </Typography>
                               )}
-                              <Box display="flex" alignItems="center" gap={1} sx={{ mb: 1 }}>
-                                <Typography variant="caption" color="text.secondary">
+                              <Box 
+                                display="flex" 
+                                alignItems="center" 
+                                gap={1} 
+                                sx={{ 
+                                  mb: 1,
+                                  flexWrap: 'wrap'
+                                }}
+                              >
+                                <Typography 
+                                  variant="caption" 
+                                  color="text.secondary"
+                                  sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+                                >
                                   {new Date(message.created_at).toLocaleString()}
                                 </Typography>
                                 {message.comment_count > 0 && (

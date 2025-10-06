@@ -55,10 +55,10 @@ const Assignments = () => {
   const [sortOrder, setSortOrder] = useState('asc'); // asc, desc
   const [showOnlyPending, setShowOnlyPending] = useState(false);
   const [showOnlyWithPendingSubmissions, setShowOnlyWithPendingSubmissions] = useState(false);
-  
+
   // Filtro de estado de entregas
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('');
-  
+
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
 
@@ -97,7 +97,7 @@ const Assignments = () => {
               if (assignmentsResponse.success && assignmentsResponse.data) {
                 // Agregar información del curso a cada tarea
                 const courseAssignments = assignmentsResponse.data.map(assignment => {
-                  
+
                   return {
                     ...assignment,
                     courseId: course.id,
@@ -193,11 +193,11 @@ const Assignments = () => {
       // Para profesores: estado basado en entregas y fecha de vencimiento
       const totalStudents = assignment.course?.students?.length || 0;
       const submittedCount = assignment.submissions?.length || 0;
-      
+
       // Primero verificar si está vencida
       const daysLeft = Math.ceil((new Date(assignment.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
       if (daysLeft < 0) return 'overdue';
-      
+
       // Luego verificar estado de entregas
       if (totalStudents === 0) return 'no_students';
       if (submittedCount === 0) return 'no_submissions';
@@ -210,39 +210,38 @@ const Assignments = () => {
   const filteredAssignments = userAssignments.filter(assignment => {
     const course = courses.find(c => c.id === assignment.courseId);
     const assignmentStatus = getAssignmentStatus(assignment);
-    
+
     const matchesSearch = assignment.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          assignment.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCourse = !filterCourse || assignment.courseId === filterCourse;
     const matchesSubject = !filterSubject || course?.subject === filterSubject;
     const matchesDeliveryStatus = !deliveryStatusFilter || assignmentStatus === deliveryStatusFilter;
-    
+
     // Filtro especial para mostrar solo tareas pendientes (para estudiantes)
-    const matchesPending = !showOnlyPending || 
-                          (userProfile?.role === 'student' && 
-                           (assignmentStatus === 'pending' || 
-                            assignmentStatus === 'urgent' || 
+    const matchesPending = !showOnlyPending ||
+                          (userProfile?.role === 'student' &&
+                           (assignmentStatus === 'pending' ||
+                            assignmentStatus === 'urgent' ||
                             assignmentStatus === 'overdue'));
-    
+
     // Filtro especial para profesores: mostrar solo tareas con entregas pendientes
-    const matchesPendingSubmissions = !showOnlyWithPendingSubmissions || 
-                                     (userProfile?.role === 'teacher' && 
-                                      (assignmentStatus === 'no_submissions' || 
+    const matchesPendingSubmissions = !showOnlyWithPendingSubmissions ||
+                                     (userProfile?.role === 'teacher' &&
+                                      (assignmentStatus === 'no_submissions' ||
                                        assignmentStatus === 'partial_submitted'));
-    
+
+
     return matchesSearch && matchesCourse && matchesSubject && matchesDeliveryStatus && matchesPending && matchesPendingSubmissions;
   });
-
-
 
 
   // Ordenar tareas
   const sortedAssignments = [...filteredAssignments].sort((a, b) => {
     const courseA = courses.find(c => c.id === a.courseId);
     const courseB = courses.find(c => c.id === b.courseId);
-    
+
     let comparison = 0;
-    
+
     switch (sortBy) {
       case 'dueDate':
         comparison = new Date(a.dueDate) - new Date(b.dueDate);
@@ -259,7 +258,7 @@ const Assignments = () => {
       default:
         comparison = 0;
     }
-    
+
     return sortOrder === 'asc' ? comparison : -comparison;
   });
 
@@ -270,7 +269,7 @@ const Assignments = () => {
     const totalStudents = course?.students?.length || 0;
     const submittedCount = assignment.submissions?.length || 0;
     const pendingCount = totalStudents - submittedCount;
-    
+
     return {
       total: totalStudents,
       submitted: submittedCount,
@@ -409,7 +408,19 @@ const Assignments = () => {
         transition={{ duration: 0.6, delay: 0.2 }}
       >
         {/* Primera fila: Filtros principales */}
-        <Box display="flex" gap={2} mb={3} flexWrap="wrap" alignItems="center">
+        <Box
+          display="flex"
+          gap={2}
+          mb={3}
+          flexWrap="wrap"
+          alignItems="center"
+          sx={{
+            '& > *': {
+              minWidth: { xs: '100%', sm: 'auto' },
+              flex: { xs: '1 1 100%', sm: '0 1 auto' }
+            }
+          }}
+        >
           <TextField
             placeholder="Buscar tareas..."
             value={searchTerm}
@@ -417,10 +428,20 @@ const Assignments = () => {
             InputProps={{
               startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
             }}
-            sx={{ minWidth: 300 }}
+            sx={{
+              minWidth: { xs: '100%', sm: 300 },
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2
+              }
+            }}
           />
 
-          <FormControl sx={{ minWidth: 200 }}>
+          <FormControl sx={{
+            minWidth: { xs: '100%', sm: 200 },
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2
+            }
+          }}>
             <InputLabel>Filtrar por curso</InputLabel>
             <Select
               value={filterCourse}
@@ -437,7 +458,12 @@ const Assignments = () => {
           </FormControl>
 
           {userSubjects.length > 0 && (
-            <FormControl sx={{ minWidth: 200 }}>
+            <FormControl sx={{
+              minWidth: { xs: '100%', sm: 200 },
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 2
+              }
+            }}>
               <InputLabel>Filtrar por materia</InputLabel>
               <Select
                 value={filterSubject}
@@ -455,28 +481,94 @@ const Assignments = () => {
           )}
 
           {/* Filtro de estado de entregas */}
-          <FormControl sx={{ minWidth: 200 }}>
+          <FormControl sx={{
+            minWidth: { xs: '100%', sm: 200 },
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2
+            }
+          }}>
             <InputLabel>Estado de entregas</InputLabel>
             <Select
               value={deliveryStatusFilter}
               onChange={(e) => setDeliveryStatusFilter(e.target.value)}
               label="Estado de entregas"
+              MenuProps={{
+                PaperProps: {
+                  sx: {
+                    '& .MuiMenuItem-root': {
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 122, 255, 0.08)',
+                      },
+                    },
+                  },
+                },
+              }}
             >
-              <MenuItem value="">Todos los estados</MenuItem>
+              <MenuItem
+                value=""
+                onClick={() => setDeliveryStatusFilter('')}
+              >
+                Todos los estados
+              </MenuItem>
               {userProfile?.role === 'student' ? (
                 <>
-                  <MenuItem value="pending">Pendientes</MenuItem>
-                  <MenuItem value="urgent">Urgentes</MenuItem>
-                  <MenuItem value="overdue">Vencidas</MenuItem>
-                  <MenuItem value="completed">Completadas</MenuItem>
+                  <MenuItem
+                    value="pending"
+                    onClick={() => setDeliveryStatusFilter('pending')}
+                  >
+                    Pendientes
+                  </MenuItem>
+                  <MenuItem
+                    value="urgent"
+                    onClick={() => setDeliveryStatusFilter('urgent')}
+                  >
+                    Urgentes
+                  </MenuItem>
+                  <MenuItem
+                    value="overdue"
+                    onClick={() => setDeliveryStatusFilter('overdue')}
+                  >
+                    Vencidas
+                  </MenuItem>
+                  <MenuItem
+                    value="completed"
+                    onClick={() => setDeliveryStatusFilter('completed')}
+                  >
+                    Completadas
+                  </MenuItem>
                 </>
               ) : (
                 <>
-                  <MenuItem value="all_submitted">Todas entregadas</MenuItem>
-                  <MenuItem value="partial_submitted">Entregas parciales</MenuItem>
-                  <MenuItem value="no_submissions">Sin entregas</MenuItem>
-                  <MenuItem value="overdue">Vencidas</MenuItem>
-                  <MenuItem value="no_students">Sin estudiantes</MenuItem>
+                  <MenuItem
+                    value="all_submitted"
+                    onClick={() => setDeliveryStatusFilter('all_submitted')}
+                  >
+                    Todas entregadas
+                  </MenuItem>
+                  <MenuItem
+                    value="partial_submitted"
+                    onClick={() => setDeliveryStatusFilter('partial_submitted')}
+                  >
+                    Entregas parciales
+                  </MenuItem>
+                  <MenuItem
+                    value="no_submissions"
+                    onClick={() => setDeliveryStatusFilter('no_submissions')}
+                  >
+                    Sin entregas
+                  </MenuItem>
+                  <MenuItem
+                    value="overdue"
+                    onClick={() => setDeliveryStatusFilter('overdue')}
+                  >
+                    Vencidas
+                  </MenuItem>
+                  <MenuItem
+                    value="no_students"
+                    onClick={() => setDeliveryStatusFilter('no_students')}
+                  >
+                    Sin estudiantes
+                  </MenuItem>
                 </>
               )}
             </Select>
@@ -484,8 +576,25 @@ const Assignments = () => {
         </Box>
 
         {/* Segunda fila: Ordenamiento y acciones */}
-        <Box display="flex" gap={2} mb={4} flexWrap="wrap" alignItems="center">
-          <FormControl sx={{ minWidth: 200 }}>
+        <Box
+          display="flex"
+          gap={2}
+          mb={4}
+          flexWrap="wrap"
+          alignItems="center"
+          sx={{
+            '& > *': {
+              minWidth: { xs: 'auto', sm: 'auto' },
+              flex: { xs: '0 1 auto', sm: '0 1 auto' }
+            }
+          }}
+        >
+          <FormControl sx={{
+            minWidth: { xs: 150, sm: 200 },
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2
+            }
+          }}>
             <InputLabel>Ordenar por</InputLabel>
             <Select
               value={sortBy}
@@ -503,12 +612,24 @@ const Assignments = () => {
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
             color={sortOrder === 'asc' ? 'primary' : 'default'}
             title={`Ordenar ${sortOrder === 'asc' ? 'descendente' : 'ascendente'}`}
-            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+            sx={{
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              minWidth: 48,
+              minHeight: 48
+            }}
           >
             <SortByAlpha />
           </IconButton>
 
-          <Divider orientation="vertical" flexItem />
+          <Divider
+            orientation="vertical"
+            flexItem
+            sx={{
+              display: { xs: 'none', sm: 'block' }
+            }}
+          />
 
           {userProfile?.role === 'student' && (
             <Button
@@ -516,9 +637,18 @@ const Assignments = () => {
               onClick={() => setShowOnlyPending(!showOnlyPending)}
               startIcon={showOnlyPending ? <Visibility /> : <VisibilityOff />}
               color="warning"
-              sx={{ borderRadius: 2 }}
+              sx={{
+                borderRadius: 2,
+                minWidth: { xs: 'auto', sm: 'auto' },
+                px: { xs: 2, sm: 3 }
+              }}
             >
-              {showOnlyPending ? 'Mostrar todas' : 'Solo pendientes'}
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                {showOnlyPending ? 'Mostrar todas' : 'Solo pendientes'}
+              </Box>
+              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                {showOnlyPending ? 'Todas' : 'Pendientes'}
+              </Box>
             </Button>
           )}
 
@@ -543,7 +673,7 @@ const Assignments = () => {
             color="primary"
             variant="outlined"
           />
-          
+
           {userProfile?.role === 'student' && (
             <>
               <Chip
@@ -585,13 +715,13 @@ const Assignments = () => {
 
       {/* Lista de tareas */}
       {sortedAssignments.length > 0 ? (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {sortedAssignments.map((assignment, index) => {
             const course = courses.find(c => c.id === assignment.courseId);
             const status = getAssignmentStatus(assignment);
 
             return (
-              <Grid item xs={12} sm={6} md={4} key={assignment.id}>
+              <Grid item xs={12} sm={6} lg={4} key={assignment.id}>
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -605,17 +735,24 @@ const Assignments = () => {
                         transform: 'translateY(-4px)',
                         boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
                       },
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      borderRadius: 3
                     }}
                     onClick={() => handleAssignmentClick(assignment)}
                   >
-                    <CardContent>
+                    <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                       {/* Header de la tarea */}
-                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        mb={2}
+                        sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 0 } }}
+                      >
                         <Box
                           sx={{
-                            width: 50,
-                            height: 50,
+                            width: { xs: 40, sm: 50 },
+                            height: { xs: 40, sm: 50 },
                             borderRadius: 2,
                             backgroundColor: course?.color || '#007AFF',
                             display: 'flex',
@@ -623,7 +760,7 @@ const Assignments = () => {
                             justifyContent: 'center'
                           }}
                         >
-                          <Assignment sx={{ color: 'white', fontSize: 24 }} />
+                          <Assignment sx={{ color: 'white', fontSize: { xs: 20, sm: 24 } }} />
                         </Box>
 
                         <IconButton
@@ -632,39 +769,88 @@ const Assignments = () => {
                             e.stopPropagation();
                             handleMenuOpen(e, assignment);
                           }}
+                          sx={{
+                            alignSelf: { xs: 'flex-end', sm: 'auto' },
+                            mt: { xs: -1, sm: 0 }
+                          }}
                         >
                           <MoreVert />
                         </IconButton>
                       </Box>
 
                       {/* Información de la tarea */}
-                      <Typography variant="h6" gutterBottom fontWeight="bold">
+                      <Typography
+                        variant="h6"
+                        gutterBottom
+                        fontWeight="bold"
+                        sx={{
+                          fontSize: { xs: '1.1rem', sm: '1.25rem' },
+                          lineHeight: { xs: 1.3, sm: 1.4 }
+                        }}
+                      >
                         {assignment.title}
                       </Typography>
 
-                      <Box display="flex" alignItems="center" gap={1} mb={1}>
-                        <Subject sx={{ fontSize: 16, color: 'text.secondary' }} />
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        gap={1}
+                        mb={1}
+                        sx={{
+                          flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                          '& .MuiTypography-body2': {
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                          }
+                        }}
+                      >
+                        <Subject sx={{ fontSize: { xs: 14, sm: 16 }, color: 'text.secondary' }} />
                         <Typography variant="body2" color="text.secondary">
                           {course?.subject}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'inline' } }}>
                           •
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           {course?.name}
-                      </Typography>
+                        </Typography>
                       </Box>
 
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                          mb: 2,
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                          lineHeight: { xs: 1.4, sm: 1.5 },
+                          display: '-webkit-box',
+                          WebkitLineClamp: { xs: 2, sm: 3 },
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}
+                      >
                         {assignment.description}
                       </Typography>
 
                       {/* Estado y fecha */}
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                      <Box
+                        display="flex"
+                        justifyContent="space-between"
+                        alignItems="center"
+                        mb={2}
+                        sx={{
+                          flexDirection: { xs: 'column', sm: 'row' },
+                          gap: { xs: 1, sm: 0 },
+                          alignItems: { xs: 'flex-start', sm: 'center' }
+                        }}
+                      >
                         <Chip
                           label={getStatusText(status)}
                           color={getStatusColor(status)}
                           size="small"
+                          sx={{
+                            fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                            height: { xs: 24, sm: 28 }
+                          }}
                         />
 
                         <Box textAlign="right">
@@ -723,7 +909,7 @@ const Assignments = () => {
                               {getSubmissionStats(assignment).percentage}%
                             </Typography>
                           </Box>
-                          
+
                           {/* Barra de progreso de entregas mejorada */}
                           <Box
                             sx={{
@@ -740,13 +926,13 @@ const Assignments = () => {
                               sx={{
                                 width: `${getSubmissionStats(assignment).percentage}%`,
                                 height: '100%',
-                                background: getSubmissionStats(assignment).percentage === 100 
-                                  ? 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)' 
-                                  : getSubmissionStats(assignment).percentage >= 75 
+                                background: getSubmissionStats(assignment).percentage === 100
+                                  ? 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)'
+                                  : getSubmissionStats(assignment).percentage >= 75
                                     ? 'linear-gradient(135deg, #8bc34a 0%, #aed581 100%)'
-                                    : getSubmissionStats(assignment).percentage >= 50 
-                                      ? 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)' 
-                                      : getSubmissionStats(assignment).percentage > 0 
+                                    : getSubmissionStats(assignment).percentage >= 50
+                                      ? 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)'
+                                      : getSubmissionStats(assignment).percentage > 0
                                         ? 'linear-gradient(135deg, #2196f3 0%, #42a5f5 100%)'
                                         : 'linear-gradient(135deg, #9e9e9e 0%, #bdbdbd 100%)',
                                 transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -771,7 +957,7 @@ const Assignments = () => {
                                   }
                                 }}
                               />
-                              
+
                               {/* Efecto de pulsación cuando está completo */}
                               {getSubmissionStats(assignment).percentage === 100 && (
                                 <Box
@@ -793,7 +979,7 @@ const Assignments = () => {
                               )}
                             </Box>
                           </Box>
-                          
+
                           {/* Mensajes de estado mejorados */}
                           {getSubmissionStats(assignment).percentage === 100 && (
                             <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block', fontWeight: 'medium' }}>
