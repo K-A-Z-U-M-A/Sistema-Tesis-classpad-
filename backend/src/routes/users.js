@@ -297,7 +297,7 @@ router.get('/me/assignments', authMiddleware, async (req, res) => {
                 c.name as course_name,
                 c.turn as course_turn,
                 c.color as course_color,
-                u.name as unit_name,
+                u.title as unit_name,
                 (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id) as submission_count
          FROM assignments a
          JOIN courses c ON a.course_id = c.id
@@ -322,7 +322,7 @@ router.get('/me/assignments', authMiddleware, async (req, res) => {
                 c.name as course_name,
                 c.turn as course_turn,
                 c.color as course_color,
-                u.name as unit_name,
+                u.title as unit_name,
                 s.id as submission_id,
                 s.submitted_at,
                 s.grade,
