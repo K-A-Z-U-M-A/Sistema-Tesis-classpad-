@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import MaterialUpload from '../../components/MaterialUpload';
 import AssignmentAttachmentUpload from '../../components/AssignmentAttachmentUpload';
 import MaterialList from '../../components/MaterialList';
+import ExpandableDescription from '../../components/ExpandableDescription';
 import {
   Container,
   Typography,
@@ -723,20 +724,13 @@ const CourseDetail = () => {
                             >
                               {unit.title}
                             </Typography>
-                            <Typography 
-                              variant="body2" 
-                              color="text.secondary" 
-                              sx={{ 
-                                mt: 0.5,
-                                fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                display: '-webkit-box',
-                                WebkitLineClamp: 1,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden'
-                              }}
-                            >
-                              {unit.description}
-                            </Typography>
+                            <ExpandableDescription
+                              description={unit.description}
+                              maxLength={120}
+                              sx={{ mt: 0.5 }}
+                              variant="body2"
+                              color="text.secondary"
+                            />
                             <Box sx={{ 
                               display: 'flex', 
                               alignItems: 'center', 
