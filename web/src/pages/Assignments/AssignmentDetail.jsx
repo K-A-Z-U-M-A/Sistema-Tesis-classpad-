@@ -55,11 +55,14 @@ const AssignmentDetail = () => {
 
   const loadAssignmentData = async () => {
     try {
+      console.log('🔍 AssignmentDetail - Loading assignment data for ID:', assignmentId);
       setLoading(true);
       setError(null);
       
       // Cargar datos de la tarea
+      console.log('🔍 AssignmentDetail - Making API request to:', `/assignments/${assignmentId}`);
       const assignmentRes = await api.request(`/assignments/${assignmentId}`);
+      console.log('🔍 AssignmentDetail - API response:', assignmentRes);
       
       if (!assignmentRes.success) {
         throw new Error('No se pudo cargar la tarea');

@@ -23,6 +23,89 @@ async function hasCourseAccess(userId, courseId) {
   return result.rows.length > 0;
 }
 
+// GET /api/messages - Get all messages from all courses the user has access to
+router.get('/', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Get all messages from courses the user has access to
+    const messagesResult = await pool.query(`
+      SELECT 
+        m.*,
+        c.id as course_id,
+        c.name as course_name,
+        c.turn as course_subject,
+        u.display_name as author_name,
+        u.email as author_email,
+        u.photo_url as author_photo
+      FROM messages m
+      JOIN courses c ON m.course_id = c.id
+      JOIN users u ON m.sender_id = u.id
+      WHERE c.id IN (
+        SELECT DISTINCT c2.id FROM courses c2 
+        LEFT JOIN course_teachers ct ON c2.id = ct.course_id 
+        LEFT JOIN course_students cs ON c2.id = cs.course_id
+        LEFT JOIN enrollments e ON c2.id = e.course_id
+        WHERE (
+          c2.owner_id = $1 OR 
+          ct.teacher_id = $1 OR 
+          (cs.student_id = $1 AND cs.status = 'active') OR
+          (e.student_id = $1 AND e.status = 'active')
+        )
+      )
+      ORDER BY m.created_at DESC
+      LIMIT 100
+    `, [userId]);
+
+    const messages = messagesResult.rows;
+
+    // Group messages by course
+    const messagesByCourse = {};
+    messages.forEach(message => {
+      const courseId = message.course_id;
+      if (!messagesByCourse[courseId]) {
+        messagesByCourse[courseId] = {
+          course: {
+            id: message.course_id,
+            name: message.course_name,
+            subject: message.course_subject
+          },
+          messages: []
+        };
+      }
+      messagesByCourse[courseId].messages.push({
+        id: message.id,
+        title: message.title,
+        content: message.content,
+        type: message.type,
+        is_pinned: message.is_pinned,
+        created_at: message.created_at,
+        updated_at: message.updated_at,
+        author: {
+          id: message.sender_id,
+          name: message.author_name,
+          email: message.author_email,
+          photo_url: message.author_photo
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      data: {
+        messagesByCourse,
+        totalMessages: messages.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching all messages:', error);
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'INTERNAL_ERROR' }
+    });
+  }
+});
+
 // GET /api/messages/:courseId - Get messages for a course
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
