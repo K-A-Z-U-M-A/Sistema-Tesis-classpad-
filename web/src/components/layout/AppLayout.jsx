@@ -143,7 +143,13 @@ export default function AppLayout({ children }) {
 
       {/* Menú principal */}
       <List sx={{ flex: 1, px: { xs: 1, sm: 2 }, py: 1 }}>
-        {menuItems.map((item) => (
+        {menuItems.filter(item => {
+          // Ocultar "Alumnos" para estudiantes
+          if (item.text === 'Alumnos' && userProfile?.role === 'student') {
+            return false;
+          }
+          return true;
+        }).map((item) => (
           <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
             <ListItemButton
               onClick={() => handleNavigation(item.path)}

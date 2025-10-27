@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import MaterialUpload from '../../components/MaterialUpload';
 import AssignmentAttachmentUpload from '../../components/AssignmentAttachmentUpload';
 import MaterialList from '../../components/MaterialList';
+import ExpandableDescription from '../../components/ExpandableDescription';
 import {
   Container,
   Typography,
@@ -109,6 +110,7 @@ const CourseDetail = () => {
   const [replyContent, setReplyContent] = useState('');
   const [editingMessage, setEditingMessage] = useState(null);
   const [editMessageContent, setEditMessageContent] = useState('');
+  const [editMessageTitle, setEditMessageTitle] = useState('');
   const [messageMenuAnchor, setMessageMenuAnchor] = useState(null);
   const [messageMenuMessage, setMessageMenuMessage] = useState(null);
   const [newUnitMaterials, setNewUnitMaterials] = useState([]);
@@ -281,7 +283,8 @@ const CourseDetail = () => {
 
   const handleEditMessage = (message) => {
     setEditingMessage(message.id);
-    setEditMessageContent(message.content);
+    setEditMessageContent(message.content || '');
+    setEditMessageTitle(message.title || '');
   };
 
   const handleUpdateMessage = async () => {
@@ -293,13 +296,17 @@ const CourseDetail = () => {
     try {
       const response = await api.request(`/messages/${editingMessage}`, {
         method: 'PUT',
-        body: JSON.stringify({ content: editMessageContent })
+        body: JSON.stringify({ 
+          title: editMessageTitle.trim(),
+          content: editMessageContent.trim()
+        })
       });
 
       if (response.success) {
         toast.success('Mensaje actualizado exitosamente');
         setEditingMessage(null);
         setEditMessageContent('');
+        setEditMessageTitle('');
         loadCourseData();
       }
     } catch (error) {
@@ -623,7 +630,7 @@ const CourseDetail = () => {
             <Tab label="Unidades" />
             <Tab label="Tareas" />
             <Tab label="Mensajes" />
-            <Tab label="Alumnos" />
+            {isTeacher && <Tab label="Alumnos" />}
           </Tabs>
         </Box>
 
@@ -723,20 +730,13 @@ const CourseDetail = () => {
                             >
                               {unit.title}
                             </Typography>
-                            <Typography 
-                              variant="body2" 
-                              color="text.secondary" 
-                              sx={{ 
-                                mt: 0.5,
-                                fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                                display: '-webkit-box',
-                                WebkitLineClamp: 1,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden'
-                              }}
-                            >
-                              {unit.description}
-                            </Typography>
+                            <ExpandableDescription
+                              description={unit.description}
+                              maxLength={120}
+                              sx={{ mt: 0.5 }}
+                              variant="body2"
+                              color="text.secondary"
+                            />
                             <Box sx={{ 
                               display: 'flex', 
                               alignItems: 'center', 
@@ -867,116 +867,82 @@ const CourseDetail = () => {
                             {Array.isArray(unitAssignmentsMap[unit.id]) && unitAssignmentsMap[unit.id].length > 0 ? (
                               <List dense>
                                 {unitAssignmentsMap[unit.id].map((a) => (
-                                  <ListItem 
+                                  <Box 
                                     key={a.id}
                                     sx={{ 
                                       borderRadius: 1,
                                       mb: 0.5,
                                       cursor: 'pointer',
-                                      '&:hover': { backgroundColor: 'action.hover' }
+                                      border: '1px solid',
+                                      borderColor: 'divider',
+                                      p: 2,
+                                      backgroundColor: 'background.paper',
+                                      '&:hover': { 
+                                        backgroundColor: 'action.hover',
+                                        borderColor: 'primary.main'
+                                      },
+                                      position: 'relative'
                                     }}
                                     onClick={() => {
+                                      console.log('🔍 Clicking assignment:', a.id, 'in course:', courseId);
+                                      console.log('🔍 Navigating to:', `/courses/${courseId}/assignments/${a.id}`);
                                       // Navegar a vista de detalles de tarea
                                       navigate(`/courses/${courseId}/assignments/${a.id}`);
                                     }}
-                                    secondaryAction={isTeacher && (
-                                      <IconButton 
-                                        size="small" 
-                                        edge="end" 
-                                        onClick={(e) => { 
-                                          e.stopPropagation(); // Evitar que se active el click del ListItem
-                                          setAssignmentMenuAnchor(e.currentTarget); 
-                                          setAssignmentMenuItem({ ...a, unit_id: unit.id }); 
-                                        }}
-                                      >
-                                        <MoreVert fontSize="small" />
-                                      </IconButton>
-                                    )}
                                   >
-                                    <ListItemAvatar>
-                                      <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                                      <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40, flexShrink: 0 }}>
                                         <Assignment />
                                       </Avatar>
-                                    </ListItemAvatar>
-                                    <ListItemText
-                                      component="div"
-                                      primary={
-                                        <Typography variant="body2" fontWeight="medium">
+                                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                        <Typography variant="body1" fontWeight="medium" sx={{ mb: 1 }}>
                                           {a.title}
                                         </Typography>
-                                      }
-                                      secondary={
-                                        <Box component="div">
-                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                            <Schedule fontSize="small" color="warning" />
-                                            <Typography 
-                                              variant="caption" 
-                                              sx={{ 
-                                                color: '#ff9800',
-                                                fontWeight: 600,
-                                                fontSize: '0.75rem'
-                                              }}
-                                            >
-                                              Vence: {a.due_date ? new Date(a.due_date).toLocaleDateString() : 'sin fecha'}
-                                            </Typography>
-                                          </Box>
-                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                            <Chip
-                                              label={a.status === 'published' ? 'Publicado' : 'Borrador'}
-                                              color={a.status === 'published' ? 'success' : 'default'}
-                                              size="small"
-                                              sx={{ height: 16, fontSize: '0.65rem' }}
-                                            />
-                                          </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                          <Schedule fontSize="small" color="warning" />
+                                          <Typography 
+                                            variant="caption" 
+                                            sx={{ 
+                                              color: '#ff9800',
+                                              fontWeight: 600,
+                                              fontSize: '0.75rem'
+                                            }}
+                                          >
+                                            Vence: {a.due_date ? new Date(a.due_date).toLocaleDateString() : 'sin fecha'}
+                                          </Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                          <Chip
+                                            label={a.status === 'published' ? 'Publicado' : 'Borrador'}
+                                            color={a.status === 'published' ? 'success' : 'default'}
+                                            size="small"
+                                            sx={{ height: 20, fontSize: '0.7rem' }}
+                                          />
                                           {a.attachments && a.attachments.length > 0 && (
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <>
                                               <AttachFile fontSize="small" color="action" />
                                               <Typography variant="caption" color="text.secondary">
-                                                {a.attachments.length} archivo{a.attachments.length !== 1 ? 's' : ''} adjunto{a.attachments.length !== 1 ? 's' : ''}
+                                                {a.attachments.length} archivo{a.attachments.length !== 1 ? 's' : ''}
                                               </Typography>
-                                            </Box>
-                                          )}
-                                          {a.attachments && a.attachments.length > 0 && (
-                                            <Box sx={{ mt: 1 }}>
-                                              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                                                Materiales adjuntos:
-                                              </Typography>
-                                              <MaterialList 
-                                                materials={a.attachments.map(attachment => ({
-                                                  id: attachment.id,
-                                                  title: attachment.title || attachment.file_name,
-                                                  url: attachment.url,
-                                                  file_name: attachment.file_name,
-                                                  file_size: attachment.file_size,
-                                                  type: 'document'
-                                                }))}
-                                                emptyMessage="No hay materiales adjuntos"
-                                              />
-                                            </Box>
-                                          )}
-                                          
-                                          {a.materials && a.materials.length > 0 && (
-                                            <Box sx={{ mt: 1 }}>
-                                              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                                                Materiales de estudio:
-                                              </Typography>
-                                              <MaterialList 
-                                                materials={a.materials.map(material => ({
-                                                  id: material.id,
-                                                  title: material.title,
-                                                  url: material.url,
-                                                  file_name: material.file_name,
-                                                  file_size: material.file_size,
-                                                  type: material.type
-                                                }))}
-                                                emptyMessage="No hay materiales de estudio"
-                                              />
-                                            </Box>
+                                            </>
                                           )}
                                         </Box>
-                                      }
-                                    />
-                                  </ListItem>
+                                      </Box>
+                                      {isTeacher && (
+                                        <IconButton 
+                                          size="small" 
+                                          onClick={(e) => { 
+                                            e.stopPropagation();
+                                            setAssignmentMenuAnchor(e.currentTarget); 
+                                            setAssignmentMenuItem({ ...a, unit_id: unit.id }); 
+                                          }}
+                                          sx={{ flexShrink: 0 }}
+                                        >
+                                          <MoreVert />
+                                        </IconButton>
+                                      )}
+                                    </Box>
+                                  </Box>
                                 ))}
                               </List>
                             ) : (
@@ -1039,7 +1005,22 @@ const CourseDetail = () => {
                 <Grid container spacing={2}>
                   {assignments.map((assignment) => (
                     <Grid item xs={12} key={assignment.id}>
-                      <Card variant="outlined" id={`assignment-${assignment.id}`}>
+                      <Card 
+                        variant="outlined" 
+                        id={`assignment-${assignment.id}`}
+                        sx={{ 
+                          cursor: 'pointer',
+                          '&:hover': { 
+                            boxShadow: 2,
+                            borderColor: 'primary.main'
+                          }
+                        }}
+                        onClick={() => {
+                          console.log('🔍 Clicking main assignment:', assignment.id, 'in course:', courseId);
+                          console.log('🔍 Navigating to:', `/courses/${courseId}/assignments/${assignment.id}`);
+                          navigate(`/courses/${courseId}/assignments/${assignment.id}`);
+                        }}
+                      >
                         <CardContent>
                           <Box display="flex" justifyContent="space-between" alignItems="start" mb={2}>
                             <Typography variant="h6" fontWeight="bold">
@@ -1052,7 +1033,14 @@ const CourseDetail = () => {
                                 size="small"
                               />
                               {isTeacher && (
-                                <IconButton size="small">
+                                <IconButton 
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // TODO: Implementar menú de opciones para la tarea
+                                    console.log('🔍 Assignment menu clicked for:', assignment.id);
+                                  }}
+                                >
                                   <MoreVert />
                                 </IconButton>
                               )}
@@ -1258,8 +1246,16 @@ const CourseDetail = () => {
                                 <Box sx={{ mb: 1 }}>
                                   <TextField
                                     fullWidth
+                                    label="Título del mensaje"
+                                    value={editMessageTitle}
+                                    onChange={(e) => setEditMessageTitle(e.target.value)}
+                                    sx={{ mb: 1 }}
+                                  />
+                                  <TextField
+                                    fullWidth
                                     multiline
                                     rows={3}
+                                    label="Contenido del mensaje"
                                     value={editMessageContent}
                                     onChange={(e) => setEditMessageContent(e.target.value)}
                                     sx={{ mb: 1 }}
@@ -1279,6 +1275,7 @@ const CourseDetail = () => {
                                       onClick={() => {
                                         setEditingMessage(null);
                                         setEditMessageContent('');
+                                        setEditMessageTitle('');
                                       }}
                                     >
                                       Cancelar
@@ -1286,16 +1283,34 @@ const CourseDetail = () => {
                                   </Box>
                                 </Box>
                               ) : (
-                                <Typography 
-                                  variant="body2" 
-                                  sx={{ 
-                                    mb: 1,
-                                    fontSize: { xs: '0.875rem', sm: '0.875rem' },
-                                    lineHeight: { xs: 1.4, sm: 1.5 }
-                                  }}
-                                >
-                                  {message.content}
-                                </Typography>
+                                <Box sx={{ mb: 1 }}>
+                                  {message.title && (
+                                    <Typography 
+                                      variant="subtitle1" 
+                                      sx={{ 
+                                        fontWeight: 600,
+                                        fontSize: { xs: '1rem', sm: '1.1rem' },
+                                        lineHeight: { xs: 1.3, sm: 1.4 },
+                                        mb: message.content ? 0.5 : 0,
+                                        color: 'text.primary'
+                                      }}
+                                    >
+                                      {message.title}
+                                    </Typography>
+                                  )}
+                                  {message.content && (
+                                    <Typography 
+                                      variant="body2" 
+                                      sx={{ 
+                                        fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                                        lineHeight: { xs: 1.4, sm: 1.5 },
+                                        color: 'text.secondary'
+                                      }}
+                                    >
+                                      {message.content}
+                                    </Typography>
+                                  )}
+                                </Box>
                               )}
                               <Box 
                                 display="flex" 
@@ -1452,7 +1467,7 @@ const CourseDetail = () => {
             </MenuItem>
           </Menu>
 
-          {activeTab === 3 && (
+          {activeTab === 3 && isTeacher && (
             <Box>
               <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
                 Alumnos del Curso
