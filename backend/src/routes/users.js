@@ -255,7 +255,7 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
     const result = await pool.query(
       `SELECT c.id,
               c.name,
-              c.subject,
+              c.turn,
               c.created_at,
               c.updated_at,
               CASE WHEN c.owner_id = $1 THEN 'owner' ELSE 'teacher' END AS role,
@@ -271,6 +271,80 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('❌ Error en GET /api/users/me/courses:', error);
     return res.status(500).json({ error: { message: 'Error interno del servidor', code: 'GET_MY_COURSES_FAILED' } });
+  }
+});
+
+// GET /api/users/me/assignments - Listar tareas del usuario
+router.get('/me/assignments', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = normalizeRole(req.user.role);
+
+    let result;
+
+    if (userRole === 'teacher') {
+      // Para profesores: obtener tareas de sus cursos
+      result = await pool.query(
+        `SELECT DISTINCT a.id,
+                a.title,
+                a.description,
+                a.due_date,
+                a.max_points,
+                a.status,
+                a.created_at,
+                a.updated_at,
+                c.id as course_id,
+                c.name as course_name,
+                c.turn as course_turn,
+                c.color as course_color,
+                u.title as unit_name,
+                (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id) as submission_count
+         FROM assignments a
+         JOIN courses c ON a.course_id = c.id
+         LEFT JOIN units u ON a.unit_id = u.id
+         LEFT JOIN course_teachers ct ON c.id = ct.course_id
+         WHERE c.owner_id = $1 OR ct.teacher_id = $1
+         ORDER BY a.due_date DESC NULLS LAST, a.created_at DESC`,
+        [userId]
+      );
+    } else {
+      // Para estudiantes: obtener tareas de cursos en los que están inscritos
+      result = await pool.query(
+        `SELECT DISTINCT a.id,
+                a.title,
+                a.description,
+                a.due_date,
+                a.max_points,
+                a.status,
+                a.created_at,
+                a.updated_at,
+                c.id as course_id,
+                c.name as course_name,
+                c.turn as course_turn,
+                c.color as course_color,
+                u.title as unit_name,
+                s.id as submission_id,
+                s.submitted_at,
+                s.grade,
+                s.status as submission_status
+         FROM assignments a
+         JOIN courses c ON a.course_id = c.id
+         LEFT JOIN units u ON a.unit_id = u.id
+         LEFT JOIN course_students cs ON c.id = cs.course_id
+         LEFT JOIN enrollments e ON c.id = e.course_id
+         LEFT JOIN submissions s ON a.id = s.assignment_id AND s.student_id = $1
+         WHERE (cs.student_id = $1 OR e.student_id = $1)
+           AND (cs.status = 'active' OR e.status = 'active')
+           AND a.status = 'published'
+         ORDER BY a.due_date DESC NULLS LAST, a.created_at DESC`,
+        [userId]
+      );
+    }
+
+    return res.json({ success: true, data: { assignments: result.rows } });
+  } catch (error) {
+    console.error('❌ Error en GET /api/users/me/assignments:', error);
+    return res.status(500).json({ error: { message: 'Error interno del servidor', code: 'GET_MY_ASSIGNMENTS_FAILED' } });
   }
 });
 

@@ -1387,7 +1387,7 @@ router.get('/:assignmentId', authMiddleware, async (req, res) => {
     // Get assignment with course information
     const cast = isUuid(assignmentId) ? '::uuid' : '::int';
     const assignmentResult = await pool.query(`
-      SELECT a.*, u.name as unit_name, c.id as course_id, c.name as course_name, c.subject as course_subject,
+      SELECT a.*, u.name as unit_name, c.id as course_id, c.name as course_name, c.turn as course_subject,
              owner.display_name as owner_name, owner.photo_url as owner_photo
       FROM assignments a
       JOIN units u ON a.unit_id = u.id
