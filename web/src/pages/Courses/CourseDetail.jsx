@@ -4,6 +4,7 @@ import MaterialUpload from '../../components/MaterialUpload';
 import AssignmentAttachmentUpload from '../../components/AssignmentAttachmentUpload';
 import MaterialList from '../../components/MaterialList';
 import ExpandableDescription from '../../components/ExpandableDescription';
+import StudentSelectionModal from '../../components/StudentSelectionModal';
 import {
   Container,
   Typography,
@@ -38,7 +39,13 @@ import {
   AccordionDetails,
   Paper,
   Stack,
-  Badge
+  Badge,
+  FormControl,
+  InputLabel,
+  Select,
+  Checkbox,
+  FormControlLabel,
+  InputAdornment
 } from '@mui/material';
 import {
   School,
@@ -73,7 +80,8 @@ import {
   Group,
   Reply,
   ExpandLess,
-  Send
+  Send,
+  Search
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -97,7 +105,7 @@ const CourseDetail = () => {
   const [unitMaterialsMap, setUnitMaterialsMap] = useState({});
   const [newTaskDialog, setNewTaskDialog] = useState(false);
   const [newTaskUnitId, setNewTaskUnitId] = useState(null);
-  const [newTask, setNewTask] = useState({ title: '', description: '', due_date: '', due_time: '', points: 100, is_published: true });
+  const [newTask, setNewTask] = useState({ title: '', description: '', due_date: '', due_time: '', points: 100, is_published: true, targetStudents: 'all', selectedStudentIds: [] });
   const [newTaskAttachments, setNewTaskAttachments] = useState([]);
   const [taskAttachmentTab, setTaskAttachmentTab] = useState(0);
   const [taskAttachmentForm, setTaskAttachmentForm] = useState({ type: 'file', title: '', url: '', file: null });
@@ -129,6 +137,8 @@ const CourseDetail = () => {
   const [materialUploadUnitId, setMaterialUploadUnitId] = useState(null);
   const [assignmentAttachmentDialog, setAssignmentAttachmentDialog] = useState(false);
   const [assignmentAttachmentId, setAssignmentAttachmentId] = useState(null);
+  const [studentSelectionModalOpen, setStudentSelectionModalOpen] = useState(false);
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
 
   useEffect(() => {
     loadCourseData();
@@ -412,7 +422,7 @@ const CourseDetail = () => {
   };
 
   const handleOpenNewTask = (unitId) => {
-    setNewTask({ title: '', description: '', due_date: '', due_time: '', points: 100, is_published: true });
+    setNewTask({ title: '', description: '', due_date: '', due_time: '', points: 100, is_published: true, targetStudents: 'all', selectedStudentIds: [] });
     setNewTaskUnitId(unitId);
     setNewTaskDialog(true);
   };
@@ -430,7 +440,10 @@ const CourseDetail = () => {
         due_date: newTask.due_date || null,
         points: newTask.points === '' ? 100 : newTask.points || 100,
         type: 'assignment',
-        status: newTask.is_published ? 'published' : 'draft'
+        status: newTask.is_published ? 'published' : 'draft',
+        target_student_ids: newTask.targetStudents === 'specific' && newTask.selectedStudentIds.length > 0 
+          ? newTask.selectedStudentIds 
+          : null
       });
       if (res.success) {
         const assignmentId = res.data?.id;
@@ -455,7 +468,7 @@ const CourseDetail = () => {
         
         toast.success('Tarea creada');
         setNewTaskDialog(false);
-        setNewTask({ title: '', description: '', due_date: '', due_time: '', points: 100, is_published: true });
+        setNewTask({ title: '', description: '', due_date: '', due_time: '', points: 100, is_published: true, targetStudents: 'all', selectedStudentIds: [] });
         setNewTaskAttachments([]);
         // refresh assignments for this unit
         const refreshed = await api.request(`/units/${newTaskUnitId}/assignments`);
@@ -990,15 +1003,6 @@ const CourseDetail = () => {
                 <Typography variant="h5" fontWeight="bold">
                   Tareas y Actividades
                 </Typography>
-                {isTeacher && (
-                  <Button
-                    variant="contained"
-                    startIcon={<Add />}
-                    onClick={() => navigate(`/courses/${courseId}/assignments/new`)}
-                  >
-                    Nueva Tarea
-                  </Button>
-                )}
               </Box>
 
               {assignments.length > 0 ? (
@@ -1145,6 +1149,7 @@ const CourseDetail = () => {
                         </ListItemAvatar>
                         <ListItemText
                           component="div"
+                          disableTypography
                           sx={{ m: 0 }}
                           primary={
                             <Box 
@@ -1469,73 +1474,100 @@ const CourseDetail = () => {
 
           {activeTab === 3 && isTeacher && (
             <Box>
-              <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
-                Alumnos del Curso
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h5" fontWeight="bold">
+                  Alumnos del Curso
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {course.students?.length || 0} alumno(s) inscrito(s)
+                </Typography>
+              </Box>
               
-              <Grid container spacing={3}>
-                {/* Profesores */}
-                <Grid item xs={12} md={6}>
-                  <Typography variant="h6" gutterBottom>
-                    Profesores
-                  </Typography>
-                  <List>
-                    {course.teachers?.map((teacher) => (
-                      <ListItem key={teacher.id}>
-                        <ListItemAvatar>
-                          <Avatar src={teacher.photo_url}>
-                            {teacher.display_name?.charAt(0)}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          component="div"
-                          primary={teacher.display_name}
-                          secondary={teacher.role === 'owner' ? 'Propietario' : 'Profesor'}
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </Grid>
+              {/* Campo de búsqueda */}
+              <TextField
+                fullWidth
+                placeholder="Buscar alumno por nombre o email..."
+                value={studentSearchTerm}
+                onChange={(e) => setStudentSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ color: 'text.secondary' }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ mb: 3 }}
+              />
 
-                {/* Estudiantes */}
-                <Grid item xs={12} md={6}>
-                  <Typography variant="h6" gutterBottom>
-                    Estudiantes ({course.students?.length || 0})
-                  </Typography>
-                  {console.log('🔍 Rendering students:', course.students)}
+              {/* Lista de estudiantes */}
+              {(() => {
+                // Filtrar y ordenar estudiantes
+                const filteredStudents = (course.students || [])
+                  .filter(student => {
+                    if (!studentSearchTerm.trim()) return true;
+                    const searchLower = studentSearchTerm.toLowerCase();
+                    const name = (student.display_name || student.name || student.email || '').toLowerCase();
+                    const email = (student.email || '').toLowerCase();
+                    return name.includes(searchLower) || email.includes(searchLower);
+                  })
+                  .sort((a, b) => {
+                    const nameA = (a.display_name || a.name || a.email || '').toLowerCase();
+                    const nameB = (b.display_name || b.name || b.email || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                  });
+
+                if (filteredStudents.length === 0) {
+                  return (
+                    <Box sx={{ textAlign: 'center', py: 4 }}>
+                      <Person sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                      <Typography variant="body1" color="text.secondary">
+                        {studentSearchTerm 
+                          ? 'No se encontraron alumnos con ese criterio de búsqueda'
+                          : 'No hay alumnos inscritos en este curso'}
+                      </Typography>
+                    </Box>
+                  );
+                }
+
+                return (
                   <List>
-                    {course.students?.map((student) => (
-                      <ListItem key={student.id}>
-                        <ListItemAvatar>
-                          <Avatar src={student.photo_url}>
-                            {student.display_name?.charAt(0)}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          component="div"
-                          primary={student.display_name}
-                          secondary={
-                            <Box>
-                              <Typography variant="body2" color="text.secondary">
-                                Se unió el {new Date(student.enrolled_at).toLocaleDateString()}
-                              </Typography>
-                              {student.enrollment_source === 'enrollments' && (
-                                <Chip
-                                  label="Código de invitación"
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
-                                  sx={{ mt: 0.5, fontSize: '0.65rem' }}
-                                />
-                              )}
-                            </Box>
-                          }
-                        />
-                      </ListItem>
+                    {filteredStudents.map((student, index) => (
+                      <React.Fragment key={student.id}>
+                        <ListItem>
+                          <ListItemAvatar>
+                            <Avatar src={student.photo_url}>
+                              {(student.display_name || student.name || student.email || 'E').charAt(0).toUpperCase()}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            component="div"
+                            primaryTypographyProps={{ component: 'span' }}
+                            secondaryTypographyProps={{ component: 'div' }}
+                            primary={student.display_name || student.name || student.email || 'Sin nombre'}
+                            secondary={
+                              <Box>
+                                <Typography variant="body2" color="text.secondary">
+                                  Se unió el {new Date(student.enrolled_at || student.created_at).toLocaleDateString()}
+                                </Typography>
+                                {student.enrollment_source === 'enrollments' && (
+                                  <Chip
+                                    label="Código de invitación"
+                                    size="small"
+                                    color="primary"
+                                    variant="outlined"
+                                    sx={{ mt: 0.5, fontSize: '0.65rem' }}
+                                  />
+                                )}
+                              </Box>
+                            }
+                          />
+                        </ListItem>
+                        {index < filteredStudents.length - 1 && <Divider />}
+                      </React.Fragment>
                     ))}
                   </List>
-                </Grid>
-              </Grid>
+                );
+              })()}
             </Box>
           )}
         </CardContent>
@@ -1731,6 +1763,47 @@ const CourseDetail = () => {
             sx={{ mt: 2 }}
             helperText="Puntos que vale esta tarea (1-1000)"
           />
+
+          {/* Selección de alumnos */}
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel>Dirigida a</InputLabel>
+            <Select
+              value={newTask.targetStudents}
+              label="Dirigida a"
+              onChange={(e) => setNewTask(prev => ({ ...prev, targetStudents: e.target.value, selectedStudentIds: e.target.value === 'all' ? [] : prev.selectedStudentIds }))}
+            >
+              <MenuItem value="all">Todos los alumnos del curso</MenuItem>
+              <MenuItem value="specific">Alumnos específicos</MenuItem>
+            </Select>
+          </FormControl>
+
+          {newTask.targetStudents === 'specific' && (
+            <Box sx={{ mt: 2 }}>
+              {course.students && course.students.length > 0 ? (
+                <>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={() => setStudentSelectionModalOpen(true)}
+                    sx={{ py: 1.5 }}
+                  >
+                    {newTask.selectedStudentIds.length > 0
+                      ? `${newTask.selectedStudentIds.length} alumno(s) seleccionado(s)`
+                      : 'Seleccionar alumnos'}
+                  </Button>
+                  {newTask.selectedStudentIds.length > 0 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                      Haz clic para modificar la selección
+                    </Typography>
+                  )}
+                </>
+              ) : (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  No hay alumnos inscritos en este curso.
+                </Alert>
+              )}
+            </Box>
+          )}
 
           {/* Archivos adjuntos */}
           <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 2, mb: 2 }}>
@@ -2257,6 +2330,17 @@ const CourseDetail = () => {
         assignmentId={assignmentAttachmentId}
         onSuccess={handleAssignmentAttachmentSuccess}
         title="Agregar Adjunto a la Tarea"
+      />
+
+      {/* Student Selection Modal */}
+      <StudentSelectionModal
+        open={studentSelectionModalOpen}
+        onClose={() => setStudentSelectionModalOpen(false)}
+        students={course?.students || []}
+        selectedStudentIds={newTask.selectedStudentIds}
+        onConfirm={(selectedIds) => {
+          setNewTask(prev => ({ ...prev, selectedStudentIds: selectedIds }));
+        }}
       />
     </Container>
   );

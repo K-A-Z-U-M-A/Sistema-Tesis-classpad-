@@ -87,12 +87,48 @@ const EditAssignment = () => {
       setAssignment(assignmentData);
       
       // Cargar datos del formulario
+      // Convertir fecha ISO o formato datetime a yyyy-MM-dd para el input date
+      let dueDate = '';
+      let dueTime = '';
+      if (assignmentData.due_date) {
+        try {
+          // Si viene en formato ISO (2025-11-20T03:00:00.000Z)
+          if (assignmentData.due_date.includes('T')) {
+            const dateObj = new Date(assignmentData.due_date);
+            // Usar fecha local para evitar problemas de zona horaria
+            const year = dateObj.getFullYear();
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            dueDate = `${year}-${month}-${day}`; // yyyy-MM-dd
+            // Extraer hora y minutos en hora local (HH:mm)
+            const hours = String(dateObj.getHours()).padStart(2, '0');
+            const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+            dueTime = `${hours}:${minutes}`;
+          } 
+          // Si viene en formato "YYYY-MM-DD HH:mm" o "YYYY-MM-DD HH:mm:ss"
+          else if (assignmentData.due_date.includes(' ')) {
+            const [datePart, timePart] = assignmentData.due_date.split(' ');
+            dueDate = datePart.substring(0, 10); // Asegurar formato yyyy-MM-dd
+            if (timePart) {
+              // Extraer solo HH:mm si viene HH:mm:ss
+              dueTime = timePart.substring(0, 5);
+            }
+          }
+          // Si viene solo como fecha
+          else {
+            dueDate = assignmentData.due_date.substring(0, 10);
+          }
+        } catch (err) {
+          console.error('Error parsing date:', err);
+        }
+      }
+      
       setFormData({
         title: assignmentData.title || '',
         description: assignmentData.description || '',
         instructions: assignmentData.instructions || '',
-        due_date: assignmentData.due_date ? assignmentData.due_date.split(' ')[0] : '',
-        due_time: assignmentData.due_date && assignmentData.due_date.includes(' ') ? assignmentData.due_date.split(' ')[1] : '',
+        due_date: dueDate,
+        due_time: dueTime,
         points: assignmentData.points || 100,
         status: assignmentData.status || 'published'
       });
@@ -119,12 +155,13 @@ const EditAssignment = () => {
     try {
       setSaving(true);
       
+      // Asegurarse de que las fechas vacías se envíen como null
       const updateData = {
         title: formData.title,
         description: formData.description,
         instructions: formData.description, // Usar description como instructions
-        due_date: formData.due_date || null,
-        due_time: formData.due_time || null,
+        due_date: formData.due_date && formData.due_date.trim() ? formData.due_date.trim() : null,
+        due_time: formData.due_time && formData.due_time.trim() ? formData.due_time.trim() : null,
         points: formData.points,
         status: formData.status
       };

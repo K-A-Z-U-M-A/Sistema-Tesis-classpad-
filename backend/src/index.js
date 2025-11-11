@@ -15,9 +15,9 @@ import assignmentRoutes from './routes/assignments.js';
 import messageRoutes from './routes/messages.js';
 import submissionRoutes from './routes/submissions.js';
 import { router as notificationRoutes } from './routes/notifications.js';
-
-// ... resto del index.js igual que antes
-
+import attendanceRoutes from './routes/attendance.js';
+import ensureAttendanceTables from './ensure-attendance-tables.js';
+import ensureProfileFields from './ensure-profile-fields.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -81,6 +81,7 @@ app.use('/api/assignments', assignmentRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -104,10 +105,16 @@ app.use((error, req, res, next) => {
 });
 
 // Graceful shutdown
-const server = app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🌐 External access: http://[TU_IP]:${PORT}/api/health`);
+  
+  // Asegurar que las tablas de asistencia existan
+  await ensureAttendanceTables();
+  
+  // Asegurar que los campos de perfil existan
+  await ensureProfileFields();
 });
 
 const gracefulShutdown = async (signal) => {

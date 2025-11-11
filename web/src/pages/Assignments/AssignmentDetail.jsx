@@ -672,7 +672,7 @@ const AssignmentDetail = () => {
         <Box sx={{ mt: { xs: 2, sm: 3 } }}>
           <TeacherSubmissions
             assignmentId={assignmentId}
-            courseId={courseId}
+            courseId={courseId || assignment?.courseId}
           />
         </Box>
       )}

@@ -4,6 +4,8 @@ import apiService from '../services/api';
 import { User, AuthState, LoginForm, RegisterForm } from '../types';
 
 interface AuthStore extends AuthState {
+  // Estado adicional
+  profileComplete: boolean | null;
   // Acciones
   login: (credentials: LoginForm) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -15,12 +17,14 @@ interface AuthStore extends AuthState {
   getTeacherCourses: (teacherId?: number) => Promise<any>;
   initializeAuth: () => void;
   handleGoogleCallback: (token: string, user: any) => void;
+  checkProfileComplete: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
   loading: true,
   error: null,
+  profileComplete: null,
 
   login: async (credentials: LoginForm) => {
     try {
@@ -32,6 +36,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
       set({ user: response.data.user, loading: false });
+      
+      // Verificar si el perfil está completo
+      await get().checkProfileComplete();
     } catch (error: any) {
       set({ 
         error: error.message || 'Error al iniciar sesión', 
@@ -75,7 +82,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       apiService.setToken(response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
-      set({ user: response.data.user, loading: false });
+      // El perfil no estará completo después del registro
+      set({ user: response.data.user, loading: false, profileComplete: false });
+      
+      // Verificar el perfil completo después de un pequeño delay
+      setTimeout(async () => {
+        await get().checkProfileComplete();
+      }, 500);
     } catch (error: any) {
       set({ 
         error: error.message || 'Error al registrar usuario', 
@@ -120,16 +133,25 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       
       set({ loading: true, error: null });
       
-      const response = await apiService.updateUserProfile(user.id, {
+      // Llamar a updateMyProfile que acepta los nuevos campos
+      const response = await apiService.updateMyProfile({
         displayName: data.displayName || user.displayName,
         photoURL: data.photoURL || user.photoURL,
-        description: data.description || user.description || ''
+        description: data.description || user.description || '',
+        cedula: (data as any).cedula,
+        location: (data as any).location,
+        birthDate: (data as any).birthDate,
+        gender: (data as any).gender,
+        phone: (data as any).phone,
       });
       
       const updatedUser = response.data.user;
       localStorage.setItem('user', JSON.stringify(updatedUser));
       
       set({ user: updatedUser, loading: false });
+      
+      // Verificar si el perfil está completo después de la actualización
+      await get().checkProfileComplete();
     } catch (error: any) {
       set({ 
         error: error.message || 'Error al actualizar perfil', 
@@ -212,30 +234,53 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         const user = JSON.parse(savedUser);
         // Confiar en el usuario almacenado para evitar cierres de sesión por HMR/duplicado
         set({ user, loading: false, error: null });
+        
+        // Verificar si el perfil está completo de forma asíncrona
+        get().checkProfileComplete().catch(console.error);
       } catch (error) {
         // Datos corruptos, limpiar
         apiService.logout();
-        set({ user: null, loading: false, error: null });
+        set({ user: null, loading: false, error: null, profileComplete: null });
       }
     } else {
-      set({ user: null, loading: false, error: null });
+      set({ user: null, loading: false, error: null, profileComplete: null });
     }
     
     // Retornar función de limpieza (no-op para compatibilidad)
     return () => {};
   },
 
+  checkProfileComplete: async () => {
+    try {
+      const response = await apiService.checkProfileComplete();
+      if (response.success) {
+        set({ profileComplete: response.data.isComplete });
+        return response.data.isComplete;
+      }
+      return false;
+    } catch (error: any) {
+      console.error('Error checking profile complete:', error);
+      set({ profileComplete: null });
+      return false;
+    }
+  },
+
   // Método para manejar el callback de Google
-  handleGoogleCallback: (token: string, user: any) => {
+  handleGoogleCallback: async (token: string, user: any) => {
     try {
       apiService.setToken(token);
       localStorage.setItem('user', JSON.stringify(user));
       set({ user, loading: false, error: null });
+      
+      // Verificar si el perfil está completo y retornar el estado
+      const isComplete = await get().checkProfileComplete();
+      return isComplete;
     } catch (error) {
       set({ 
         error: 'Error al procesar el callback de Google', 
         loading: false 
       });
+      return false;
     }
   },
 })); 

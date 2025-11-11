@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Paper, 
-  Card, 
-  CardContent, 
-  Avatar, 
-  Chip, 
-  CircularProgress, 
+import {
+  Box,
+  Typography,
+  Paper,
+  Avatar,
+  Chip,
+  CircularProgress,
   Alert,
   Divider,
-  IconButton,
-  Collapse,
-  Button
+  ButtonBase
 } from '@mui/material';
 import {
   School,
@@ -20,8 +16,6 @@ import {
   Announcement,
   Help,
   Chat,
-  ExpandMore,
-  ExpandLess,
   AccessTime,
   Person
 } from '@mui/icons-material';
@@ -55,6 +49,19 @@ const getMessageTypeColor = (type) => {
   }
 };
 
+const getMessageAccentColor = (type) => {
+  switch (type) {
+    case 'announcement':
+      return 'primary.main';
+    case 'discussion':
+      return 'secondary.main';
+    case 'question':
+      return 'warning.main';
+    default:
+      return 'divider';
+  }
+};
+
 const getMessageTypeLabel = (type) => {
   switch (type) {
     case 'announcement':
@@ -72,12 +79,25 @@ export default function Messages() {
   const [messagesByCourse, setMessagesByCourse] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [expandedCourses, setExpandedCourses] = useState({});
+  const [selectedCourseId, setSelectedCourseId] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadAllMessages();
   }, []);
+
+  useEffect(() => {
+    const courseIds = Object.keys(messagesByCourse);
+
+    if (courseIds.length === 0) {
+      setSelectedCourseId(null);
+      return;
+    }
+
+    if (!selectedCourseId || !messagesByCourse[selectedCourseId]) {
+      setSelectedCourseId(courseIds[0]);
+    }
+  }, [messagesByCourse, selectedCourseId]);
 
   const loadAllMessages = async () => {
     try {
@@ -88,10 +108,9 @@ export default function Messages() {
       
       if (response.success) {
         setMessagesByCourse(response.data.messagesByCourse);
-        // Expandir el primer curso por defecto
         const courseIds = Object.keys(response.data.messagesByCourse);
         if (courseIds.length > 0) {
-          setExpandedCourses({ [courseIds[0]]: true });
+          setSelectedCourseId(courseIds[0]);
         }
       } else {
         throw new Error('Error al cargar los mensajes');
@@ -103,13 +122,6 @@ export default function Messages() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const toggleCourseExpansion = (courseId) => {
-    setExpandedCourses(prev => ({
-      ...prev,
-      [courseId]: !prev[courseId]
-    }));
   };
 
   const handleMessageClick = (courseId, messageId) => {
@@ -153,6 +165,7 @@ export default function Messages() {
   }
 
   const courseEntries = Object.entries(messagesByCourse);
+  const selectedCourseData = selectedCourseId ? messagesByCourse[selectedCourseId] : null;
 
   if (courseEntries.length === 0) {
     return (
@@ -183,121 +196,168 @@ export default function Messages() {
         Todos los mensajes de tus cursos
       </Typography>
 
-      {courseEntries.map(([courseId, courseData], index) => (
-        <Paper key={courseId} sx={{ mb: 2, overflow: 'hidden' }}>
-          <Card>
-            <CardContent sx={{ p: 0 }}>
-              {/* Course Header */}
-              <Box
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          mb: 3,
+          backgroundColor: 'grey.50',
+          borderRadius: 3,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
+        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+          Selecciona un curso
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {courseEntries.map(([courseId, courseData]) => {
+            const isSelected = courseId === selectedCourseId;
+            return (
+              <ButtonBase
+                key={courseId}
+                onClick={() => setSelectedCourseId(courseId)}
                 sx={{
-                  p: 2,
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
+                  borderRadius: '9999px',
+                  px: 2,
+                  py: 1,
+                  border: '1px solid',
+                  borderColor: isSelected ? 'primary.main' : 'divider',
+                  backgroundColor: isSelected ? 'primary.main' : 'grey.100',
+                  color: isSelected ? 'primary.contrastText' : 'text.primary',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isSelected ? 3 : 0,
+                  '&:hover': {
+                    boxShadow: isSelected ? 3 : 1,
+                    backgroundColor: isSelected ? 'primary.dark' : 'grey.200',
+                    borderColor: 'primary.main'
+                  }
                 }}
-                onClick={() => toggleCourseExpansion(courseId)}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Avatar sx={{ bgcolor: 'primary.dark' }}>
-                    <School />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      bgcolor: isSelected ? 'primary.dark' : 'grey.200',
+                      color: isSelected ? 'primary.contrastText' : 'text.primary'
+                    }}
+                  >
+                    <School fontSize="small" />
                   </Avatar>
-                  <Box>
-                    <Typography variant="h6" fontWeight="bold">
+                  <Box sx={{ textAlign: 'left' }}>
+                    <Typography variant="body2" fontWeight={600} noWrap>
                       {courseData.course.name}
                     </Typography>
-                    <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }} noWrap>
                       {courseData.course.subject} • {courseData.messages.length} mensaje{courseData.messages.length !== 1 ? 's' : ''}
                     </Typography>
                   </Box>
                 </Box>
-                <IconButton sx={{ color: 'primary.contrastText' }}>
-                  {expandedCourses[courseId] ? <ExpandLess /> : <ExpandMore />}
-                </IconButton>
-              </Box>
+              </ButtonBase>
+            );
+          })}
+        </Box>
+      </Paper>
 
-              {/* Messages List */}
-              <Collapse in={expandedCourses[courseId]}>
-                <Box>
-                  {courseData.messages.map((message, msgIndex) => (
-                    <Box key={message.id}>
-                      <Box
-                        sx={{
-                          p: 2,
-                          cursor: 'pointer',
-                          '&:hover': { backgroundColor: 'action.hover' },
-                          borderLeft: message.is_pinned ? '4px solid' : 'none',
-                          borderLeftColor: message.is_pinned ? 'warning.main' : 'transparent'
-                        }}
-                        onClick={() => handleMessageClick(courseId, message.id)}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                          <Avatar sx={{ width: 40, height: 40, bgcolor: 'grey.200' }}>
-                            <Person />
-                          </Avatar>
-                          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                              <Chip
-                                icon={getMessageTypeIcon(message.type)}
-                                label={getMessageTypeLabel(message.type)}
-                                color={getMessageTypeColor(message.type)}
-                                size="small"
-                                variant="outlined"
-                              />
-                              {message.is_pinned && (
-                                <Chip
-                                  label="Fijado"
-                                  color="warning"
-                                  size="small"
-                                />
-                              )}
-                            </Box>
-                            
-                            {message.title && (
-                              <Typography variant="subtitle1" fontWeight="medium" sx={{ mb: 0.5 }}>
-                                {message.title}
-                              </Typography>
-                            )}
-                            
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{
-                                mb: 1,
-                                display: '-webkit-box',
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden'
-                              }}
-                            >
-                              {message.content}
-                            </Typography>
-                            
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                Por {message.author.name}
-                              </Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <AccessTime fontSize="small" color="action" />
-                                <Typography variant="caption" color="text.secondary">
-                                  {formatDate(message.created_at)}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          </Box>
-                        </Box>
-                      </Box>
-                      {msgIndex < courseData.messages.length - 1 && <Divider />}
+      {selectedCourseData && (
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            overflow: 'hidden',
+            backgroundColor: 'background.paper'
+          }}
+        >
+          <Box sx={{ px: 3, py: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="h6" fontWeight={700}>
+              {selectedCourseData.course.name}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Conversaciones recientes
+            </Typography>
+          </Box>
+
+          {selectedCourseData.messages.map((message, msgIndex) => {
+            const authorName = message.author?.name || 'Usuario';
+            const authorUsername =
+              message.author?.username ||
+              authorName
+                .toLowerCase()
+                .replace(/\s+/g, '')
+                .replace(/[^a-z0-9_]/g, '');
+
+            return (
+              <Box
+                key={message.id}
+                sx={{
+                  px: 3,
+                  py: 2,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease',
+                  backgroundColor: 'background.default',
+                  borderLeft: '3px solid',
+                  borderLeftColor: getMessageAccentColor(message.type),
+                  '&:hover': { backgroundColor: 'grey.50' }
+                }}
+                onClick={() => handleMessageClick(selectedCourseId, message.id)}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                  <Avatar sx={{ width: 48, height: 48, bgcolor: 'grey.100', border: '1px solid', borderColor: 'divider' }}>
+                    <Person sx={{ color: 'text.secondary' }} />
+                  </Avatar>
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {authorName}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        @{authorUsername}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        • {formatDate(message.created_at)}
+                      </Typography>
                     </Box>
-                  ))}
+
+                    {message.title && (
+                      <Typography variant="subtitle1" fontWeight="medium" sx={{ mt: 0.5 }}>
+                        {message.title}
+                      </Typography>
+                    )}
+
+                    <Typography variant="body1" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                      {message.content}
+                    </Typography>
+
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                      <Chip
+                        icon={getMessageTypeIcon(message.type)}
+                        label={getMessageTypeLabel(message.type)}
+                        color={getMessageTypeColor(message.type)}
+                        size="small"
+                        variant="outlined"
+                      />
+                      {message.is_pinned && (
+                        <Chip
+                          label="Fijado"
+                          color="warning"
+                          size="small"
+                          variant="outlined"
+                        />
+                      )}
+                    </Box>
+                  </Box>
                 </Box>
-              </Collapse>
-            </CardContent>
-          </Card>
+                {msgIndex < selectedCourseData.messages.length - 1 && (
+                  <Divider sx={{ mt: 2 }} />
+                )}
+              </Box>
+            );
+          })}
         </Paper>
-      ))}
+      )}
     </Box>
   );
 }

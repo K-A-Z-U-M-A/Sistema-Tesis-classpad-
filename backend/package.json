@@ -9,6 +9,7 @@
     "dev": "nodemon src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate": "node src/migrations/migrate.js",
+    "migrate-all": "node run-all-migrations.js",
     "setup-db": "node src/setup-db.js"
   },
   "keywords": [

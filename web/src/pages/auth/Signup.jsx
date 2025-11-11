@@ -81,7 +81,7 @@ export default function Signup() {
         displayName: formData.displayName,
         role: formData.role
       });
-      navigate('/dashboard');
+      navigate('/profile/complete');
     } catch (error) {
       console.error('Signup error:', error);
       

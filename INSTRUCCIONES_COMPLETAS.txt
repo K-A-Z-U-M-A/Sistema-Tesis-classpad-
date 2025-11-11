@@ -1,0 +1,90 @@
+================================================================================
+                    INSTRUCCIONES COMPLETAS - SIGUE ESTOS PASOS
+================================================================================
+
+PASO 1: Abre pgAdmin4
+-------------------------------------------------------------------
+   - Busca "pgAdmin 4" en el menú de inicio de Windows
+   - Ábrelo
+   - Si te pide contraseña, usa: admin
+
+PASO 2: Abre el Query Tool
+-------------------------------------------------------------------
+   - En el panel izquierdo, expande: Servidores > PostgreSQL 17 > Databases
+   - Click DERECHO en: classpad_bd
+   - Selecciona: Query Tool
+
+PASO 3: Copia y pega el SQL completo
+-------------------------------------------------------------------
+   - Abre el archivo: EJECUTAR_EN_PGADMIN.sql (debería estar en la raíz del proyecto)
+   - Selecciona TODO (Ctrl+A)
+   - Copia (Ctrl+C)
+   - Ve a pgAdmin Query Tool
+   - Pega (Ctrl+V)
+
+PASO 4: Ejecuta el SQL
+-------------------------------------------------------------------
+   - Click en el botón "Execute" (⚡) en la barra superior
+   - O presiona: F5
+   - Espera 5-10 segundos
+
+PASO 5: Verifica que funcionó
+-------------------------------------------------------------------
+   Deberías ver en la parte inferior de pgAdmin:
+
+   ✅ "Query returned successfully"
+   
+   Si ves un ERROR, copia el mensaje completo y compártelo.
+
+PASO 6: Reinicia el backend
+-------------------------------------------------------------------
+   - Ve a la terminal donde está corriendo el backend
+   - Presiona: Ctrl+C
+   - Ejecuta: cd backend
+   - Ejecuta: npm run dev
+   - Espera a que veas: "Server running on port 3001"
+
+PASO 7: Verifica el mensaje en la consola
+-------------------------------------------------------------------
+   En la consola del backend deberías ver:
+
+   ✅ "Tablas de asistencia ya existen"
+   
+   (Esto significa que el backend detectó las tablas)
+
+PASO 8: Prueba en el navegador
+-------------------------------------------------------------------
+   - Ve al navegador donde está la aplicación
+   - Presiona: F5 para refrescar
+   - Click en "Asistencia" en el menú
+   - NO deberías ver errores 500
+   - Deberías ver la página de asistencia funcionando
+
+================================================================================
+SI ALGO SALE MAL:
+================================================================================
+
+Error: "function update_updated_at_column() does not exist"
+-------------------------------------------------------------------
+SOLUCIÓN: Ejecuta esto PRIMERO en pgAdmin:
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+Luego ejecuta el SQL completo de nuevo.
+
+Error: Cualquier otro
+-------------------------------------------------------------------
+Copia el mensaje COMPLETO y compártelo para ayudarte.
+
+================================================================================
+
+¡ÉXITO! Si todo salió bien, el sistema de asistencia está funcionando.
+
+================================================================================
+
