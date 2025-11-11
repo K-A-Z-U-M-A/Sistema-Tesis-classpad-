@@ -1,8 +1,8 @@
 -- Create submissions table for student assignments
 CREATE TABLE IF NOT EXISTS submissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    assignment_id UUID NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
-    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+    student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'graded', 'returned')),
     submitted_at TIMESTAMP WITH TIME ZONE,
     grade DECIMAL(5,2),
@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 -- Create submission_attachments table for files submitted by students
 CREATE TABLE IF NOT EXISTS submission_attachments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    submission_id UUID NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    submission_id INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
     file_name VARCHAR(255) NOT NULL,
     original_name VARCHAR(255) NOT NULL,
     file_size INTEGER NOT NULL,

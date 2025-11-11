@@ -25,8 +25,8 @@ function isUuid(value) {
 
 // Helper function to check if user is teacher of course
 async function isCourseTeacher(userId, courseId) {
-  const courseCast = isUuid(courseId) ? '::uuid' : '::int';
-  const userCast = isUuid(userId) ? '::uuid' : '::int';
+  const courseCast = isUuid(courseId) ? '::uuid' : '';
+  const userCast = isUuid(userId) ? '::uuid' : '';
   const result = await pool.query(
     `SELECT 1 FROM courses c 
      LEFT JOIN course_teachers ct ON c.id = ct.course_id 
@@ -38,8 +38,8 @@ async function isCourseTeacher(userId, courseId) {
 
 // Helper function to check if user has access to course
 async function hasCourseAccess(userId, courseId) {
-  const courseCast = isUuid(courseId) ? '::uuid' : '::int';
-  const userCast = isUuid(userId) ? '::uuid' : '::int';
+  const courseCast = isUuid(courseId) ? '::uuid' : '';
+  const userCast = isUuid(userId) ? '::uuid' : '';
   const result = await pool.query(
     `SELECT 1 FROM courses c 
      LEFT JOIN course_teachers ct ON c.id = ct.course_id 
@@ -78,7 +78,7 @@ router.get('/:courseId', authMiddleware, async (req, res) => {
     }
 
     // Get units with materials - different query based on user role
-    const cast = isUuid(courseId) ? '::uuid' : '::int';
+    const cast = isUuid(courseId) ? '::uuid' : '';
     let unitsQuery;
     
     if (req.user.role === 'teacher') {
@@ -110,7 +110,7 @@ router.get('/:courseId', authMiddleware, async (req, res) => {
     // Get materials for each unit
     const units = [];
     for (const unit of unitsResult.rows) {
-      const unitCast = isUuid(unit.id) ? '::uuid' : '::int';
+      const unitCast = isUuid(unit.id) ? '::uuid' : '';
       const materialsResult = await pool.query(
         `SELECT * FROM materials 
          WHERE unit_id = $1${unitCast} 
@@ -149,7 +149,7 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
     }
 
     // Ensure the requester has access to the course that owns the unit
-    const cast = isUuid(unitId) ? '::uuid' : '::int';
+    const cast = isUuid(unitId) ? '::uuid' : '';
     const unitRes = await pool.query(`SELECT course_id FROM units WHERE id = $1${cast}`,[unitId]);
     if (unitRes.rows.length === 0) {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
@@ -186,7 +186,7 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
     }
 
     // Ensure access
-    const cast = isUuid(unitId) ? '::uuid' : '::int';
+    const cast = isUuid(unitId) ? '::uuid' : '';
     const unitRes = await pool.query(`SELECT course_id FROM units WHERE id = $1${cast}`, [unitId]);
     if (unitRes.rows.length === 0) {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
@@ -217,15 +217,25 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
       params = [unitId];
     } else {
       // Students only see published assignments
+      // Filter by assignment_students: if assignment has specific students, only show if student is assigned
+      // If assignment has no specific students, show to all students in the course
       query = `
         SELECT a.*,
                u.display_name as created_by_name
         FROM assignments a
         LEFT JOIN users u ON a.created_by = u.id
-        WHERE a.unit_id = $1${cast} AND a.status = 'published'
+        WHERE a.unit_id = $1${cast} 
+          AND a.status = 'published'
+          AND (
+            -- Assignment has no specific students (for everyone)
+            NOT EXISTS (SELECT 1 FROM assignment_students WHERE assignment_id = a.id)
+            OR
+            -- Assignment has specific students and this student is assigned
+            EXISTS (SELECT 1 FROM assignment_students WHERE assignment_id = a.id AND student_id = $2)
+          )
         ORDER BY a.due_date, a.created_at
       `;
-      params = [unitId];
+      params = [unitId, req.user.id];
     }
     
     const result = await pool.query(query, params);
@@ -240,7 +250,10 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
 // POST /api/units/:id/assignments - Create assignment in a unit (teachers only)
 router.post('/:id/assignments', authMiddleware, async (req, res) => {
   try {
+    console.log('🔍 Creating assignment - Request body:', JSON.stringify(req.body, null, 2));
     const unitId = req.params.id;
+    console.log('🔍 Unit ID:', unitId, 'isUuid:', isUuid(unitId), 'isIntegerString:', isIntegerString(unitId));
+    
     if (!(isIntegerString(unitId) || isUuid(unitId))) {
       return res.status(400).json({
         error: { message: 'ID de unidad inválido', code: 'INVALID_UNIT_ID' }
@@ -248,12 +261,14 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
     }
 
     // Find course for the unit
-    const cast = isUuid(unitId) ? '::uuid' : '::int';
+    const cast = isUuid(unitId) ? '::uuid' : '';
+    console.log('🔍 Querying unit with cast:', cast);
     const unitRes = await pool.query(`SELECT course_id FROM units WHERE id = $1${cast}`, [unitId]);
     if (unitRes.rows.length === 0) {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
     }
     const courseId = unitRes.rows[0].course_id;
+    console.log('🔍 Course ID:', courseId, 'isUuid:', isUuid(courseId));
 
     // Only teachers
     const isTeacher = await isCourseTeacher(req.user.id, courseId);
@@ -268,63 +283,231 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
       due_date,
       points,
       type = 'assignment',
-      status = 'draft'
+      status = 'draft',
+      target_student_ids = null // Array de IDs de estudiantes específicos, null = todos
     } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: { message: 'El título es requerido', code: 'MISSING_REQUIRED_FIELDS' } });
     }
 
-    const result = await pool.query(
-      `INSERT INTO assignments (course_id, unit_id, title, description, instructions, due_date, max_points, status, created_by)
-       VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9::uuid)
-       RETURNING *`,
-      [courseId, unitId, title, description || null, instructions || null, due_date || null, points || 100, status, req.user.id]
-    );
+    // Convert status to is_published boolean
+    const is_published = status === 'published' || status === true;
+    
+    // Normalize due_date: convert empty string to null
+    const normalizedDueDate = due_date && due_date.trim() !== '' ? due_date : null;
+
+    // Determine casts for IDs based on their type
+    const courseIdCast = isUuid(courseId) ? '::uuid' : '';
+    const unitIdCast = isUuid(unitId) ? '::uuid' : '';
+    const userIdCast = isUuid(req.user.id) ? '::uuid' : '';
+
+    console.log('🔍 Inserting assignment with casts:', {
+      courseIdCast,
+      unitIdCast,
+      userIdCast,
+      courseId,
+      unitId,
+      userId: req.user.id,
+      title,
+      is_published,
+      normalizedDueDate,
+      points: points || 100
+    });
+
+    let result;
+    try {
+      result = await pool.query(
+        `INSERT INTO assignments (course_id, unit_id, title, description, instructions, due_date, max_points, is_published, created_by)
+         VALUES ($1${courseIdCast}, $2${unitIdCast}, $3, $4, $5, $6, $7, $8, $9${userIdCast})
+         RETURNING *`,
+        [courseId, unitId, title, description || null, instructions || null, normalizedDueDate, points || 100, is_published, req.user.id]
+      );
+      console.log('✅ Assignment created successfully:', result.rows[0]?.id);
+    } catch (insertError) {
+      console.error('❌ Error inserting assignment:', insertError);
+      console.error('❌ Insert error details:', {
+        message: insertError.message,
+        code: insertError.code,
+        detail: insertError.detail,
+        hint: insertError.hint,
+        position: insertError.position
+      });
+      throw insertError; // Re-throw to be caught by outer catch
+    }
 
     const assignment = result.rows[0];
 
-    // Get course information for notification
-    const courseResult = await pool.query(
-      'SELECT name, owner_id FROM courses WHERE id = $1',
-      [courseId]
-    );
-    const course = courseResult.rows[0];
+    // Save assignment-student relationships if specific students are selected
+    if (target_student_ids && Array.isArray(target_student_ids) && target_student_ids.length > 0) {
+      try {
+        // Insert assignment-student relationships
+        // Handle both INTEGER and UUID types for student_id
+        const assignmentStudentPromises = target_student_ids.map(studentId => {
+          const studentCast = isUuid(studentId) ? '::uuid' : '';
+          const assignmentCast = isUuid(assignment.id) ? '::uuid' : '';
+          return pool.query(
+            `INSERT INTO assignment_students (assignment_id, student_id)
+             VALUES ($1${assignmentCast}, $2${studentCast})
+             ON CONFLICT (assignment_id, student_id) DO NOTHING`,
+            [assignment.id, studentId]
+          );
+        });
+        await Promise.all(assignmentStudentPromises);
+      } catch (assignmentStudentError) {
+        // If table doesn't exist, try to create it
+        if (assignmentStudentError.code === '42P01') {
+          console.log('⚠️ assignment_students table does not exist, attempting to create it...');
+          try {
+            // Determine if we're using UUIDs or INTEGERs
+            const assignmentIdIsUuid = isUuid(assignment.id);
+            const firstStudentIdIsUuid = isUuid(target_student_ids[0]);
+            
+            // Create table with appropriate types
+            if (assignmentIdIsUuid || firstStudentIdIsUuid) {
+              // Using UUIDs
+              await pool.query(`
+                CREATE TABLE IF NOT EXISTS assignment_students (
+                  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                  assignment_id UUID NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+                  student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  UNIQUE(assignment_id, student_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_assignment_students_assignment_id ON assignment_students(assignment_id);
+                CREATE INDEX IF NOT EXISTS idx_assignment_students_student_id ON assignment_students(student_id);
+              `);
+            } else {
+              // Using INTEGERs
+              await pool.query(`
+                CREATE TABLE IF NOT EXISTS assignment_students (
+                  id SERIAL PRIMARY KEY,
+                  assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+                  student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  UNIQUE(assignment_id, student_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_assignment_students_assignment_id ON assignment_students(assignment_id);
+                CREATE INDEX IF NOT EXISTS idx_assignment_students_student_id ON assignment_students(student_id);
+              `);
+            }
+            console.log('✅ assignment_students table created successfully');
+            
+            // Retry the insert
+            const assignmentStudentPromises = target_student_ids.map(studentId => {
+              const studentCast = isUuid(studentId) ? '::uuid' : '';
+              const assignmentCast = isUuid(assignment.id) ? '::uuid' : '';
+              return pool.query(
+                `INSERT INTO assignment_students (assignment_id, student_id)
+                 VALUES ($1${assignmentCast}, $2${studentCast})
+                 ON CONFLICT (assignment_id, student_id) DO NOTHING`,
+                [assignment.id, studentId]
+              );
+            });
+            await Promise.all(assignmentStudentPromises);
+          } catch (createError) {
+            console.error('❌ Error creating assignment_students table:', createError);
+            // Continue without failing the assignment creation
+          }
+        } else {
+          console.error('❌ Error inserting assignment-student relationships:', assignmentStudentError);
+          // Continue without failing the assignment creation
+        }
+      }
+    }
+    // If target_student_ids is null or empty, don't insert anything
+    // This means the assignment is for all students in the course
 
-    // Get all students in the course
-    const studentsResult = await pool.query(
-      `SELECT DISTINCT student_id as user_id 
-       FROM enrollments 
-       WHERE course_id = $1 AND status = 'active'`,
-      [courseId]
-    );
+    // Get course information for notification (only if we have students to notify)
+    const courseCast = isUuid(courseId) ? '::uuid' : '';
+    
+    // Get students to notify (all or specific)
+    let studentsResult;
+    try {
+      if (target_student_ids && Array.isArray(target_student_ids) && target_student_ids.length > 0) {
+        // Only notify specific students
+        // Determine if student IDs are UUIDs or integers
+        const firstStudentId = target_student_ids[0];
+        const studentIdCast = isUuid(firstStudentId) ? '::uuid[]' : '::integer[]';
+        
+        studentsResult = await pool.query(
+          `SELECT DISTINCT student_id as user_id 
+           FROM enrollments 
+           WHERE course_id = $1${courseCast} AND status = 'active' AND student_id = ANY($2${studentIdCast})`,
+          [courseId, target_student_ids]
+        );
+      } else {
+        // Notify all students
+        studentsResult = await pool.query(
+          `SELECT DISTINCT student_id as user_id 
+           FROM enrollments 
+           WHERE course_id = $1${courseCast} AND status = 'active'`,
+          [courseId]
+        );
+      }
+    } catch (enrollError) {
+      // If enrollments query fails, log but don't fail the assignment creation
+      console.error('Error querying enrollments for notifications:', enrollError);
+      console.error('Enrollments error details:', {
+        message: enrollError.message,
+        code: enrollError.code,
+        detail: enrollError.detail
+      });
+      // Set empty result so we skip notifications
+      studentsResult = { rows: [] };
+    }
 
-    // Create notifications for all students
-    const notificationPromises = studentsResult.rows.map(student => {
-      const title = 'Nueva tarea asignada';
-      const messageText = `Se ha creado una nueva tarea "${title}" en ${course.name}. Fecha límite: ${due_date ? new Date(due_date).toLocaleDateString() : 'Sin fecha límite'}`;
-      
-      return createNotification(
-        student.user_id,
-        'assignment',
-        title,
-        messageText,
-        courseId,
-        null,
-        'assignment',
-        'normal'
+    // Only create notifications if there are students to notify
+    if (studentsResult.rows.length > 0) {
+      // Get course information for notification
+      const courseResult = await pool.query(
+        `SELECT name, owner_id FROM courses WHERE id = $1${courseCast}`,
+        [courseId]
       );
-    });
+      const course = courseResult.rows[0];
 
-    // Create notifications asynchronously (don't wait for them)
-    Promise.all(notificationPromises).catch(error => {
-      console.error('Error creating assignment notifications:', error);
-    });
+      if (course) {
+        // Create notifications for selected students
+        const notificationPromises = studentsResult.rows.map(student => {
+          const notificationTitle = 'Nueva tarea asignada';
+          const messageText = `Se ha creado una nueva tarea "${title}" en ${course.name}. Fecha límite: ${normalizedDueDate ? new Date(normalizedDueDate).toLocaleDateString() : 'Sin fecha límite'}`;
+          
+          return createNotification(
+            student.user_id,
+            'assignment',
+            notificationTitle,
+            messageText,
+            courseId,
+            assignment.id,
+            'assignment',
+            'normal'
+          );
+        });
+
+        // Create notifications asynchronously (don't wait for them)
+        Promise.all(notificationPromises).catch(error => {
+          console.error('Error creating assignment notifications:', error);
+        });
+      }
+    }
 
     res.status(201).json({ success: true, data: assignment });
   } catch (error) {
     console.error('Error creating assignment in unit:', error);
-    res.status(500).json({ error: { message: 'Error interno del servidor', code: 'CREATE_UNIT_ASSIGNMENT_FAILED' } });
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint
+    });
+    res.status(500).json({ 
+      error: { 
+        message: 'Error interno del servidor', 
+        code: 'CREATE_UNIT_ASSIGNMENT_FAILED',
+        detail: process.env.NODE_ENV === 'development' ? error.message : undefined
+      } 
+    });
   }
 });
 
@@ -453,7 +636,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     // Get unit to check course
-    const cast = isUuid(unitId) ? '::uuid' : '::int';
+    const cast = isUuid(unitId) ? '::uuid' : '';
     const unitResult = await pool.query(
       `SELECT course_id FROM units WHERE id = $1${cast}`,
       [unitId]
@@ -525,7 +708,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     }
 
     // Get unit to check course
-    const cast = isUuid(unitId) ? '::uuid' : '::int';
+    const cast = isUuid(unitId) ? '::uuid' : '';
     const unitResult = await pool.query(
       `SELECT course_id FROM units WHERE id = $1${cast}`,
       [unitId]
@@ -588,7 +771,7 @@ router.post('/:id/materials', authMiddleware, async (req, res) => {
     }
 
     // Get unit to check course
-    const cast = isUuid(unitId) ? '::uuid' : '::int';
+    const cast = isUuid(unitId) ? '::uuid' : '';
     const unitResult = await pool.query(
       `SELECT course_id FROM units WHERE id = $1${cast}`,
       [unitId]
@@ -827,7 +1010,7 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
     }
 
     // Get unit to check course
-    const cast = isUuid(unitId) ? '::uuid' : '::int';
+    const cast = isUuid(unitId) ? '::uuid' : '';
     const unitResult = await pool.query(
       `SELECT course_id FROM units WHERE id = $1${cast}`,
       [unitId]

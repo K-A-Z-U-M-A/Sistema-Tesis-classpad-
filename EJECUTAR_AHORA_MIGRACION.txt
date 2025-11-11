@@ -1,0 +1,25 @@
+================================================================================
+                        EJECUTAR MIGRACIÓN AHORA
+================================================================================
+
+El error 500 indica que las tablas de asistencia NO existen todavía.
+
+HAZ ESTO AHORA:
+
+1. Abre pgAdmin4
+2. Conéctate a la base de datos "classpad_bd"
+3. Click derecho en "classpad_bd" > Query Tool
+4. Abre: backend/src/migrations/012_create_attendance_system.sql
+5. Copia TODO el contenido
+6. Pégalo en pgAdmin
+7. Ejecuta (F5 o botón Execute)
+8. Deberías ver "Query returned successfully"
+
+LUEGO:
+9. Reinicia el backend (Ctrl+C y npm run dev)
+10. Refresca el navegador
+
+¡LISTO!
+
+================================================================================
+

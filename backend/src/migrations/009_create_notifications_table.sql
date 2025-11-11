@@ -1,7 +1,7 @@
 -- Create notifications table
 CREATE TABLE IF NOT EXISTS notifications (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
     type VARCHAR(50) NOT NULL, -- 'assignment', 'announcement', 'grade', 'reminder', 'message', 'comment'
     title VARCHAR(255) NOT NULL,

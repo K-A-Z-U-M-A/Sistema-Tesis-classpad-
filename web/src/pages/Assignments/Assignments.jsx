@@ -266,7 +266,13 @@ const Assignments = () => {
   // Obtener estadísticas de entregas para profesores
   const getSubmissionStats = (assignment) => {
     const course = courses.find(c => c.id === assignment.courseId);
-    const totalStudents = course?.students?.length || 0;
+    
+    // If assignment has specific students assigned, use that count
+    // Otherwise, use total students in the course
+    const totalStudents = assignment.has_specific_students && assignment.assigned_student_count 
+      ? assignment.assigned_student_count 
+      : (course?.students?.length || 0);
+    
     const submittedCount = assignment.submissions?.length || 0;
     const pendingCount = totalStudents - submittedCount;
 
@@ -274,7 +280,8 @@ const Assignments = () => {
       total: totalStudents,
       submitted: submittedCount,
       pending: pendingCount,
-      percentage: totalStudents > 0 ? Math.round((submittedCount / totalStudents) * 100) : 0
+      percentage: totalStudents > 0 ? Math.round((submittedCount / totalStudents) * 100) : 0,
+      hasSpecificStudents: assignment.has_specific_students || false
     };
   };
 

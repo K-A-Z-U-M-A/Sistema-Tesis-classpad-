@@ -1,0 +1,80 @@
+================================================================================
+                        INSTRUCCIONES PARA INSTALAR ASISTENCIA
+================================================================================
+
+El sistema de asistencia está casi completo, solo faltan crear las tablas
+en PostgreSQL. Aquí están las opciones:
+
+================================================================================
+OPCIÓN 1: USANDO PGADMIN (MÁS FÁCIL - RECOMENDADO)
+================================================================================
+
+1. Abre pgAdmin4
+2. Navega a: Servidores > PostgreSQL > Databases > classpad_bd
+3. Click derecho en "classpad_bd" > Query Tool
+4. Abre el archivo: backend/src/migrations/012_create_attendance_system.sql
+5. Copia TODO el contenido del archivo
+6. Pégalo en el Query Tool
+7. Click en el botón "Execute" (⚡) o presiona F5
+8. Deberías ver mensajes de éxito
+
+✅ Si ves "Query returned successfully", ¡está listo!
+
+================================================================================
+OPCIÓN 2: USANDO LÍNEA DE COMANDOS
+================================================================================
+
+Abre PowerShell o CMD y ejecuta:
+
+    psql -U postgres -d classpad_bd -f backend\src\migrations\012_create_attendance_system.sql
+
+O si prefieres desde Node:
+
+    cd backend
+    node run-all-migrations.js
+
+================================================================================
+OPCIÓN 3: USANDO EL SCRIPT SIMPLE
+================================================================================
+
+Ejecuta en PowerShell desde la raíz del proyecto:
+
+    node install-attendance.js
+
+================================================================================
+VERIFICAR QUE FUNCIONA
+================================================================================
+
+Después de ejecutar la migración, verifica que las tablas existen:
+
+En pgAdmin Query Tool ejecuta:
+
+    SELECT table_name 
+    FROM information_schema.tables 
+    WHERE table_name IN ('attendance_sessions', 'attendance_records', 'attendance_holidays');
+
+Deberías ver las 3 tablas listadas.
+
+================================================================================
+SI SIGUE SIN FUNCIONAR
+================================================================================
+
+1. Asegúrate de que PostgreSQL está corriendo
+2. Verifica que la base de datos "classpad_bd" existe
+3. Verifica tus credenciales en backend/.env
+4. Si hay errores, cópialos y compártelos
+
+================================================================================
+DESPUÉS DE INSTALAR
+================================================================================
+
+1. Reinicia el servidor backend (Ctrl+C y ejecuta de nuevo)
+2. Refresca el navegador
+3. Ve a la página de Asistencia
+4. ¡Debería funcionar!
+
+================================================================================
+
+NOTA: El código ya está completo, solo falta ejecutar la migración SQL.
+
+

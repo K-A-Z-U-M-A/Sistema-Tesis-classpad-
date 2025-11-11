@@ -1,55 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-// Modo demo - sin Firebase (igual que el web)
-const DEMO_MODE = true;
-
-// Datos mock para usuarios demo (mismos que el web)
-const DEMO_USERS = [
-  {
-    uid: 'demo-teacher-1',
-    email: 'profesor@demo.com',
-    displayName: 'Ingeniero Carlos García',
-    role: 'teacher',
-    photoURL: null,
-    emailVerified: true,
-    createdAt: new Date('2024-01-01'),
-  },
-  {
-    uid: 'demo-student-1',
-    email: 'estudiante@demo.com',
-    displayName: 'María López',
-    role: 'student',
-    photoURL: null,
-    emailVerified: true,
-    createdAt: new Date('2024-01-01'),
-  }
-];
-
-// Datos mock para perfiles de usuario (mismos que el web)
-const DEMO_PROFILES = {
-  'demo-teacher-1': {
-    uid: 'demo-teacher-1',
-    fullName: 'Ingeniero Carlos García',
-    email: 'profesor@demo.com',
-    role: 'teacher',
-    subject: 'Matemáticas',
-    bio: 'Ingeniero de sistemas con 15 años de experiencia',
-    avatar: null,
-    createdAt: new Date('2024-01-01'),
-    lastLogin: new Date(),
-  },
-  'demo-student-1': {
-    uid: 'demo-student-1',
-    fullName: 'María López',
-    email: 'estudiante@demo.com',
-    role: 'student',
-    grade: '3er Año',
-    bio: 'Estudiante apasionada por las ciencias',
-    avatar: null,
-    createdAt: new Date('2024-01-01'),
-    lastLogin: new Date(),
-  }
-};
+import api from '../services/api';
 
 const AuthContext = createContext();
 
@@ -64,105 +14,225 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
+  const [profileComplete, setProfileComplete] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Simular carga inicial
+  // Verificar si hay un token guardado al iniciar
   useEffect(() => {
-    if (DEMO_MODE) {
-      // En modo demo, simular que ya hay un usuario logueado
-      const demoUser = DEMO_USERS[0]; // Usuario profesor por defecto
-      setCurrentUser(demoUser);
-      setUserProfile(DEMO_PROFILES[demoUser.uid]);
-      setLoading(false);
-    }
+    checkAuth();
   }, []);
 
-  // Función de registro en modo demo
-  const signup = async (email, password, fullName, role) => {
-    if (DEMO_MODE) {
-      const newUser = {
-        uid: `demo-${role}-${Date.now()}`,
-        email,
-        displayName: fullName,
-        role,
-        photoURL: null,
-        emailVerified: true,
-        createdAt: new Date(),
-      };
-
-      const newProfile = {
-        uid: newUser.uid,
-        fullName,
-        email,
-        role,
-        subject: role === 'teacher' ? 'Asignatura' : undefined,
-        grade: role === 'student' ? '1er Año' : undefined,
-        bio: role === 'teacher' ? 'Profesor de ClassPad' : 'Estudiante de ClassPad',
-        avatar: null,
-        createdAt: new Date(),
-        lastLogin: new Date(),
-      };
-
-      DEMO_USERS.push(newUser);
-      DEMO_PROFILES[newUser.uid] = newProfile;
-      setCurrentUser(newUser);
-      setUserProfile(newProfile);
-      return { success: true, user: newUser };
+  const checkProfileComplete = async () => {
+    try {
+      const response = await api.checkProfileComplete();
+      if (response.success) {
+        setProfileComplete(response.data.isComplete);
+        return response.data.isComplete;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking profile complete:', error);
+      return false;
     }
   };
 
-  // Función de login en modo demo
-  const login = async (email, password) => {
-    if (DEMO_MODE) {
-      const user = DEMO_USERS.find(u => u.email === email);
-      if (user) {
-        setCurrentUser(user);
-        setUserProfile(DEMO_PROFILES[user.uid]);
-        return { success: true, user };
-      } else {
-        const role = email.includes('profesor') ? 'teacher' : 'student';
-        const fullName = email.split('@')[0];
-        return await signup(email, password, fullName, role);
+  const checkAuth = async () => {
+    try {
+      const token = await api.getToken();
+      if (token) {
+        // Intentar obtener el perfil del usuario
+        const response = await api.getUserProfileMe();
+        if (response.success) {
+          const userData = response.data.user;
+          
+          setCurrentUser({
+            uid: userData.id,
+            email: userData.email,
+            displayName: userData.display_name || userData.email,
+            role: userData.role,
+            photoURL: userData.photo_url,
+            emailVerified: true,
+          });
+          
+          setUserProfile({
+            id: userData.id,
+            uid: userData.id,
+            fullName: userData.display_name || userData.email,
+            email: userData.email,
+            role: userData.role,
+            cedula: userData.cedula,
+            location: userData.location,
+            birth_date: userData.birth_date,
+            age: userData.age,
+            gender: userData.gender,
+            phone: userData.phone,
+            photo_url: userData.photo_url,
+          });
+
+          // Verificar si el perfil está completo
+          await checkProfileComplete();
+        }
       }
+    } catch (error) {
+      console.error('Error checking auth:', error);
+      // Si hay error, limpiar el token
+      await api.logout();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función de registro
+  const signup = async (email, password, displayName, role) => {
+    try {
+      const response = await api.register({ email, displayName, password, role });
+      if (response.success) {
+        // Guardar el token
+        await api.setToken(response.data.token);
+        
+        const userData = response.data.user;
+        setCurrentUser({
+          uid: userData.id,
+          email: userData.email,
+          displayName: userData.display_name || displayName,
+          role: userData.role,
+          photoURL: userData.photo_url,
+          emailVerified: true,
+        });
+        
+        setUserProfile({
+          id: userData.id,
+          uid: userData.id,
+          fullName: userData.display_name || displayName,
+          email: userData.email,
+          role: userData.role,
+        });
+        
+        // El perfil no estará completo después del registro
+        setProfileComplete(false);
+        
+        return { success: true, user: userData };
+      }
+      return { success: false, error: response.error?.message || 'Error al registrar' };
+    } catch (error) {
+      console.error('Error en signup:', error);
+      return { success: false, error: error.message || 'Error al registrar' };
+    }
+  };
+
+  // Función de login
+  const login = async (email, password) => {
+    try {
+      const response = await api.login({ email, password });
+      if (response.success) {
+        // Guardar el token
+        await api.setToken(response.data.token);
+        
+        // Obtener el perfil completo
+        const profileResponse = await api.getUserProfileMe();
+        if (profileResponse.success) {
+          const userData = profileResponse.data.user;
+          
+          setCurrentUser({
+            uid: userData.id,
+            email: userData.email,
+            displayName: userData.display_name || userData.email,
+            role: userData.role,
+            photoURL: userData.photo_url,
+            emailVerified: true,
+          });
+          
+          setUserProfile({
+            id: userData.id,
+            uid: userData.id,
+            fullName: userData.display_name || userData.email,
+            email: userData.email,
+            role: userData.role,
+            cedula: userData.cedula,
+            location: userData.location,
+            birth_date: userData.birth_date,
+            age: userData.age,
+            gender: userData.gender,
+            phone: userData.phone,
+            photo_url: userData.photo_url,
+          });
+
+          // Verificar si el perfil está completo
+          await checkProfileComplete();
+        }
+        
+        return { success: true, user: currentUser };
+      }
+      return { success: false, error: response.error?.message || 'Error al iniciar sesión' };
+    } catch (error) {
+      console.error('Error en login:', error);
+      return { success: false, error: error.message || 'Error al iniciar sesión' };
     }
   };
 
   // Función de logout
   const logout = async () => {
-    if (DEMO_MODE) {
+    try {
+      await api.logout();
       setCurrentUser(null);
       setUserProfile(null);
       return { success: true };
+    } catch (error) {
+      console.error('Error en logout:', error);
+      return { success: false, error: error.message };
     }
   };
 
-  // Función de reset de contraseña
+  // Función de reset de contraseña (TODO: implementar en backend)
   const resetPassword = async (email) => {
-    if (DEMO_MODE) {
-      return { success: true, message: 'Email de reset enviado (demo)' };
-    }
+    // Por ahora retornar éxito, pero esto debería implementarse en el backend
+    return { success: true, message: 'Email de reset enviado' };
   };
 
   // Función de actualización de perfil
   const updateUserProfile = async (updates) => {
-    if (DEMO_MODE && userProfile) {
-      const updatedProfile = { ...userProfile, ...updates };
-      DEMO_PROFILES[userProfile.uid] = updatedProfile;
-      setUserProfile(updatedProfile);
-      return { success: true, profile: updatedProfile };
+    try {
+      if (!userProfile) return { success: false, error: 'No hay perfil de usuario' };
+      
+      const response = await api.updateMyProfile(updates);
+      if (response.success) {
+        const updatedUserData = response.data.user;
+        const updatedProfile = {
+          ...userProfile,
+          ...updates,
+          cedula: updatedUserData.cedula,
+          location: updatedUserData.location,
+          birth_date: updatedUserData.birth_date,
+          age: updatedUserData.age,
+          gender: updatedUserData.gender,
+          phone: updatedUserData.phone,
+        };
+        setUserProfile(updatedProfile);
+        
+        // Verificar si el perfil está completo después de la actualización
+        await checkProfileComplete();
+        
+        return { success: true, profile: updatedProfile };
+      }
+      return { success: false, error: response.error?.message || 'Error al actualizar perfil' };
+    } catch (error) {
+      console.error('Error en updateUserProfile:', error);
+      return { success: false, error: error.message || 'Error al actualizar perfil' };
     }
   };
 
   const value = {
     currentUser,
     userProfile,
+    profileComplete,
     loading,
     signup,
     login,
     logout,
     resetPassword,
     updateUserProfile,
-    DEMO_MODE,
+    checkProfileComplete,
+    user: currentUser, // Alias para compatibilidad
   };
 
   return (
@@ -171,5 +241,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
-

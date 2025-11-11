@@ -28,20 +28,38 @@ import {
   Grade,
   Schedule,
   CheckCircle,
-  Pending
+  Pending,
+  Edit
 } from '@mui/icons-material';
+import TextField from '@mui/material/TextField';
+import toast from 'react-hot-toast';
 import api from '../services/api';
 
-const TeacherSubmissions = ({ assignmentId }) => {
+const TeacherSubmissions = ({ assignmentId, courseId }) => {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [gradingData, setGradingData] = useState({ grade: '', feedback: '' });
+  const [gradingLoading, setGradingLoading] = useState(false);
+  const [assignment, setAssignment] = useState(null);
 
   useEffect(() => {
     loadSubmissions();
+    loadAssignment();
   }, [assignmentId]);
+
+  const loadAssignment = async () => {
+    try {
+      const response = await api.request(`/assignments/${assignmentId}`);
+      if (response.success) {
+        setAssignment(response.data.assignment);
+      }
+    } catch (error) {
+      console.error('Error loading assignment:', error);
+    }
+  };
 
   const loadSubmissions = async () => {
     try {
@@ -136,6 +154,48 @@ const TeacherSubmissions = ({ assignmentId }) => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleGradeSubmission = async () => {
+    if (!selectedSubmission || !gradingData.grade) {
+      toast.error('Por favor ingresa una calificación');
+      return;
+    }
+
+    const grade = parseFloat(gradingData.grade);
+    const maxPoints = assignment?.max_points || 100;
+
+    if (grade < 0 || grade > maxPoints) {
+      toast.error(`La calificación debe estar entre 0 y ${maxPoints}`);
+      return;
+    }
+
+    try {
+      setGradingLoading(true);
+      const response = await api.request(`/assignments/${assignmentId}/grade`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          student_id: selectedSubmission.student_id,
+          grade: grade,
+          feedback: gradingData.feedback || null
+        })
+      });
+
+      if (response.success) {
+        toast.success('Tarea calificada correctamente. El estudiante recibirá una notificación.');
+        setDialogOpen(false);
+        setSelectedSubmission(null);
+        setGradingData({ grade: '', feedback: '' });
+        loadSubmissions(); // Recargar las entregas
+      } else {
+        throw new Error(response.error?.message || 'Error al calificar la tarea');
+      }
+    } catch (error) {
+      console.error('Error grading submission:', error);
+      toast.error(error.message || 'Error al calificar la tarea');
+    } finally {
+      setGradingLoading(false);
+    }
   };
 
   if (loading) {
@@ -267,18 +327,54 @@ const TeacherSubmissions = ({ assignmentId }) => {
                 </Box>
               )}
 
-              {submission.grade !== null && (
+              {submission.grade !== null ? (
                 <Box mt={2}>
                   <Paper sx={{ p: 2, backgroundColor: 'success.light', color: 'white' }}>
-                    <Typography variant="h6">
-                      Calificación: {submission.grade}
-                    </Typography>
-                    {submission.feedback && (
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        <strong>Comentarios:</strong> {submission.feedback}
-                      </Typography>
-                    )}
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      <Box>
+                        <Typography variant="h6">
+                          Calificación: {submission.grade} / {assignment?.max_points || 100}
+                        </Typography>
+                        {submission.feedback && (
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            <strong>Comentarios:</strong> {submission.feedback}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Edit />}
+                        onClick={() => {
+                          setSelectedSubmission(submission);
+                          setGradingData({ 
+                            grade: submission.grade || '', 
+                            feedback: submission.feedback || '' 
+                          });
+                          setDialogOpen(true);
+                        }}
+                        sx={{ color: 'white', borderColor: 'white', '&:hover': { borderColor: 'white', backgroundColor: 'rgba(255,255,255,0.1)' } }}
+                      >
+                        Editar
+                      </Button>
+                    </Box>
                   </Paper>
+                </Box>
+              ) : (
+                <Box mt={2}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<Grade />}
+                    onClick={() => {
+                      setSelectedSubmission(submission);
+                      setGradingData({ grade: '', feedback: '' });
+                      setDialogOpen(true);
+                    }}
+                    fullWidth
+                  >
+                    Calificar Tarea
+                  </Button>
                 </Box>
               )}
 
@@ -287,6 +383,79 @@ const TeacherSubmissions = ({ assignmentId }) => {
           </Card>
         );
       })}
+
+      {/* Dialog de calificación */}
+      <Dialog 
+        open={dialogOpen} 
+        onClose={() => {
+          setDialogOpen(false);
+          setSelectedSubmission(null);
+          setGradingData({ grade: '', feedback: '' });
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {selectedSubmission?.grade !== null ? 'Editar Calificación' : 'Calificar Tarea'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {selectedSubmission && (
+              <Box>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Estudiante: {selectedSubmission.student_name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Puntos máximos: {assignment?.max_points || 100}
+                </Typography>
+              </Box>
+            )}
+            <TextField
+              label="Calificación (puntos)"
+              type="number"
+              value={gradingData.grade}
+              onChange={(e) => setGradingData(prev => ({ ...prev, grade: e.target.value }))}
+              fullWidth
+              required
+              inputProps={{ 
+                min: 0, 
+                max: assignment?.max_points || 100,
+                step: 0.1
+              }}
+              helperText={`Máximo: ${assignment?.max_points || 100} puntos`}
+            />
+            <TextField
+              label="Comentarios / Retroalimentación"
+              value={gradingData.feedback}
+              onChange={(e) => setGradingData(prev => ({ ...prev, feedback: e.target.value }))}
+              fullWidth
+              multiline
+              rows={4}
+              placeholder="Escribe comentarios sobre la entrega del estudiante..."
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setDialogOpen(false);
+              setSelectedSubmission(null);
+              setGradingData({ grade: '', feedback: '' });
+            }}
+            disabled={gradingLoading}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleGradeSubmission}
+            disabled={gradingLoading || !gradingData.grade || parseFloat(gradingData.grade) < 0}
+            startIcon={gradingLoading ? <CircularProgress size={20} /> : <Grade />}
+          >
+            {gradingLoading ? 'Guardando...' : 'Guardar Calificación'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

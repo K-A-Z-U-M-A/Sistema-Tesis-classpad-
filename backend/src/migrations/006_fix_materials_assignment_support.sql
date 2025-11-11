@@ -1,9 +1,9 @@
 -- Migration to fix materials table for assignment support
 -- This migration adds assignment_id column and fixes the CHECK constraint
 
--- Add assignment_id column to materials table (UUID to match assignments.id)
+-- Add assignment_id column to materials table (INTEGER to match assignments.id)
 ALTER TABLE materials 
-ADD COLUMN IF NOT EXISTS assignment_id UUID REFERENCES assignments(id) ON DELETE CASCADE;
+ADD COLUMN IF NOT EXISTS assignment_id INTEGER REFERENCES assignments(id) ON DELETE CASCADE;
 
 -- Drop the existing CHECK constraint if it exists
 ALTER TABLE materials 

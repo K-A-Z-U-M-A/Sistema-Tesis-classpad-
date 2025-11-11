@@ -11,7 +11,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function ProfileScreen({ navigation }) {
-  const { userProfile, signOut } = useAuth();
+  const { userProfile, signOut, profileComplete } = useAuth();
 
   const handleSignOut = () => {
     Alert.alert(
@@ -72,13 +72,32 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.email}>{userProfile?.email || 'usuario@email.com'}</Text>
       </View>
 
+      {/* Banner de notificación si el perfil no está completo */}
+      {profileComplete === false && (
+        <TouchableOpacity
+          style={styles.profileCompleteBanner}
+          onPress={() => navigation.navigate('ProfileComplete', { fromRegister: false })}
+        >
+          <View style={styles.profileCompleteBannerContent}>
+            <MaterialIcons name="warning" size={24} color="#FF9500" />
+            <View style={styles.profileCompleteBannerText}>
+              <Text style={styles.profileCompleteBannerTitle}>¡Completa tu perfil!</Text>
+              <Text style={styles.profileCompleteBannerSubtitle}>
+                Faltan datos personales por completar
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color="#FF9500" />
+          </View>
+        </TouchableOpacity>
+      )}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Información Personal</Text>
         <ProfileItem
           icon="person"
-          title="Editar Perfil"
-          subtitle="Modificar información personal"
-          onPress={() => Alert.alert('Editar Perfil', 'Función en desarrollo')}
+          title="Completar Perfil"
+          subtitle={profileComplete === false ? "Completa tus datos personales" : "Modificar información personal"}
+          onPress={() => navigation.navigate('ProfileComplete', { fromRegister: false })}
         />
         <ProfileItem
           icon="school"
@@ -259,6 +278,33 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
+    color: '#8E8E93',
+  },
+  profileCompleteBanner: {
+    backgroundColor: '#FFF4E6',
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF9500',
+  },
+  profileCompleteBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  profileCompleteBannerText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  profileCompleteBannerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF9500',
+    marginBottom: 2,
+  },
+  profileCompleteBannerSubtitle: {
+    fontSize: 12,
     color: '#8E8E93',
   },
 });

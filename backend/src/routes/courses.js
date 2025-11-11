@@ -15,7 +15,7 @@ function isIntegerString(value) {
 
 // Helper function to check if user is teacher of course
 async function isCourseTeacher(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '::int';
+  const cast = isUuid(courseId) ? '::uuid' : '';
   const result = await pool.query(
     `SELECT 1 FROM courses c 
      LEFT JOIN course_teachers ct ON c.id = ct.course_id 
@@ -27,7 +27,7 @@ async function isCourseTeacher(userId, courseId) {
 
 // Helper function to check if user is student of course
 async function isCourseStudent(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '::int';
+  const cast = isUuid(courseId) ? '::uuid' : '';
   const result = await pool.query(
     `SELECT 1 FROM course_students WHERE course_id = $1${cast} AND student_id = $2 AND status = 'active'`,
     [courseId, userId]
@@ -37,7 +37,7 @@ async function isCourseStudent(userId, courseId) {
 
 // Helper function to check if user has access to course
 async function hasCourseAccess(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '::int';
+  const cast = isUuid(courseId) ? '::uuid' : '';
   const result = await pool.query(
     `SELECT 1 FROM courses c 
      LEFT JOIN course_teachers ct ON c.id = ct.course_id 
@@ -318,7 +318,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     }
 
     // Get course details
-    const cast = isUuid(courseId) ? '::uuid' : '::int';
+    const cast = isUuid(courseId) ? '::uuid' : '';
     const courseResult = await pool.query(
       `SELECT c.*, 
               u.display_name as owner_name,
@@ -440,7 +440,7 @@ router.get('/:id/units', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' } });
     }
 
-    const cast = isUuid(courseId) ? '::uuid' : '::int';
+    const cast = isUuid(courseId) ? '::uuid' : '';
     const unitsResult = await pool.query(
       `SELECT u.*, COUNT(m.id) as material_count
        FROM units u
@@ -479,7 +479,7 @@ router.post('/:id/units', authMiddleware, async (req, res) => {
     // Determine next order if not provided
     let finalOrderIndex = order_index;
     if (finalOrderIndex === undefined || finalOrderIndex === null) {
-      const cast = isUuid(courseId) ? '::uuid' : '::int';
+      const cast = isUuid(courseId) ? '::uuid' : '';
       const maxOrderResult = await pool.query(
         `SELECT COALESCE(MAX(order_index), 0) + 1 as next_order FROM units WHERE course_id = $1${cast}`,
         [courseId]
@@ -487,7 +487,7 @@ router.post('/:id/units', authMiddleware, async (req, res) => {
       finalOrderIndex = maxOrderResult.rows[0].next_order;
     }
 
-    const cast = isUuid(courseId) ? '::uuid' : '::int';
+    const cast = isUuid(courseId) ? '::uuid' : '';
     const result = await pool.query(
       `INSERT INTO units (course_id, title, description, order_index, is_published)
        VALUES ($1${cast}, $2, $3, $4, $5)
@@ -673,7 +673,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     }
 
     // Check if user is owner of course
-    const cast = isUuid(courseId) ? '::uuid' : '::int';
+    const cast = isUuid(courseId) ? '::uuid' : '';
     const courseResult = await pool.query(
       `SELECT owner_id FROM courses WHERE id = $1${cast}`,
       [courseId]
@@ -721,30 +721,300 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 router.get('/:id/students', authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.id;
-    if (isNaN(courseId)) {
+    if (!(isIntegerString(courseId) || isUuid(courseId))) {
       return res.status(400).json({
         error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' }
       });
     }
 
-    const hasAccess = await hasCourseAccess(req.user.id, courseId);
-    if (!hasAccess) {
-      return res.status(403).json({ error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' } });
+    // Check if user is teacher
+    const isTeacher = await isCourseTeacher(req.user.id, courseId);
+    if (!isTeacher) {
+      return res.status(403).json({ 
+        error: { message: 'Solo los profesores pueden ver los estudiantes', code: 'INSUFFICIENT_PERMISSIONS' } 
+      });
     }
 
-    const result = await pool.query(
-      `SELECT u.id, u.display_name, u.email, u.photo_url, cs.enrolled_at, cs.status
-       FROM course_students cs
-       JOIN users u ON cs.student_id = u.id
-       WHERE cs.course_id = $1 AND cs.status = 'active'
-       ORDER BY u.display_name`,
-      [courseId]
-    );
+    // Get students from either enrollments or course_students table
+    const cast = isUuid(courseId) ? '::uuid' : '';
+    
+    // Try enrollments first (newer table with UUID support)
+    let result;
+    let queryError = null;
+    
+    try {
+      result = await pool.query(
+        `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, 
+                e.enrolled_at, e.status
+         FROM users u
+         INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
+         ORDER BY u.display_name`,
+        [courseId]
+      );
+      
+      // If no results, try course_students (legacy table)
+      if (result.rows.length === 0) {
+        result = await pool.query(
+          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url,
+                  cs.enrolled_at, cs.status
+           FROM users u
+           INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
+           ORDER BY u.display_name`,
+          [courseId]
+        );
+      }
+    } catch (err) {
+      console.log('⚠️ First query failed:', err.message);
+      queryError = err;
+      // Fallback to course_students on error
+      try {
+        result = await pool.query(
+          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url,
+                  cs.enrolled_at, cs.status
+           FROM users u
+           INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
+           ORDER BY u.display_name`,
+          [courseId]
+        );
+      } catch (err2) {
+        console.log('⚠️ Second query also failed:', err2.message);
+        throw err2;
+      }
+    }
+    
+    // Log query error if first failed but second succeeded
+    if (queryError && result.rows.length > 0) {
+      console.log('✅ Fallback query succeeded');
+    }
 
     res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Error getting course students:', error);
-    res.status(500).json({ error: { message: 'Error interno del servidor', code: 'GET_COURSE_STUDENTS_FAILED' } });
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ error: { message: 'Error interno del servidor', code: 'GET_COURSE_STUDENTS_FAILED', details: error.message } });
+  }
+});
+
+// POST /api/courses/:id/enroll - Enroll a student in a course (or create user if doesn't exist)
+router.post('/:id/enroll', authMiddleware, async (req, res) => {
+  try {
+    const courseId = req.params.id;
+    if (!(isIntegerString(courseId) || isUuid(courseId))) {
+      return res.status(400).json({
+        error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' }
+      });
+    }
+
+    const { role } = req.user;
+    
+    if (role !== 'teacher') {
+      return res.status(403).json({
+        error: {
+          message: 'Solo los profesores pueden matricular estudiantes',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        }
+      });
+    }
+
+    // Check if user is teacher of this course
+    const isTeacher = await isCourseTeacher(req.user.id, courseId);
+    if (!isTeacher) {
+      return res.status(403).json({
+        error: {
+          message: 'No tienes permisos para matricular estudiantes en este curso',
+          code: 'ACCESS_DENIED'
+        }
+      });
+    }
+
+    const { cedula, nombre, email } = req.body;
+
+    if (!cedula || !nombre || !email) {
+      return res.status(400).json({
+        error: {
+          message: 'Cédula, nombre y correo son requeridos',
+          code: 'MISSING_REQUIRED_FIELDS'
+        }
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const cast = isUuid(courseId) ? '::uuid' : '';
+
+    // Check if user exists
+    let userResult = await pool.query(
+      'SELECT id, email FROM users WHERE email = $1 OR cedula = $2',
+      [normalizedEmail, cedula]
+    );
+
+    let userId;
+
+    if (userResult.rows.length === 0) {
+      // User doesn't exist, create it
+      const bcrypt = await import('bcryptjs');
+      const passwordHash = await bcrypt.default.hash(cedula, 10);
+
+      const newUser = await pool.query(
+        `INSERT INTO users (email, display_name, cedula, password_hash, role, provider, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, email, display_name, cedula`,
+        [normalizedEmail, nombre, cedula, passwordHash, 'student', 'local', true]
+      );
+
+      userId = newUser.rows[0].id;
+      console.log('✅ Created new user:', newUser.rows[0]);
+    } else {
+      userId = userResult.rows[0].id;
+      console.log('✅ User already exists:', userResult.rows[0]);
+    }
+
+    // Check if already enrolled
+    const existingEnrollment = await pool.query(
+      `SELECT * FROM enrollments WHERE course_id = $1${cast} AND student_id = $2 AND status = 'active'`,
+      [courseId, userId]
+    );
+
+    if (existingEnrollment.rows.length > 0) {
+      return res.status(400).json({
+        error: {
+          message: 'El estudiante ya está matriculado en este curso',
+          code: 'ALREADY_ENROLLED'
+        }
+      });
+    }
+
+    // Check old course_students table as well
+    const existingOldEnrollment = await pool.query(
+      `SELECT * FROM course_students WHERE course_id = $1${cast} AND student_id = $2 AND status = 'active'`,
+      [courseId, userId]
+    );
+
+    if (existingOldEnrollment.rows.length > 0) {
+      return res.status(400).json({
+        error: {
+          message: 'El estudiante ya está matriculado en este curso',
+          code: 'ALREADY_ENROLLED'
+        }
+      });
+    }
+
+    // Enroll student in the enrollments table
+    const enrollmentResult = await pool.query(
+      `INSERT INTO enrollments (course_id, student_id, status)
+       VALUES ($1${cast}, $2, 'active')
+       RETURNING id, enrolled_at, status`,
+      [courseId, userId]
+    );
+
+    // Get user details
+    const userDetails = await pool.query(
+      'SELECT id, email, display_name, cedula, photo_url FROM users WHERE id = $1',
+      [userId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Estudiante matriculado exitosamente',
+      data: {
+        enrollment: enrollmentResult.rows[0],
+        student: userDetails.rows[0]
+      }
+    });
+  } catch (error) {
+    console.error('Error enrolling student:', error);
+    
+    // Handle unique constraint violation
+    if (error.code === '23505') {
+      return res.status(400).json({
+        error: {
+          message: 'El estudiante ya está matriculado en este curso',
+          code: 'ALREADY_ENROLLED'
+        }
+      });
+    }
+
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
+        code: 'ENROLL_STUDENT_FAILED'
+      }
+    });
+  }
+});
+
+// DELETE /api/courses/:id/students/:studentId - Unenroll a student from a course
+router.delete('/:id/students/:studentId', authMiddleware, async (req, res) => {
+  try {
+    const courseId = req.params.id;
+    const studentId = req.params.studentId;
+    
+    if (!(isIntegerString(courseId) || isUuid(courseId))) {
+      return res.status(400).json({
+        error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' }
+      });
+    }
+
+    const { role } = req.user;
+    
+    if (role !== 'teacher') {
+      return res.status(403).json({
+        error: {
+          message: 'Solo los profesores pueden desmatricular estudiantes',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        }
+      });
+    }
+
+    // Check if user is teacher of this course
+    const isTeacher = await isCourseTeacher(req.user.id, courseId);
+    if (!isTeacher) {
+      return res.status(403).json({
+        error: {
+          message: 'No tienes permisos para desmatricular estudiantes en este curso',
+          code: 'ACCESS_DENIED'
+        }
+      });
+    }
+
+    const cast = isUuid(courseId) ? '::uuid' : '';
+
+    // Delete from enrollments table
+    const enrollmentDelete = await pool.query(
+      `DELETE FROM enrollments WHERE course_id = $1${cast} AND student_id = $2`,
+      [courseId, studentId]
+    );
+
+    // Also delete from course_students table (for legacy support)
+    const oldEnrollmentDelete = await pool.query(
+      `DELETE FROM course_students WHERE course_id = $1${cast} AND student_id = $2`,
+      [courseId, studentId]
+    );
+
+    if (enrollmentDelete.rowCount === 0 && oldEnrollmentDelete.rowCount === 0) {
+      return res.status(404).json({
+        error: {
+          message: 'Estudiante no matriculado en este curso',
+          code: 'STUDENT_NOT_ENROLLED'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Estudiante desmatriculado exitosamente',
+      data: {
+        deleted: enrollmentDelete.rowCount > 0 || oldEnrollmentDelete.rowCount > 0
+      }
+    });
+  } catch (error) {
+    console.error('Error unenrolling student:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
+        code: 'UNENROLL_STUDENT_FAILED'
+      }
+    });
   }
 });
 
