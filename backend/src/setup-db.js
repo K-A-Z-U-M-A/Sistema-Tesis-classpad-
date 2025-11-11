@@ -74,13 +74,23 @@ async function setupDatabase() {
     await pool.query(`
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255),
-      ADD COLUMN IF NOT EXISTS provider VARCHAR(50) DEFAULT 'local';
+      ADD COLUMN IF NOT EXISTS provider VARCHAR(50) DEFAULT 'local',
+      ADD COLUMN IF NOT EXISTS cedula VARCHAR(20);
     `);
 
     await pool.query(`
       ALTER TABLE users
       DROP COLUMN IF EXISTS firebase_ui;
     `);
+
+    // Add index for cedula (not unique to allow NULLs)
+    try {
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_users_cedula ON users(cedula);
+      `);
+    } catch (err) {
+      console.log('Note: Cedula index creation skipped (might already exist)');
+    }
 
     // Ensure updated_at exists with correct name (migrate from legacy update_at)
     await pool.query(`

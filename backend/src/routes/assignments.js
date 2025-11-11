@@ -3,6 +3,7 @@ import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { upload } from '../config/multer.js';
 import { getMaterialTypeFromMime, getFileInfo } from '../services/storage.js';
+import { createNotification } from './notifications.js';
 
 const router = express.Router();
 
@@ -267,18 +268,29 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
     // Get assignments with submission status for students
     let query;
     let params;
+    
+    // Determine casts for IDs
+    const cast = isUuid(courseId) ? '::uuid' : '';
+    const assignmentIdCast = ''; // Will be determined based on assignment.id type
+    const studentIdCast = isUuid(req.user.id) ? '::uuid' : '';
 
     if (req.user.role === 'teacher') {
-      // Teachers see all assignments with submission counts
+      // Teachers see all assignments with submission counts and assigned students info
       query = `
         SELECT a.*, 
                u.display_name as created_by_name,
-               COUNT(s.id) as submission_count,
-               COUNT(CASE WHEN s.status = 'submitted' THEN 1 END) as submitted_count,
-               COUNT(CASE WHEN s.status = 'graded' THEN 1 END) as graded_count
+               COUNT(DISTINCT s.id) as submission_count,
+               COUNT(DISTINCT CASE WHEN s.status = 'submitted' THEN s.id END) as submitted_count,
+               COUNT(DISTINCT CASE WHEN s.status = 'graded' THEN s.id END) as graded_count,
+               COUNT(DISTINCT ast.student_id) as assigned_student_count,
+               CASE 
+                 WHEN COUNT(DISTINCT ast.student_id) > 0 THEN true 
+                 ELSE false 
+               END as has_specific_students
         FROM assignments a
         LEFT JOIN users u ON a.created_by = u.id
         LEFT JOIN submissions s ON a.id = s.assignment_id
+        LEFT JOIN assignment_students ast ON a.id = ast.assignment_id
         WHERE a.course_id = $1
         GROUP BY a.id, u.display_name
         ORDER BY a.due_date, a.created_at
@@ -286,6 +298,8 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
       params = [courseId];
     } else {
       // Students see published assignments with their submission status
+      // Filter by assignment_students: if assignment has specific students, only show if student is assigned
+      // If assignment has no specific students, show to all students in the course
       query = `
         SELECT a.*, 
                u.display_name as created_by_name,
@@ -298,13 +312,20 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
         LEFT JOIN users u ON a.created_by = u.id
         LEFT JOIN submissions s ON a.id = s.assignment_id AND s.student_id = $2
         WHERE a.course_id = $1
+          AND a.status = 'published'
+          AND (
+            -- Assignment has no specific students (for everyone)
+            NOT EXISTS (SELECT 1 FROM assignment_students WHERE assignment_id = a.id)
+            OR
+            -- Assignment has specific students and this student is assigned
+            EXISTS (SELECT 1 FROM assignment_students WHERE assignment_id = a.id AND student_id${studentIdCast} = $2)
+          )
         ORDER BY a.due_date, a.created_at
       `;
       params = [courseId, req.user.id];
     }
 
-    // add cast to course_id in query strings
-    const cast = isUuid(courseId) ? '::uuid' : '::int';
+    // Apply cast to course_id in query strings
     console.log(`🔍 Course ID: ${courseId}, Cast: ${cast}`);
     console.log(`🔍 Query: ${query.replace(/a\.course_id = \$1/g, `a.course_id = $1${cast}`)}`);
     console.log(`🔍 Params:`, params);
@@ -341,10 +362,35 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
         )
       ]);
       
+      // Get assigned students count if assignment has specific students
+      let assignedStudentCount = 0;
+      let hasSpecificStudents = false;
+      
+      if (assignment.has_specific_students !== undefined) {
+        hasSpecificStudents = assignment.has_specific_students;
+        assignedStudentCount = parseInt(assignment.assigned_student_count || 0, 10);
+      } else {
+        // Fallback: check if assignment_students table has records for this assignment
+        try {
+          const assignmentIdCast = isUuid(assignment.id) ? '::uuid' : '';
+          const assignedStudentsResult = await pool.query(
+            `SELECT COUNT(*) as count FROM assignment_students WHERE assignment_id = $1${assignmentIdCast}`,
+            [assignment.id]
+          );
+          assignedStudentCount = parseInt(assignedStudentsResult.rows[0]?.count || 0, 10);
+          hasSpecificStudents = assignedStudentCount > 0;
+        } catch (err) {
+          // If table doesn't exist or error, assume all students
+          hasSpecificStudents = false;
+        }
+      }
+      
       assignments.push({
         ...assignment,
         attachments: attachmentsResult.rows,
-        submissions: submissionsResult.rows
+        submissions: submissionsResult.rows,
+        assigned_student_count: assignedStudentCount,
+        has_specific_students: hasSpecificStudents
       });
     }
 
@@ -478,8 +524,10 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     // Get assignment to check course
+    // Determine if assignmentId is UUID or INTEGER
+    const idCast = isUuid(assignmentId) ? '::uuid' : '';
     const assignmentResult = await pool.query(
-      `SELECT course_id FROM assignments WHERE id = $1`,
+      `SELECT course_id FROM assignments WHERE id = $1${idCast}`,
       [assignmentId]
     );
 
@@ -525,33 +573,98 @@ router.put('/:id', authMiddleware, async (req, res) => {
       }
     }
 
+    // Map status to is_published: 'published' -> true, 'draft' -> false, null -> keep current
+    let isPublished = null;
+    if (status === 'published') {
+      isPublished = true;
+    } else if (status === 'draft') {
+      isPublished = false;
+    }
+
+    // Convert points to number if provided
+    let maxPoints = null;
+    if (points !== undefined && points !== null) {
+      maxPoints = typeof points === 'string' ? parseFloat(points) : points;
+      if (isNaN(maxPoints)) {
+        maxPoints = null;
+      }
+    }
+
+    // Log the data being sent
+    console.log('🔍 Updating assignment:', {
+      assignmentId,
+      title,
+      description,
+      instructions,
+      dueTimestamp,
+      points,
+      maxPoints,
+      isPublished,
+      status
+    });
+
+    // Determine if assignmentId is UUID or INTEGER
+    const cast = isUuid(assignmentId) ? '::uuid' : '';
+    
     const result = await pool.query(
       `UPDATE assignments 
        SET title = COALESCE($1, title),
            description = COALESCE($2, description),
            instructions = COALESCE($3, instructions),
            due_date = COALESCE($4, due_date),
-           points = COALESCE($5, points),
-           status = COALESCE($6, status),
+           max_points = COALESCE($5, max_points),
+           is_published = COALESCE($6, is_published),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $7
+       WHERE id = $7${cast}
        RETURNING *`,
-      [title, description, instructions, dueTimestamp, points, status, assignmentId]
+      [title, description, instructions, dueTimestamp, maxPoints, isPublished, assignmentId]
     );
+
+    // Parse rubric safely
+    let parsedRubric = [];
+    const rubricValue = result.rows[0].rubric;
+    if (rubricValue !== null && rubricValue !== undefined) {
+      try {
+        // If rubric is already an array, use it directly
+        if (Array.isArray(rubricValue)) {
+          parsedRubric = rubricValue;
+        } 
+        // If rubric is an object (but not array), set to empty array
+        else if (typeof rubricValue === 'object') {
+          parsedRubric = [];
+        } 
+        // If rubric is a string, parse it (only if not empty)
+        else if (typeof rubricValue === 'string' && rubricValue.trim() !== '') {
+          parsedRubric = JSON.parse(rubricValue);
+        }
+      } catch (error) {
+        console.warn('Error parsing rubric:', error);
+        console.warn('Raw rubric value:', rubricValue, 'Type:', typeof rubricValue);
+        parsedRubric = [];
+      }
+    }
 
     res.json({
       success: true,
       data: {
         ...result.rows[0],
-        rubric: result.rows[0].rubric ? JSON.parse(result.rows[0].rubric) : []
+        rubric: parsedRubric
       }
     });
   } catch (error) {
     console.error('Error updating assignment:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint
+    });
     res.status(500).json({
       error: {
         message: 'Error interno del servidor',
-        code: 'UPDATE_ASSIGNMENT_FAILED'
+        code: 'UPDATE_ASSIGNMENT_FAILED',
+        detail: process.env.NODE_ENV === 'development' ? error.message : undefined
       }
     });
   }
@@ -791,6 +904,36 @@ router.put('/:id/grade', authMiddleware, async (req, res) => {
           message: 'Entrega no encontrada',
           code: 'SUBMISSION_NOT_FOUND'
         }
+      });
+    }
+
+    // Get assignment and course information for notification
+    const assignmentInfoResult = await pool.query(
+      `SELECT a.title as assignment_title, a.max_points, c.name as course_name
+       FROM assignments a
+       JOIN courses c ON a.course_id = c.id
+       WHERE a.id = $1`,
+      [assignmentId]
+    );
+
+    if (assignmentInfoResult.rows.length > 0) {
+      const assignmentInfo = assignmentInfoResult.rows[0];
+      
+      // Create notification for the student
+      const title = 'Tarea calificada';
+      const messageText = `Tu tarea "${assignmentInfo.assignment_title}" ha sido calificada. Calificación: ${grade}/${assignmentInfo.max_points}${feedback ? `. Comentarios: ${feedback.substring(0, 100)}${feedback.length > 100 ? '...' : ''}` : ''}`;
+      
+      createNotification(
+        student_id,
+        'grade',
+        title,
+        messageText,
+        courseId,
+        assignmentId,
+        'assignment',
+        'normal'
+      ).catch(error => {
+        console.error('Error creating grade notification:', error);
       });
     }
 
@@ -1061,7 +1204,7 @@ router.get('/units/:unitId/assignments', authMiddleware, async (req, res) => {
     }
 
     // First, get the course_id for this unit to check access
-    const cast = isUuid(unitId) ? '::uuid' : '::int';
+    const cast = isUuid(unitId) ? '::uuid' : '';
     const unitResult = await pool.query(
       `SELECT course_id FROM units WHERE id = $1${cast}`,
       [unitId]
@@ -1385,7 +1528,7 @@ router.get('/:assignmentId', authMiddleware, async (req, res) => {
     }
 
     // Get assignment with course information
-    const cast = isUuid(assignmentId) ? '::uuid' : '::int';
+    const cast = isUuid(assignmentId) ? '::uuid' : '';
     const assignmentResult = await pool.query(`
       SELECT a.*, u.name as unit_name, c.id as course_id, c.name as course_name, c.turn as course_subject,
              owner.display_name as owner_name, owner.photo_url as owner_photo

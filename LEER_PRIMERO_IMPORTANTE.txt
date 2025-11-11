@@ -1,0 +1,71 @@
+================================================================================
+                        ¡IMPORTANTE! LEER PRIMERO
+================================================================================
+
+El error 500 es porque las tablas de asistencia NO están creadas en PostgreSQL.
+
+OPCIÓN 1: EJECUTAR MIGRACIÓN MANUAL (RECOMENDADO - MÁS RÁPIDO)
+=================================================================
+
+1. Abre pgAdmin4
+2. Click en "Servidores" > "PostgreSQL 17" > "Databases" > "classpad_bd"
+3. Click derecho en "classpad_bd" > "Query Tool"
+4. Abre el archivo: backend/src/migrations/012_create_attendance_system.sql
+5. Copia TODO el contenido (Ctrl+A, Ctrl+C)
+6. Pégalo en el Query Tool (Ctrl+V)
+7. Click en "Execute" (botón ⚡) o presiona F5
+8. Espera hasta ver "Query returned successfully"
+
+¡LISTO! Las tablas están creadas.
+
+Ahora:
+9. Ve a la consola donde está corriendo el backend
+10. Presiona Ctrl+C para detenerlo
+11. Ejecuta de nuevo: cd backend && npm run dev
+12. Refresca el navegador (F5)
+
+================================================================================
+OPCIÓN 2: REINICIAR EL BACKEND
+================================================================================
+
+El backend tiene un script automático que crea las tablas al iniciar.
+
+1. Ve a la consola donde está corriendo el backend
+2. Presiona Ctrl+C para detenerlo
+3. Ejecuta: cd backend && npm run dev
+4. Mira la consola - deberías ver uno de estos mensajes:
+
+   ✅ "Tablas de asistencia ya existen" 
+      O
+   ⚠️  "Tablas de asistencia no encontradas. Creando..."
+   ✅ "Tablas de asistencia creadas exitosamente"
+
+5. Refresca el navegador (F5)
+
+================================================================================
+SI NINGUNO FUNCIONA
+================================================================================
+
+Ejecuta este comando en la terminal (desde la raíz del proyecto):
+
+    node install-attendance.js
+
+Si hay errores, compártelos.
+
+================================================================================
+
+NOTA: Si ves errores sobre "update_updated_at_column" no existe, ejecuta
+este SQL primero en pgAdmin:
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+Luego ejecuta la migración normal.
+
+================================================================================
+

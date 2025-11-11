@@ -1,0 +1,29 @@
+================================================================================
+        IMPORTANTE: Primero elimina las tablas incorrectas
+================================================================================
+
+Antes de ejecutar la migración corregida, debes eliminar las tablas que se
+crearon con el tipo incorrecto (INTEGER en lugar de UUID).
+
+En pgAdmin Query Tool, ejecuta este SQL:
+
+-- Eliminar tablas de asistencia (si existen)
+DROP TABLE IF EXISTS attendance_holidays CASCADE;
+DROP TABLE IF EXISTS attendance_records CASCADE;
+DROP TABLE IF EXISTS attendance_sessions CASCADE;
+
+Deberías ver mensajes de confirmación. Ahora puedes ejecutar la migración
+corregida.
+
+================================================================================
+LUEGO EJECUTA LA MIGRACIÓN CORREGIDA
+================================================================================
+
+1. Abre: backend/src/migrations/012_create_attendance_system.sql
+2. Copia TODO el contenido
+3. Pégalo en pgAdmin Query Tool
+4. Ejecuta (F5)
+5. Deberías ver "Query returned successfully"
+
+================================================================================
+

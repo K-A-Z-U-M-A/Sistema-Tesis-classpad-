@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   currentUser: User | null; // Alias para compatibilidad
   userProfile: User | null; // Alias para compatibilidad
+  profileComplete: boolean | null;
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -15,7 +16,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateUserProfile: (data: Partial<User>) => Promise<void>;
-  handleGoogleCallback: (token: string, user: any) => void;
+  handleGoogleCallback: (token: string, user: any) => Promise<boolean>;
+  checkProfileComplete: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,6 +60,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     user: authStore.user,
     currentUser: authStore.user, // Alias para compatibilidad
     userProfile: authStore.user, // Alias para compatibilidad
+    profileComplete: authStore.profileComplete,
     loading: authStore.loading,
     error: authStore.error,
     login: async (email: string, password: string) => {
@@ -69,6 +72,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     resetPassword: authStore.resetPassword,
     updateUserProfile: authStore.updateUserProfile,
     handleGoogleCallback: authStore.handleGoogleCallback,
+    checkProfileComplete: authStore.checkProfileComplete,
   };
 
   return (

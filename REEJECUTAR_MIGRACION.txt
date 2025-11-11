@@ -1,0 +1,23 @@
+============================================================================
+IMPORTANTE: Debiste corregir el error de tipos de datos
+============================================================================
+
+EJECUTA ESTO EN PGADMIN AHORA:
+
+1. Abre pgAdmin Query Tool
+2. Ejecuta primero (para eliminar las tablas incorrectas):
+
+DROP TABLE IF EXISTS attendance_holidays CASCADE;
+DROP TABLE IF EXISTS attendance_records CASCADE;
+DROP TABLE IF EXISTS attendance_sessions CASCADE;
+
+3. Luego copia y ejecuta TODO el contenido de: EJECUTAR_EN_PGADMIN.sql
+
+4. Deberías ver: "Query returned successfully"
+
+5. Reinicia el backend
+
+6. Prueba de nuevo
+
+============================================================================
+

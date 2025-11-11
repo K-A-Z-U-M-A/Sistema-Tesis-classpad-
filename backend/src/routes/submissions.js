@@ -10,7 +10,7 @@ const router = express.Router();
 
 // Helper function to check if user has access to assignment
 async function hasAssignmentAccess(userId, assignmentId) {
-  const cast = isUuid(assignmentId) ? '::uuid' : '::int';
+  const cast = isUuid(assignmentId) ? '::uuid' : '';
   const result = await pool.query(
     `SELECT 1 FROM assignments a
      LEFT JOIN courses c ON a.course_id = c.id
@@ -56,7 +56,7 @@ router.get('/assignment/:assignmentId', authMiddleware, async (req, res) => {
               u.email as student_email
        FROM submissions s
        LEFT JOIN users u ON s.student_id = u.id
-       WHERE s.assignment_id = $1${isUuid(assignmentId) ? '::uuid' : '::int'}
+       WHERE s.assignment_id = $1${isUuid(assignmentId) ? '::uuid' : ''}
        ORDER BY s.submitted_at DESC`,
       [assignmentId]
     );
@@ -118,7 +118,7 @@ router.get('/my/:assignmentId', authMiddleware, async (req, res) => {
               COUNT(sf.id) as file_count
        FROM submissions s
        LEFT JOIN submission_files sf ON s.id = sf.submission_id
-       WHERE s.assignment_id = $1${isUuid(assignmentId) ? '::uuid' : '::int'} 
+       WHERE s.assignment_id = $1${isUuid(assignmentId) ? '::uuid' : ''} 
        AND s.student_id = $2
        GROUP BY s.id`,
       [assignmentId, req.user.id]
@@ -189,7 +189,7 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
-    const cast = isUuid(assignmentId) ? '::uuid' : '::int';
+    const cast = isUuid(assignmentId) ? '::uuid' : '';
     
     // Check if submission already exists
     const existingResult = await pool.query(
