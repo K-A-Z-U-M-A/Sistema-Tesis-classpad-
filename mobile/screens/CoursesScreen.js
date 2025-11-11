@@ -1,15 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   FlatList,
+  ActivityIndicator,
+  TextInput,
+  Alert,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
-import { useDemoData } from '../contexts/DemoDataContext';
+import api from '../services/api';
 
 // Componente de tarjeta de curso
 const CourseCard = ({ course, onPress }) => {
@@ -17,22 +20,38 @@ const CourseCard = ({ course, onPress }) => {
     <TouchableOpacity style={styles.courseCard} onPress={onPress}>
       <View style={styles.courseHeader}>
         <View style={[styles.courseIcon, { backgroundColor: course.color || '#007AFF' }]}>
-          <Text style={styles.courseIconText}>📚</Text>
+          <MaterialIcons name="book" size={24} color="#fff" />
         </View>
         <View style={styles.courseInfo}>
           <Text style={styles.courseName}>{course.name}</Text>
-          <Text style={styles.courseCode}>{course.code}</Text>
-          <Text style={styles.courseSubject}>{course.subject}</Text>
+          {course.course_code && (
+            <Text style={styles.courseCode}>{course.course_code}</Text>
+          )}
+          {course.subject && (
+            <Text style={styles.courseSubject}>{course.subject}</Text>
+          )}
         </View>
-        <View style={[styles.statusChip, { backgroundColor: course.isActive ? '#34C759' : '#8E8E93' }]}>
-          <Text style={styles.statusText}>{course.isActive ? 'Activo' : 'Inactivo'}</Text>
+        <View style={[styles.statusChip, { backgroundColor: course.is_active !== false ? '#34C759' : '#8E8E93' }]}>
+          <Text style={styles.statusText}>
+            {course.is_active !== false ? 'Activo' : 'Inactivo'}
+          </Text>
         </View>
       </View>
       
       <View style={styles.courseDetails}>
-        <Text style={styles.courseGrade}>Grado: {course.grade}</Text>
-        <Text style={styles.courseStudents}>{course.students?.length || 0} estudiantes</Text>
-        <Text style={styles.courseTeacher}>Profesor: {course.teacher?.name || 'Sin asignar'}</Text>
+        {course.grade && (
+          <Text style={styles.courseDetailText}>Grado: {course.grade}</Text>
+        )}
+        {course.students && (
+          <Text style={styles.courseDetailText}>
+            {course.students.length} {course.students.length === 1 ? 'estudiante' : 'estudiantes'}
+          </Text>
+        )}
+        {course.teacher && (
+          <Text style={styles.courseDetailText}>
+            Profesor: {course.teacher.display_name || course.teacher.full_name || 'Sin asignar'}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -40,21 +59,53 @@ const CourseCard = ({ course, onPress }) => {
 
 export default function CoursesScreen({ navigation }) {
   const { userProfile } = useAuth();
-  const { courses } = useDemoData();
+  const [courses, setCourses] = useState([]);
+  const [filteredCourses, setFilteredCourses] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Filtrar cursos según el rol del usuario y búsqueda
-  const filteredCourses = courses.filter(course => {
-    const matchesSearch = course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         course.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         course.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    if (userProfile?.role === 'teacher') {
-      return course.teacher?.email === userProfile.email && matchesSearch;
-    } else {
-      return course.students?.some(s => s.uid === userProfile?.uid) && matchesSearch;
+  useEffect(() => {
+    loadCourses();
+  }, []);
+
+  useEffect(() => {
+    filterCourses();
+  }, [courses, searchQuery]);
+
+  const loadCourses = async () => {
+    try {
+      setLoading(true);
+      const response = await api.getMyCourses();
+      
+      if (response.success) {
+        setCourses(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading courses:', error);
+      Alert.alert('Error', 'Error al cargar los cursos');
+    } finally {
+      setLoading(false);
     }
-  });
+  };
+
+  const filterCourses = () => {
+    if (!searchQuery) {
+      setFilteredCourses(courses);
+      return;
+    }
+
+    const filtered = courses.filter(course => {
+      const query = searchQuery.toLowerCase();
+      return (
+        course.name?.toLowerCase().includes(query) ||
+        course.course_code?.toLowerCase().includes(query) ||
+        course.subject?.toLowerCase().includes(query) ||
+        course.grade?.toLowerCase().includes(query)
+      );
+    });
+
+    setFilteredCourses(filtered);
+  };
 
   const renderCourse = ({ item }) => (
     <CourseCard
@@ -62,6 +113,19 @@ export default function CoursesScreen({ navigation }) {
       onPress={() => navigation.navigate('CourseDetail', { courseId: item.id })}
     />
   );
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Mis Cursos</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -74,6 +138,7 @@ export default function CoursesScreen({ navigation }) {
 
       {/* Barra de búsqueda */}
       <View style={styles.searchContainer}>
+        <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar cursos..."
@@ -81,19 +146,30 @@ export default function CoursesScreen({ navigation }) {
           onChangeText={setSearchQuery}
           placeholderTextColor="#999"
         />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <MaterialIcons name="clear" size={20} color="#999" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Lista de cursos */}
       <FlatList
         data={filteredCourses}
         renderItem={renderCourse}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.coursesList}
         showsVerticalScrollIndicator={false}
+        refreshing={loading}
+        onRefresh={loadCourses}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
+            <MaterialIcons name="school" size={64} color="#ccc" />
             <Text style={styles.emptyText}>
-              {searchQuery ? 'No se encontraron cursos que coincidan con tu búsqueda' : 'No tienes cursos asignados'}
+              {searchQuery 
+                ? 'No se encontraron cursos que coincidan con tu búsqueda'
+                : 'No tienes cursos asignados'
+              }
             </Text>
           </View>
         }
@@ -105,7 +181,7 @@ export default function CoursesScreen({ navigation }) {
           style={styles.fab}
           onPress={() => navigation.navigate('CreateCourse')}
         >
-          <Text style={styles.fabText}>+</Text>
+          <MaterialIcons name="add" size={32} color="#fff" />
         </TouchableOpacity>
       )}
     </View>
@@ -132,18 +208,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    flex: 1,
     fontSize: 16,
     color: '#333',
   },
@@ -173,9 +260,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15,
-  },
-  courseIconText: {
-    fontSize: 24,
   },
   courseInfo: {
     flex: 1,
@@ -210,19 +294,10 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E5EA',
     paddingTop: 15,
   },
-  courseGrade: {
+  courseDetailText: {
     fontSize: 14,
     color: '#666',
     marginBottom: 5,
-  },
-  courseStudents: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  courseTeacher: {
-    fontSize: 14,
-    color: '#666',
   },
   emptyContainer: {
     flex: 1,
@@ -234,6 +309,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+    marginTop: 16,
     lineHeight: 24,
   },
   fab: {
@@ -251,10 +327,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-  },
-  fabText: {
-    fontSize: 24,
-    color: 'white',
-    fontWeight: 'bold',
   },
 });

@@ -30,11 +30,12 @@ import Attendance from './pages/Attendance/Attendance';
 import Messages from './pages/Messages/Messages';
 import People from './pages/People/People';
 import Profile from './pages/Profile/Profile';
+import ProfileComplete from './pages/Profile/ProfileComplete';
 import Settings from './pages/Settings/Settings';
 
 // Componente de ruta protegida
-const ProtectedRoute = ({ children, requiredRole = null }) => {
-  const { currentUser, loading } = useAuth();
+const ProtectedRoute = ({ children, requiredRole = null, requireProfileComplete = false }) => {
+  const { currentUser, loading, profileComplete } = useAuth();
   
   // Logs de depuración removidos para reducir ruido en consola
   
@@ -54,6 +55,14 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   
   if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+  
+  // Si se requiere perfil completo y no está completo, redirigir a ProfileComplete
+  // SOLO para estudiantes, no para docentes
+  // Excepto si ya estamos en ProfileComplete para evitar loops
+  const isStudent = currentUser.role === 'student';
+  if (requireProfileComplete && isStudent && profileComplete === false && window.location.pathname !== '/profile/complete') {
+    return <Navigate to="/profile/complete" replace />;
   }
   
   // Verificar rol si es requerido
@@ -105,7 +114,7 @@ function AppRoutes() {
       } />
       
       <Route path="/dashboard" element={
-        <ProtectedRoute>
+        <ProtectedRoute requireProfileComplete={true}>
           <AppLayout>
             <Dashboard />
           </AppLayout>
@@ -213,6 +222,12 @@ function AppRoutes() {
           <AppLayout>
             <Profile />
           </AppLayout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/profile/complete" element={
+        <ProtectedRoute>
+          <ProfileComplete />
         </ProtectedRoute>
       } />
       

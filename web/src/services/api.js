@@ -145,12 +145,20 @@ class ApiService {
     });
   }
 
+  async checkProfileComplete() {
+    return this.request('/users/me/profile-complete');
+  }
+
   getMyCourses() {
     return this.request('/users/me/courses');
   }
 
   getMyAssignments() {
     return this.request('/users/me/assignments');
+  }
+
+  getMyStatistics() {
+    return this.request('/users/me/statistics');
   }
 
   // Course management
@@ -332,6 +340,71 @@ class ApiService {
 
   async deleteNotification(notificationId) {
     return this.request(`/notifications/${notificationId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  // Student management methods
+  async getCourseStudents(courseId) {
+    return this.request(`/courses/${courseId}/students`);
+  }
+
+  async enrollStudent(courseId, { cedula, nombre, email }) {
+    return this.request(`/courses/${courseId}/enroll`, {
+      method: 'POST',
+      body: JSON.stringify({ cedula, nombre, email })
+    });
+  }
+
+  async unenrollStudent(courseId, studentId) {
+    return this.request(`/courses/${courseId}/students/${studentId}`, {
+      method: 'DELETE'
+    });
+  }
+
+  // Attendance methods
+  async createAttendanceSession(data) {
+    return this.request('/attendance/sessions', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async getAttendanceSession(sessionId) {
+    return this.request(`/attendance/sessions/${sessionId}`);
+  }
+
+  async getCourseAttendanceSessions(courseId) {
+    return this.request(`/attendance/courses/${courseId}/sessions`);
+  }
+
+  async getSessionAttendanceRecords(sessionId) {
+    return this.request(`/attendance/sessions/${sessionId}/records`);
+  }
+
+  async scanQR(qrToken, location) {
+    return this.request('/attendance/scan', {
+      method: 'POST',
+      body: JSON.stringify({ qr_token: qrToken, ...location })
+    });
+  }
+
+  async recordManualAttendance(data) {
+    return this.request('/attendance/manual', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async markHoliday(data) {
+    return this.request('/attendance/holidays', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async deactivateAttendanceSession(sessionId) {
+    return this.request(`/attendance/sessions/${sessionId}`, {
       method: 'DELETE'
     });
   }

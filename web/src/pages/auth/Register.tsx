@@ -71,7 +71,8 @@ const Register = () => {
       });
       
       toast.success('¡Cuenta creada exitosamente!');
-      // El contexto ya maneja la redirección al dashboard
+      // Redirigir a completar perfil después del registro
+      window.location.href = '/profile/complete';
     } catch (error: any) {
       console.error('Registration error:', error);
       toast.error(error.message || 'Error al crear cuenta');

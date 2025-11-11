@@ -1,0 +1,70 @@
+================================================================================
+                    SOLUCIÓN AL ERROR DEL MAPA INTERACTIVO
+================================================================================
+
+ERROR:
+------
+GET http://localhost:5173/src/components/LocationMap.jsx net::ERR_ABORTED 500
+
+CAUSA:
+------
+Las dependencias leaflet y react-leaflet no están instaladas en node_modules.
+
+SOLUCIÓN INMEDIATA:
+-------------------
+1. Abre PowerShell o CMD
+2. Ejecuta estos comandos:
+
+   cd "C:\Users\Abi\Documents\06-Sexto Año\Tesis-Classpad\Sistema-Tesis-classpad-\web"
+   npm install html5-qrcode leaflet react-leaflet
+
+3. Espera que termine la instalación
+4. Reinicia el servidor de desarrollo (Ctrl+C y npm run dev de nuevo)
+5. Recarga el navegador (F5)
+
+SOLUCIÓN ALTERNATIVA (si la anterior no funciona):
+---------------------------------------------------
+1. Abre PowerShell o CMD
+2. Ejecuta estos comandos:
+
+   cd "C:\Users\Abi\Documents\06-Sexto Año\Tesis-Classpad\Sistema-Tesis-classpad-\web"
+   npm install
+
+3. Espera que termine la instalación
+4. Reinicia el servidor de desarrollo
+5. Recarga el navegador
+
+VERIFICACIÓN:
+------------
+Después de instalar, verifica que estos archivos existen:
+
+- web\node_modules\html5-qrcode\package.json
+- web\node_modules\leaflet\package.json
+- web\node_modules\react-leaflet\package.json
+
+SI AÚN NO FUNCIONA:
+------------------
+1. Borra la carpeta node_modules:
+   cd "C:\Users\Abi\Documents\06-Sexto Año\Tesis-Classpad\Sistema-Tesis-classpad-\web"
+   Remove-Item -Recurse -Force node_modules
+
+2. Borra package-lock.json:
+   Remove-Item package-lock.json
+
+3. Instala de nuevo:
+   npm install
+
+4. Reinicia el servidor
+
+CONTACTO:
+---------
+Si sigue sin funcionar, verifica que:
+- PostgreSQL está corriendo
+- Backend está en puerto 3001
+- Frontend está en puerto 5173
+- No hay errores en la consola del backend
+
+================================================================================
+                         FIN DE LAS INSTRUCCIONES
+================================================================================
+

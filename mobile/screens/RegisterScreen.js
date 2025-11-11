@@ -35,13 +35,13 @@ export default function RegisterScreen({ navigation }) {
     try {
       const result = await signup(email, password, fullName, role);
       if (result.success) {
-        Alert.alert('Éxito', 'Cuenta creada exitosamente');
-        // Navegación automática al Main por el AuthContext
+        // Navegar a ProfileCompleteScreen para completar el perfil
+        navigation.replace('ProfileComplete', { fromRegister: true });
       } else {
-        Alert.alert('Error', 'Error al crear la cuenta');
+        Alert.alert('Error', result.error || 'Error al crear la cuenta');
       }
     } catch (error) {
-      Alert.alert('Error', 'Error al registrar usuario');
+      Alert.alert('Error', error.message || 'Error al registrar usuario');
     } finally {
       setLoading(false);
     }

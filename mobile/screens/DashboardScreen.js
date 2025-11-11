@@ -79,7 +79,7 @@ const PendingTask = ({ assignment }) => {
 };
 
 export default function DashboardScreen({ navigation }) {
-  const { userProfile } = useAuth();
+  const { userProfile, profileComplete } = useAuth();
   const { courses, assignments } = useDemoData();
 
   // Estadísticas basadas en datos de demo
@@ -99,6 +99,21 @@ export default function DashboardScreen({ navigation }) {
         <Text style={styles.greeting}>¡Hola {userProfile?.fullName?.split(' ')[0] || 'Usuario'}! 👋</Text>
         <Text style={styles.subtitle}>Bienvenido a tu dashboard de ClassPad</Text>
       </View>
+
+      {/* Banner de notificación si el perfil no está completo */}
+      {profileComplete === false && (
+        <TouchableOpacity
+          style={styles.profileBanner}
+          onPress={() => navigation.navigate('ProfileComplete', { fromRegister: false })}
+        >
+          <Text style={styles.profileBannerIcon}>⚠️</Text>
+          <View style={styles.profileBannerText}>
+            <Text style={styles.profileBannerTitle}>Completa tu perfil</Text>
+            <Text style={styles.profileBannerSubtitle}>Faltan datos personales por completar</Text>
+          </View>
+          <Text style={styles.profileBannerArrow}>→</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Estadísticas principales */}
       <View style={styles.statsContainer}>
@@ -378,5 +393,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
+  },
+  profileBanner: {
+    backgroundColor: '#FF9500',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 15,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  profileBannerIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  profileBannerText: {
+    flex: 1,
+  },
+  profileBannerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  profileBannerSubtitle: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    opacity: 0.9,
+  },
+  profileBannerArrow: {
+    fontSize: 20,
+    color: '#FFFFFF',
+    marginLeft: 10,
   },
 });

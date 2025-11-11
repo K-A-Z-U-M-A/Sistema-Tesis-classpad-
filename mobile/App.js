@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -13,12 +13,15 @@ import RegisterScreen from './screens/RegisterScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import CoursesScreen from './screens/CoursesScreen';
 import CreateCourseScreen from './screens/CreateCourseScreen';
+import CourseDetailScreen from './screens/CourseDetailScreen';
 import AssignmentsScreen from './screens/AssignmentsScreen';
+import AssignmentDetailScreen from './screens/AssignmentDetailScreen';
 import PeopleScreen from './screens/PeopleScreen';
 import MessagesScreen from './screens/MessagesScreen';
 import AttendanceScreen from './screens/AttendanceScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import ProfileCompleteScreen from './screens/ProfileCompleteScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -238,6 +241,22 @@ function MainTabs() {
   );
 }
 
+function MainTabsWrapper({ navigation }) {
+  const { profileComplete } = useAuth();
+  
+  useEffect(() => {
+    // Si el perfil no está completo, navegar a ProfileComplete después de un pequeño delay
+    if (profileComplete === false) {
+      const timer = setTimeout(() => {
+        navigation.navigate('ProfileComplete', { fromRegister: false });
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [profileComplete, navigation]);
+  
+  return <MainTabs />;
+}
+
 function AppContent() {
   const { currentUser, loading } = useAuth();
   
@@ -256,8 +275,15 @@ function AppContent() {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           {currentUser ? (
             <>
-              <Stack.Screen name="Main" component={MainTabs} />
+              <Stack.Screen name="Main" component={MainTabsWrapper} />
+              <Stack.Screen 
+                name="ProfileComplete" 
+                component={ProfileCompleteScreen}
+                options={{ headerShown: false }}
+              />
               <Stack.Screen name="CreateCourse" component={CreateCourseScreen} />
+              <Stack.Screen name="CourseDetail" component={CourseDetailScreen} />
+              <Stack.Screen name="AssignmentDetail" component={AssignmentDetailScreen} />
               <Stack.Screen name="Messages" component={MessagesScreen} />
             </>
           ) : (
