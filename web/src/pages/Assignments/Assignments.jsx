@@ -97,23 +97,28 @@ const Assignments = () => {
               // console.log(`🔍 Respuesta de tareas para curso ${course.id}:`, assignmentsResponse);
               if (assignmentsResponse.success && assignmentsResponse.data) {
                 // Agregar información del curso a cada tarea
-                const courseAssignments = assignmentsResponse.data.map(assignment => {
-
-                  return {
-                    ...assignment,
-                    courseId: course.id,
-                    course: {
-                      ...course,
-                      // Agregar información del profesor si no existe
-                      teacher: course.teacher || { id: course.owner_id, display_name: course.owner_name },
-                      // Agregar información de estudiantes si no existe
-                      students: course.students || []
-                    },
-                    dueDate: assignment.due_date ? new Date(assignment.due_date) : new Date(),
-                    maxPoints: assignment.max_points || 100,
-                    submissions: assignment.submissions || []
-                  };
-                });
+                // FILTRAR: Solo incluir tareas publicadas (status === 'published' o is_published === true)
+                const courseAssignments = assignmentsResponse.data
+                  .filter(assignment => {
+                    // Solo mostrar tareas publicadas
+                    return assignment.status === 'published' || assignment.is_published === true;
+                  })
+                  .map(assignment => {
+                    return {
+                      ...assignment,
+                      courseId: course.id,
+                      course: {
+                        ...course,
+                        // Agregar información del profesor si no existe
+                        teacher: course.teacher || { id: course.owner_id, display_name: course.owner_name },
+                        // Agregar información de estudiantes si no existe
+                        students: course.students || []
+                      },
+                      dueDate: assignment.due_date ? new Date(assignment.due_date) : new Date(),
+                      maxPoints: assignment.max_points || 100,
+                      submissions: assignment.submissions || []
+                    };
+                  });
                 // console.log(`🔍 Tareas procesadas para curso ${course.id}:`, courseAssignments);
                 allAssignments.push(...courseAssignments);
               }
