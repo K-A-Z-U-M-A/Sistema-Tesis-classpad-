@@ -448,10 +448,20 @@ router.post('/scan', authMiddleware, async (req, res) => {
       [session.id, session.course_id, req.user.id, latitude, longitude, qr_token]
     );
 
+    // Generate new QR token to prevent reuse/fraud
+    const newQrToken = crypto.randomBytes(32).toString('hex');
+    await pool.query(
+      `UPDATE attendance_sessions 
+       SET qr_token = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2`,
+      [newQrToken, session.id]
+    );
+
     res.status(201).json({
       success: true,
       message: 'Asistencia registrada exitosamente',
-      data: recordResult.rows[0]
+      data: recordResult.rows[0],
+      new_qr_token: newQrToken // Return new token for frontend update
     });
   } catch (error) {
     console.error('❌ Error scanning QR:', error);
@@ -649,17 +659,18 @@ router.post('/holidays', authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE /api/attendance/sessions/:sessionId - Deactivate session
+// DELETE /api/attendance/sessions/:sessionId - Delete session (or deactivate if query param ?permanent=false)
 router.delete('/sessions/:sessionId', authMiddleware, async (req, res) => {
   try {
     const { sessionId } = req.params;
+    const { permanent } = req.query; // Si permanent=true, elimina completamente. Si false o no existe, solo desactiva
 
     const { role } = req.user;
     
     if (role !== 'teacher') {
       return res.status(403).json({
         error: {
-          message: 'Solo los profesores pueden desactivar sesiones',
+          message: 'Solo los profesores pueden gestionar sesiones',
           code: 'INSUFFICIENT_PERMISSIONS'
         }
       });
@@ -687,30 +698,229 @@ router.delete('/sessions/:sessionId', authMiddleware, async (req, res) => {
     if (!isTeacher) {
       return res.status(403).json({
         error: {
-          message: 'No tienes permisos para desactivar esta sesión',
+          message: 'No tienes permisos para gestionar esta sesión',
           code: 'ACCESS_DENIED'
         }
       });
     }
 
-    // Deactivate session
-    await pool.query(
-      `UPDATE attendance_sessions SET is_active = false WHERE id = $1`,
-      [sessionId]
-    );
+    if (permanent === 'true') {
+      // Eliminar completamente: primero los registros, luego la sesión
+      // Usar transacción para asegurar que todo se elimine correctamente
+      await pool.query('BEGIN');
+      try {
+        // Eliminar todos los registros de asistencia de esta sesión
+        const deleteRecordsResult = await pool.query(
+          `DELETE FROM attendance_records WHERE session_id = $1`,
+          [sessionId]
+        );
+        
+        // Eliminar la sesión
+        await pool.query(
+          `DELETE FROM attendance_sessions WHERE id = $1`,
+          [sessionId]
+        );
+        
+        await pool.query('COMMIT');
+        
+        res.json({
+          success: true,
+          message: 'Sesión eliminada exitosamente',
+          deletedRecords: deleteRecordsResult.rowCount
+        });
+      } catch (error) {
+        await pool.query('ROLLBACK');
+        throw error;
+      }
+    } else {
+      // Solo desactivar (comportamiento por defecto)
+      await pool.query(
+        `UPDATE attendance_sessions SET is_active = false WHERE id = $1`,
+        [sessionId]
+      );
 
-    res.json({
-      success: true,
-      message: 'Sesión desactivada exitosamente'
-    });
+      res.json({
+        success: true,
+        message: 'Sesión desactivada exitosamente'
+      });
+    }
   } catch (error) {
-    console.error('❌ Error deactivating session:', error);
+    console.error('❌ Error managing session:', error);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
     res.status(500).json({
       error: {
         message: 'Error interno del servidor',
-        code: 'DEACTIVATE_SESSION_FAILED',
+        code: 'MANAGE_SESSION_FAILED',
+        details: error.message
+      }
+    });
+  }
+});
+
+// GET /api/attendance/courses/:courseId/stats - Get attendance statistics for a course
+router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    // Check access
+    const hasAccess = await isCourseTeacher(req.user.id, courseId) ||
+                      await isCourseStudent(req.user.id, courseId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({
+        error: {
+          message: 'No tienes acceso a este curso',
+          code: 'ACCESS_DENIED'
+        }
+      });
+    }
+
+    const cast = isUuid(courseId) ? '::uuid' : '';
+    
+    // Get all finished sessions for the course (only existing, non-deleted sessions)
+    const sessionsResult = await pool.query(
+      `SELECT id, title, start_time 
+       FROM attendance_sessions 
+       WHERE course_id = $1${cast} AND is_active = false
+       ORDER BY start_time ASC`,
+      [courseId]
+    );
+    
+    // Clean up orphaned records (records without existing sessions) - one-time cleanup
+    // This ensures data integrity
+    await pool.query(
+      `DELETE FROM attendance_records ar
+       WHERE ar.course_id = $1${cast}
+         AND NOT EXISTS (
+           SELECT 1 FROM attendance_sessions as_ 
+           WHERE as_.id = ar.session_id
+         )`,
+      [courseId]
+    );
+
+    const sessions = sessionsResult.rows;
+    
+    if (sessions.length === 0) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+
+    // Get all students in the course (try enrollments first, then course_students)
+    let studentsResult;
+    try {
+      studentsResult = await pool.query(
+        `SELECT DISTINCT u.id, u.display_name, u.cedula
+         FROM users u
+         INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
+         ORDER BY u.display_name`,
+        [courseId]
+      );
+      
+      // If no results, try course_students (legacy table)
+      if (studentsResult.rows.length === 0) {
+        studentsResult = await pool.query(
+          `SELECT DISTINCT u.id, u.display_name, u.cedula
+           FROM users u
+           INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
+           ORDER BY u.display_name`,
+          [courseId]
+        );
+      }
+    } catch (err) {
+      console.log('⚠️ First query failed, trying course_students:', err.message);
+      // Fallback to course_students on error
+      studentsResult = await pool.query(
+        `SELECT DISTINCT u.id, u.display_name, u.cedula
+         FROM users u
+         INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
+         ORDER BY u.display_name`,
+        [courseId]
+      );
+    }
+
+    const students = studentsResult.rows;
+    const stats = [];
+
+    // For each student, calculate attendance statistics
+    for (const student of students) {
+      let totalSessions = sessions.length;
+      let presentCount = 0;
+      let absentCount = 0;
+      let lateCount = 0;
+      let excusedCount = 0;
+
+      // Get all records for this student across all sessions
+      // Only include records that belong to existing sessions (prevent orphaned records)
+      const sessionIds = sessions.map(s => s.id);
+      if (sessionIds.length === 0) {
+        // No sessions, skip this student
+        continue;
+      }
+      
+      const recordsResult = await pool.query(
+        `SELECT ar.session_id, ar.status 
+         FROM attendance_records ar
+         INNER JOIN attendance_sessions as_ ON ar.session_id = as_.id
+         WHERE ar.student_id = $1 
+           AND ar.session_id = ANY($2::int[])
+           AND as_.course_id = $3${cast}`,
+        [student.id, sessionIds, courseId]
+      );
+
+      const recordsMap = new Map();
+      recordsResult.rows.forEach(record => {
+        recordsMap.set(record.session_id, record.status);
+      });
+
+      // Count attendance by status
+      for (const session of sessions) {
+        const status = recordsMap.get(session.id);
+        if (status === 'present') presentCount++;
+        else if (status === 'absent') absentCount++;
+        else if (status === 'late') lateCount++;
+        else if (status === 'excused') excusedCount++;
+        else absentCount++; // No record = absent
+      }
+
+      // Calculate percentage: (Present + Late + Excused) / Total Sessions
+      const attendancePercentage = totalSessions > 0 
+        ? ((presentCount + lateCount + excusedCount) / totalSessions) * 100 
+        : 0;
+      const isEnabled = attendancePercentage >= 60;
+
+      stats.push({
+        studentId: student.id,
+        studentName: student.display_name,
+        studentCedula: student.cedula || '',
+        totalSessions,
+        presentCount,
+        absentCount,
+        lateCount,
+        excusedCount,
+        attendancePercentage: Math.round(attendancePercentage * 100) / 100,
+        isEnabled,
+        isLowAverage: attendancePercentage < 60
+      });
+    }
+
+    // Sort by attendance percentage (lowest first)
+    stats.sort((a, b) => a.attendancePercentage - b.attendancePercentage);
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('❌ Error getting attendance stats:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
+        code: 'GET_ATTENDANCE_STATS_FAILED',
         details: error.message
       }
     });

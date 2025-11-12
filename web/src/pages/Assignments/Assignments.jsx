@@ -7,6 +7,7 @@ import {
   Grid,
   Card,
   CardContent,
+  Paper,
   Button,
   Chip,
   Avatar,
@@ -414,263 +415,239 @@ const Assignments = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
       >
-        {/* Primera fila: Filtros principales */}
-        <Box
-          display="flex"
-          gap={2}
-          mb={3}
-          flexWrap="wrap"
-          alignItems="center"
-          sx={{
-            '& > *': {
-              minWidth: { xs: '100%', sm: 'auto' },
-              flex: { xs: '1 1 100%', sm: '0 1 auto' }
-            }
+        <Paper 
+          elevation={1} 
+          sx={{ 
+            p: 3, 
+            mb: 3,
+            backgroundColor: 'background.paper',
+            borderRadius: 2
           }}
         >
-          <TextField
-            placeholder="Buscar tareas..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
-            }}
-            sx={{
-              minWidth: { xs: '100%', sm: 300 },
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2
-              }
-            }}
-          />
+          {/* Primera fila: Búsqueda y filtros principales */}
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            {/* Campo de búsqueda */}
+            <Grid item xs={12} sm={12} md={4}>
+              <TextField
+                fullWidth
+                placeholder="Buscar tareas..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2
+                  }
+                }}
+              />
+            </Grid>
 
-          <FormControl sx={{
-            minWidth: { xs: '100%', sm: 200 },
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2
-            }
-          }}>
-            <InputLabel>Filtrar por curso</InputLabel>
-            <Select
-              value={filterCourse}
-              onChange={(e) => setFilterCourse(e.target.value)}
-              label="Filtrar por curso"
-            >
-              <MenuItem value="">Todos los cursos</MenuItem>
-              {userCourses.map((course) => (
-                <MenuItem key={course.id} value={course.id}>
-                  {course.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+            {/* Filtro por curso */}
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth>
+                <InputLabel id="filter-course-label">Curso</InputLabel>
+                <Select
+                  labelId="filter-course-label"
+                  value={filterCourse}
+                  onChange={(e) => setFilterCourse(e.target.value)}
+                  label="Curso"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2
+                    }
+                  }}
+                >
+                  <MenuItem value="">Todos</MenuItem>
+                  {userCourses.map((course) => (
+                    <MenuItem key={course.id} value={course.id}>
+                      {course.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
 
-          {userSubjects.length > 0 && (
-            <FormControl sx={{
-              minWidth: { xs: '100%', sm: 200 },
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2
-              }
-            }}>
-              <InputLabel>Filtrar por materia</InputLabel>
-              <Select
-                value={filterSubject}
-                onChange={(e) => setFilterSubject(e.target.value)}
-                label="Filtrar por materia"
-              >
-                <MenuItem value="">Todas las materias</MenuItem>
-                {userSubjects.map((subject) => (
-                  <MenuItem key={subject} value={subject}>
-                    {subject}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
+            {/* Filtro por materia */}
+            {userSubjects.length > 0 && (
+              <Grid item xs={12} sm={6} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel id="filter-subject-label">Materia</InputLabel>
+                  <Select
+                    labelId="filter-subject-label"
+                    value={filterSubject}
+                    onChange={(e) => setFilterSubject(e.target.value)}
+                    label="Materia"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2
+                      }
+                    }}
+                  >
+                    <MenuItem value="">Todas</MenuItem>
+                    {userSubjects.map((subject) => (
+                      <MenuItem key={subject} value={subject}>
+                        {subject}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
 
-          {/* Filtro de estado de entregas */}
-          <FormControl sx={{
-            minWidth: { xs: '100%', sm: 200 },
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2
-            }
-          }}>
-            <InputLabel>Estado de entregas</InputLabel>
-            <Select
-              value={deliveryStatusFilter}
-              onChange={(e) => setDeliveryStatusFilter(e.target.value)}
-              label="Estado de entregas"
-              MenuProps={{
-                PaperProps: {
-                  sx: {
-                    '& .MuiMenuItem-root': {
-                      '&:hover': {
-                        backgroundColor: 'rgba(0, 122, 255, 0.08)',
+            {/* Filtro de estado de entregas */}
+            <Grid item xs={12} sm={6} md={userSubjects.length > 0 ? 2 : 3}>
+              <FormControl fullWidth>
+                <InputLabel id="filter-status-label">Estado</InputLabel>
+                <Select
+                  labelId="filter-status-label"
+                  value={deliveryStatusFilter}
+                  onChange={(e) => setDeliveryStatusFilter(e.target.value)}
+                  label="Estado"
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        '& .MuiMenuItem-root': {
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 122, 255, 0.08)',
+                          },
+                        },
                       },
                     },
-                  },
-                },
-              }}
-            >
-              <MenuItem
-                value=""
-                onClick={() => setDeliveryStatusFilter('')}
-              >
-                Todos los estados
-              </MenuItem>
-              {userProfile?.role === 'student' ? (
-                <>
-                  <MenuItem
-                    value="pending"
-                    onClick={() => setDeliveryStatusFilter('pending')}
-                  >
-                    Pendientes
-                  </MenuItem>
-                  <MenuItem
-                    value="urgent"
-                    onClick={() => setDeliveryStatusFilter('urgent')}
-                  >
-                    Urgentes
-                  </MenuItem>
-                  <MenuItem
-                    value="overdue"
-                    onClick={() => setDeliveryStatusFilter('overdue')}
-                  >
-                    Vencidas
-                  </MenuItem>
-                  <MenuItem
-                    value="completed"
-                    onClick={() => setDeliveryStatusFilter('completed')}
-                  >
-                    Completadas
-                  </MenuItem>
-                </>
-              ) : (
-                <>
-                  <MenuItem
-                    value="all_submitted"
-                    onClick={() => setDeliveryStatusFilter('all_submitted')}
-                  >
-                    Todas entregadas
-                  </MenuItem>
-                  <MenuItem
-                    value="partial_submitted"
-                    onClick={() => setDeliveryStatusFilter('partial_submitted')}
-                  >
-                    Entregas parciales
-                  </MenuItem>
-                  <MenuItem
-                    value="no_submissions"
-                    onClick={() => setDeliveryStatusFilter('no_submissions')}
-                  >
-                    Sin entregas
-                  </MenuItem>
-                  <MenuItem
-                    value="overdue"
-                    onClick={() => setDeliveryStatusFilter('overdue')}
-                  >
-                    Vencidas
-                  </MenuItem>
-                  <MenuItem
-                    value="no_students"
-                    onClick={() => setDeliveryStatusFilter('no_students')}
-                  >
-                    Sin estudiantes
-                  </MenuItem>
-                </>
-              )}
-            </Select>
-          </FormControl>
-        </Box>
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2
+                    }
+                  }}
+                >
+                  <MenuItem value="">Todos los estados</MenuItem>
+                  {userProfile?.role === 'student' ? (
+                    <>
+                      <MenuItem value="pending">Pendientes</MenuItem>
+                      <MenuItem value="urgent">Urgentes</MenuItem>
+                      <MenuItem value="overdue">Vencidas</MenuItem>
+                      <MenuItem value="completed">Completadas</MenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <MenuItem value="all_submitted">Todas entregadas</MenuItem>
+                      <MenuItem value="partial_submitted">Entregas parciales</MenuItem>
+                      <MenuItem value="no_submissions">Sin entregas</MenuItem>
+                      <MenuItem value="overdue">Vencidas</MenuItem>
+                      <MenuItem value="no_students">Sin estudiantes</MenuItem>
+                    </>
+                  )}
+                </Select>
+              </FormControl>
+            </Grid>
 
-        {/* Segunda fila: Ordenamiento y acciones */}
-        <Box
-          display="flex"
-          gap={2}
-          mb={4}
-          flexWrap="wrap"
-          alignItems="center"
-          sx={{
-            '& > *': {
-              minWidth: { xs: 'auto', sm: 'auto' },
-              flex: { xs: '0 1 auto', sm: '0 1 auto' }
-            }
-          }}
-        >
-          <FormControl sx={{
-            minWidth: { xs: 150, sm: 200 },
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2
-            }
-          }}>
-            <InputLabel>Ordenar por</InputLabel>
-            <Select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              label="Ordenar por"
-            >
-              <MenuItem value="dueDate">Fecha de entrega</MenuItem>
-              <MenuItem value="title">Título</MenuItem>
-              <MenuItem value="course">Curso</MenuItem>
-              <MenuItem value="subject">Materia</MenuItem>
-              </Select>
-            </FormControl>
+            {/* Ordenar por */}
+            <Grid item xs={12} sm={6} md={userSubjects.length > 0 ? 2 : 3}>
+              <FormControl fullWidth>
+                <InputLabel id="sort-by-label">Ordenar por</InputLabel>
+                <Select
+                  labelId="sort-by-label"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  label="Ordenar por"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2
+                    }
+                  }}
+                >
+                  <MenuItem value="dueDate">Fecha de entrega</MenuItem>
+                  <MenuItem value="title">Título</MenuItem>
+                  <MenuItem value="course">Curso</MenuItem>
+                  <MenuItem value="subject">Materia</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
 
-          <IconButton
-            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            color={sortOrder === 'asc' ? 'primary' : 'default'}
-            title={`Ordenar ${sortOrder === 'asc' ? 'descendente' : 'ascendente'}`}
+          {/* Segunda fila: Acciones y botones */}
+          <Box
+            display="flex"
+            gap={2}
+            flexWrap="wrap"
+            alignItems="center"
             sx={{
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-              minWidth: 48,
-              minHeight: 48
+              flexDirection: { xs: 'column', sm: 'row' },
+              '& > *': {
+                flex: { xs: '1 1 100%', sm: '0 1 auto' }
+              }
             }}
           >
-            <SortByAlpha />
-          </IconButton>
-
-          <Divider
-            orientation="vertical"
-            flexItem
-            sx={{
-              display: { xs: 'none', sm: 'block' }
-            }}
-          />
-
-          {userProfile?.role === 'student' && (
-            <Button
-              variant={showOnlyPending ? 'contained' : 'outlined'}
-              onClick={() => setShowOnlyPending(!showOnlyPending)}
-              startIcon={showOnlyPending ? <Visibility /> : <VisibilityOff />}
-              color="warning"
+            {/* Botón de orden alfabético */}
+            <IconButton
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              color={sortOrder === 'asc' ? 'primary' : 'default'}
+              title={`Ordenar ${sortOrder === 'asc' ? 'descendente' : 'ascendente'}`}
               sx={{
+                border: '1px solid',
+                borderColor: 'divider',
                 borderRadius: 2,
-                minWidth: { xs: 'auto', sm: 'auto' },
-                px: { xs: 2, sm: 3 }
+                minWidth: 48,
+                minHeight: 48,
+                width: { xs: '100%', sm: 48 },
+                height: 48
               }}
             >
-              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-                {showOnlyPending ? 'Mostrar todas' : 'Solo pendientes'}
-              </Box>
-              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
-                {showOnlyPending ? 'Todas' : 'Pendientes'}
-              </Box>
-            </Button>
-          )}
+              <SortByAlpha />
+            </IconButton>
 
-          {userProfile?.role === 'teacher' && (
-            <Button
-              variant={showOnlyWithPendingSubmissions ? 'contained' : 'outlined'}
-              onClick={() => setShowOnlyWithPendingSubmissions(!showOnlyWithPendingSubmissions)}
-              startIcon={showOnlyWithPendingSubmissions ? <Visibility /> : <VisibilityOff />}
-              color="error"
-              sx={{ borderRadius: 2 }}
-            >
-              {showOnlyWithPendingSubmissions ? 'Mostrar todas' : 'Con entregas pendientes'}
-            </Button>
-          )}
-        </Box>
+            <Divider
+              orientation="vertical"
+              flexItem
+              sx={{
+                display: { xs: 'none', sm: 'block' },
+                height: 32
+              }}
+            />
+
+            {/* Botones de filtros rápidos */}
+            {userProfile?.role === 'student' && (
+              <Button
+                fullWidth={false}
+                variant={showOnlyPending ? 'contained' : 'outlined'}
+                onClick={() => setShowOnlyPending(!showOnlyPending)}
+                startIcon={showOnlyPending ? <Visibility /> : <VisibilityOff />}
+                color="warning"
+                sx={{
+                  borderRadius: 2,
+                  minWidth: { xs: '100%', sm: 'auto' },
+                  px: 3
+                }}
+              >
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                  {showOnlyPending ? 'Mostrar todas' : 'Solo pendientes'}
+                </Box>
+                <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                  {showOnlyPending ? 'Todas' : 'Pendientes'}
+                </Box>
+              </Button>
+            )}
+
+            {userProfile?.role === 'teacher' && (
+              <Button
+                fullWidth={false}
+                variant={showOnlyWithPendingSubmissions ? 'contained' : 'outlined'}
+                onClick={() => setShowOnlyWithPendingSubmissions(!showOnlyWithPendingSubmissions)}
+                startIcon={showOnlyWithPendingSubmissions ? <Visibility /> : <VisibilityOff />}
+                color="error"
+                sx={{
+                  borderRadius: 2,
+                  minWidth: { xs: '100%', sm: 'auto' },
+                  px: 3
+                }}
+              >
+                {showOnlyWithPendingSubmissions ? 'Mostrar todas' : 'Con entregas pendientes'}
+              </Button>
+            )}
+          </Box>
+        </Paper>
 
         {/* Estadísticas rápidas */}
         <Box display="flex" gap={2} mb={3} flexWrap="wrap">

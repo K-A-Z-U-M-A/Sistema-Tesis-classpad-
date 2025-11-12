@@ -17,6 +17,8 @@ import {
   MenuItem,
   Divider,
   Badge,
+  Chip,
+  Tooltip,
   useTheme,
   useMediaQuery,
 } from '@mui/material';
@@ -39,6 +41,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import NotificationBell from '../Notifications/NotificationBell';
 import { useAssignmentCount } from '../../hooks/useAssignmentCount';
+// @ts-ignore
+import createSessionManager from '../../services/sessionManager';
+
+// Crear instancia del sessionManager para este componente
+const sessionManager = createSessionManager();
 
 const drawerWidth = 280;
 
@@ -70,6 +77,11 @@ export default function AppLayout({ children }) {
   const location = useLocation();
   const { userProfile, logout } = useAuth();
   const pendingAssignmentsCount = useAssignmentCount();
+  
+  // Obtener información de la sesión actual
+  const sessionInfo = sessionManager.getSessionInfo();
+  const sessionRole = sessionInfo?.role || userProfile?.role;
+  const sessionIdShort = sessionManager.getSessionId()?.substring(0, 8) || 'N/A';
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -348,6 +360,24 @@ export default function AppLayout({ children }) {
           >
             {menuItems.find(item => isActive(item.path))?.text || 'ClassPad'}
           </Typography>
+
+          {/* Indicador de sesión - Solo mostrar si hay múltiples sesiones posibles */}
+          {sessionRole && (
+            <Tooltip title={`Sesión: ${sessionIdShort} | Rol: ${sessionRole === 'teacher' ? 'Docente' : 'Estudiante'}`}>
+              <Chip
+                label={sessionRole === 'teacher' ? 'Docente' : 'Estudiante'}
+                size="small"
+                color={sessionRole === 'teacher' ? 'secondary' : 'primary'}
+                sx={{
+                  mr: { xs: 1, sm: 2 },
+                  display: { xs: 'none', sm: 'flex' }, // Ocultar en móviles
+                  height: '24px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600
+                }}
+              />
+            </Tooltip>
+          )}
 
           {/* Notificaciones */}
           <Box sx={{ mr: { xs: 1, sm: 2 } }}>
