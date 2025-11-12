@@ -78,7 +78,7 @@ router.get('/', authMiddleware, async (req, res) => {
       courses = await Promise.all(result.rows.map(async (course) => {
         const [studentCount, assignmentCount, studentsResult] = await Promise.all([
           pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
-          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND status = $2', [course.id, 'published']),
+          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND is_published = true', [course.id]),
           pool.query(`
             SELECT u.id, u.display_name, u.email, u.photo_url,
                    COALESCE(cs.enrolled_at, e.enrolled_at) as enrolled_at,
@@ -131,7 +131,7 @@ router.get('/', authMiddleware, async (req, res) => {
       courses = await Promise.all(result.rows.map(async (course) => {
         const [studentCount, assignmentCount, studentsResult] = await Promise.all([
           pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
-          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND status = $2', [course.id, 'published']),
+          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND is_published = true', [course.id]),
           pool.query(`
             SELECT u.id, u.display_name, u.email, u.photo_url,
                    COALESCE(cs.enrolled_at, e.enrolled_at) as enrolled_at,
