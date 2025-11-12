@@ -33,21 +33,40 @@ class SessionManager {
 
   /**
    * Obtiene o crea la huella digital de esta pestaña
-   * IMPORTANTE: El tabFingerprint NO se persiste - se genera cada vez
-   * Esto asegura que cada pestaña (incluso duplicadas) tenga su propio fingerprint único
+   * IMPORTANTE: El tabFingerprint se persiste en sessionStorage para sobrevivir recargas
+   * pero NO se copia al duplicar pestañas (sessionStorage es único por pestaña)
    */
   getOrCreateTabFingerprint() {
     if (this._tabFingerprint) {
       return this._tabFingerprint;
     }
     
-    // SIEMPRE generar un nuevo fingerprint - no persistir
-    // Esto asegura que cada pestaña tenga su propio fingerprint único
-    // incluso si se duplica (sessionStorage se copia pero fingerprint se regenera)
+    // Intentar recuperar de sessionStorage primero
+    try {
+      const stored = sessionStorage.getItem('app_tab_fingerprint');
+      if (stored) {
+        this._tabFingerprint = stored;
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🔐 TabFingerprint recuperado de sessionStorage: ${this._tabFingerprint.substring(0, 20)}...`);
+        }
+        return this._tabFingerprint;
+      }
+    } catch (e) {
+      console.warn('Error accediendo a sessionStorage para tabFingerprint:', e);
+    }
+    
+    // Si no existe, generar uno nuevo y persistirlo
     this._tabFingerprint = this.generateTabFingerprint();
     
+    // Persistir en sessionStorage para que sobreviva a recargas
+    try {
+      sessionStorage.setItem('app_tab_fingerprint', this._tabFingerprint);
+    } catch (e) {
+      console.warn('Error guardando tabFingerprint en sessionStorage:', e);
+    }
+    
     if (process.env.NODE_ENV === 'development') {
-      console.log(`🔐 Nuevo tabFingerprint generado: ${this._tabFingerprint.substring(0, 20)}...`);
+      console.log(`🔐 Nuevo tabFingerprint generado y persistido: ${this._tabFingerprint.substring(0, 20)}...`);
     }
     
     return this._tabFingerprint;
@@ -98,7 +117,7 @@ class SessionManager {
    * Inicializa el sessionManager - asegura que cada pestaña tenga su propio ID
    * ESTRATEGIA: 
    * - sessionId se persiste en sessionStorage (puede copiarse al duplicar)
-   * - tabFingerprint NO se persiste - se genera cada vez (único por pestaña)
+   * - tabFingerprint se persiste en sessionStorage (sobrevive recargas, NO se copia al duplicar)
    * - Al leer datos, verificamos sessionId Y tabFingerprint
    * - Si tabFingerprint no coincide, es otra pestaña y NO leemos los datos
    */
@@ -108,9 +127,9 @@ class SessionManager {
     // Obtener o crear sessionId desde sessionStorage
     this._sessionId = this.getOrCreateSessionId();
     
-    // Generar tabFingerprint único (NO se persiste, se genera cada vez)
-    // Esto asegura que cada pestaña tenga su propio fingerprint único
-    this._tabFingerprint = this.generateTabFingerprint();
+    // Obtener o crear tabFingerprint (se persiste en sessionStorage para sobrevivir recargas)
+    // Esto asegura que cada pestaña tenga su propio fingerprint único que persiste
+    this._tabFingerprint = this.getOrCreateTabFingerprint();
     
     this._storagePrefix = `session_${this._sessionId}_`;
     this._isInitialized = true;
@@ -520,6 +539,7 @@ class SessionManager {
     // Limpiar sessionStorage
     sessionStorage.removeItem('app_session_id');
     sessionStorage.removeItem('app_session_info');
+    sessionStorage.removeItem('app_tab_fingerprint');
     
     // Resetear estado interno
     this._tabFingerprint = null;
