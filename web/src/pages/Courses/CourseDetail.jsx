@@ -1680,6 +1680,7 @@ const CourseDetail = () => {
               due_date: assignmentMenuItem.due_date ? assignmentMenuItem.due_date.substring(0,10) : '', 
               due_time: assignmentMenuItem.due_time || '',
               is_published: !!assignmentMenuItem.is_published,
+              status: assignmentMenuItem.is_published ? 'published' : 'draft',
               attachments: attachments
             };
             setEditAssignment(assignmentData);
@@ -1974,7 +1975,18 @@ const CourseDetail = () => {
           <TextField fullWidth label="Hora límite" type="time" value={editAssignment.due_time} onChange={(e) => setEditAssignment(prev => ({ ...prev, due_time: e.target.value }))} InputLabelProps={{ shrink: true }} sx={{ mt: 2 }} />
           <Box sx={{ mt: 1 }}>
             <Chip label={editAssignment.status === 'published' ? 'Publicada' : 'Borrador'} color={editAssignment.status === 'published' ? 'success' : 'default'} />
-            <Button size="small" onClick={() => setEditAssignment(prev => ({ ...prev, status: prev.status === 'published' ? 'draft' : 'published' }))} sx={{ ml: 1 }}>
+            <Button
+              size="small"
+              onClick={() => setEditAssignment(prev => {
+                const nextStatus = prev.status === 'published' ? 'draft' : 'published';
+                return {
+                  ...prev,
+                  status: nextStatus,
+                  is_published: nextStatus === 'published'
+                };
+              })}
+              sx={{ ml: 1 }}
+            >
               {editAssignment.status === 'published' ? 'Cambiar a borrador' : 'Publicar'}
             </Button>
           </Box>
@@ -2076,13 +2088,43 @@ const CourseDetail = () => {
           <Button onClick={() => setEditAssignmentDialog(false)}>Cancelar</Button>
           <Button variant="contained" onClick={async () => {
             try {
-              const payload = { title: editAssignment.title, description: editAssignment.description, due_date: editAssignment.due_date || null, due_time: editAssignment.due_time || null, is_published: editAssignment.is_published };
+              const payload = {
+                title: editAssignment.title,
+                description: editAssignment.description,
+                due_date: editAssignment.due_date || null,
+                due_time: editAssignment.due_time || null,
+                status: editAssignment.status || (editAssignment.is_published ? 'published' : 'draft')
+              };
               const res = await api.updateAssignment(editAssignment.id, payload);
               if (res.success) {
                 toast.success('Tarea actualizada');
                 setEditAssignmentDialog(false);
+                // Recargar assignments de la unidad
                 const refreshed = await api.request(`/units/${editAssignment.unit_id}/assignments`);
-                setUnitAssignmentsMap(prev => ({ ...prev, [editAssignment.unit_id]: refreshed.success ? (refreshed.data || []) : [] }));
+                if (refreshed.success) {
+                  const assignments = refreshed.data || [];
+                  // Cargar attachments para cada assignment
+                  await Promise.all(assignments.map(async (assignment) => {
+                    try {
+                      const [attachmentsRes, materialsRes] = await Promise.all([
+                        api.request(`/assignments/${assignment.id}/attachments`),
+                        api.getAssignmentMaterials(assignment.id)
+                      ]);
+                      assignment.attachments = attachmentsRes.success ? (attachmentsRes.data?.data || []) : [];
+                      assignment.materials = materialsRes.success ? (materialsRes.data || []) : [];
+                    } catch (error) {
+                      console.error('Error loading attachments/materials:', error);
+                      assignment.attachments = [];
+                      assignment.materials = [];
+                    }
+                  }));
+                  setUnitAssignmentsMap(prev => ({ ...prev, [editAssignment.unit_id]: assignments }));
+                }
+                // También recargar la lista completa de assignments del curso
+                const courseAssignmentsRes = await api.request(`/assignments/course/${courseId}`);
+                if (courseAssignmentsRes.success) {
+                  setAssignments(courseAssignmentsRes.data || []);
+                }
               } else {
                 toast.error(res.error?.message || 'No se pudo actualizar la tarea');
               }
