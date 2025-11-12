@@ -5,6 +5,7 @@ import {
   Typography,
   Box,
   Card,
+  CardActionArea,
   CardContent,
   LinearProgress,
   Chip,
@@ -301,84 +302,85 @@ const CourseCard = ({ course }) => {
 
 // Componente de tarea pendiente
 const PendingTask = ({ assignment }) => {
-  if (!assignment.due_date) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Card sx={{ 
-          mb: 2,
-          borderRadius: 3,
-          '&:hover': {
-            transform: 'translateY(-2px)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-          },
-          transition: 'all 0.3s ease'
-        }}>
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Box 
-              display="flex" 
-              alignItems="center" 
-              justifyContent="space-between"
-              flexDirection={{ xs: 'column', sm: 'row' }}
-              gap={{ xs: 1, sm: 0 }}
-              textAlign={{ xs: 'center', sm: 'left' }}
-            >
-              <Box>
-                <Typography 
-                  variant="subtitle1" 
-                  fontWeight="medium"
-                  sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}
-                >
-                  {assignment.title}
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary"
-                  sx={{ 
-                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                    display: '-webkit-box',
-                    WebkitLineClamp: { xs: 2, sm: 3 },
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden'
-                  }}
-                >
-                  {assignment.description}
-                </Typography>
-              </Box>
-              <Box textAlign={{ xs: 'center', sm: 'right' }}>
-                <Chip
-                  label="Sin fecha límite"
-                  color="default"
-                  size="small"
-                  sx={{ 
-                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                    height: { xs: 24, sm: 28 }
-                  }}
-                />
-                <Typography 
-                  variant="caption" 
-                  display="block" 
-                  color="text.secondary" 
-                  sx={{ 
-                    mt: 1,
-                    fontSize: { xs: '0.7rem', sm: '0.75rem' }
-                  }}
-                >
-                  {assignment.max_points || 0} puntos
-                </Typography>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-      </motion.div>
-    );
-  }
-  
-  const daysLeft = Math.ceil((new Date(assignment.due_date) - new Date()) / (1000 * 60 * 60 * 24));
-  const isOverdue = daysLeft < 0;
+  const navigate = useNavigate();
+  const assignmentId = assignment.id ?? assignment.assignment_id;
+  const hasDueDate = Boolean(assignment.due_date);
+  const dueDate = hasDueDate ? new Date(assignment.due_date) : null;
+  const now = new Date();
+  const rawDaysLeft = hasDueDate ? (dueDate - now) / (1000 * 60 * 60 * 24) : null;
+  const daysLeft = hasDueDate ? Math.ceil(rawDaysLeft) : null;
+  const isOverdue = hasDueDate ? rawDaysLeft < 0 : false;
+  const isUrgent = hasDueDate ? daysLeft <= 3 : false;
+  const isSoon = hasDueDate ? daysLeft <= 7 : false;
+
+  const statusKey = !hasDueDate
+    ? 'noDue'
+    : isOverdue
+    ? 'overdue'
+    : isUrgent
+    ? 'urgent'
+    : isSoon
+    ? 'soon'
+    : 'scheduled';
+
+  const statusVisuals = {
+    overdue: {
+      accent: 'rgba(244,67,54,0.95)',
+      background: 'linear-gradient(135deg, rgba(244,67,54,0.18), rgba(244,67,54,0.05))',
+      borderColor: 'rgba(244,67,54,0.35)',
+      chipColor: 'error'
+    },
+    urgent: {
+      accent: 'rgba(255,82,82,0.9)',
+      background: 'linear-gradient(135deg, rgba(255,82,82,0.16), rgba(255,82,82,0.05))',
+      borderColor: 'rgba(255,82,82,0.3)',
+      chipColor: 'error'
+    },
+    soon: {
+      accent: 'rgba(255,152,0,0.9)',
+      background: 'linear-gradient(135deg, rgba(255,152,0,0.16), rgba(255,152,0,0.05))',
+      borderColor: 'rgba(255,152,0,0.3)',
+      chipColor: 'warning'
+    },
+    scheduled: {
+      accent: 'rgba(76,175,80,0.9)',
+      background: 'linear-gradient(135deg, rgba(76,175,80,0.16), rgba(76,175,80,0.05))',
+      borderColor: 'rgba(76,175,80,0.28)',
+      chipColor: 'success'
+    },
+    noDue: {
+      accent: 'rgba(63,81,181,0.85)',
+      background: 'linear-gradient(135deg, rgba(63,81,181,0.16), rgba(63,81,181,0.05))',
+      borderColor: 'rgba(63,81,181,0.28)',
+      chipColor: 'default'
+    }
+  };
+
+  const visuals = statusVisuals[statusKey];
+  const chipLabel = !hasDueDate
+    ? 'Sin fecha límite'
+    : isOverdue
+    ? 'Vencida'
+    : daysLeft === 0
+    ? 'Entrega hoy'
+    : daysLeft === 1
+    ? '1 día'
+    : `${daysLeft} días`;
+
+  const dueDateLabel = hasDueDate
+    ? dueDate.toLocaleString('es-ES', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    : 'Entrega flexible';
+
+  const handleNavigate = () => {
+    if (assignmentId) {
+      navigate(`/assignments/${assignmentId}`);
+    }
+  };
 
   return (
     <motion.div
@@ -386,70 +388,148 @@ const PendingTask = ({ assignment }) => {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card sx={{ 
-        mb: 2,
-        borderRadius: 3,
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-        },
-        transition: 'all 0.3s ease'
-      }}>
-        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-          <Box 
-            display="flex" 
-            alignItems="center" 
-            justifyContent="space-between"
-            flexDirection={{ xs: 'column', sm: 'row' }}
-            gap={{ xs: 1, sm: 0 }}
-            textAlign={{ xs: 'center', sm: 'left' }}
+      <Card
+        sx={{
+          mb: 2,
+          borderRadius: 3,
+          position: 'relative',
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: visuals.borderColor,
+          background: visuals.background,
+          boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
+          cursor: assignmentId ? 'pointer' : 'default',
+          transition: 'transform 0.25s ease, box-shadow 0.25s ease',
+          '&:hover': {
+            transform: assignmentId ? 'translateY(-4px)' : 'none',
+            boxShadow: assignmentId ? '0 10px 28px rgba(0,0,0,0.12)' : '0 6px 18px rgba(0,0,0,0.08)'
+          },
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: '6px',
+            backgroundColor: visuals.accent
+          }
+        }}
+      >
+        <CardActionArea
+          onClick={handleNavigate}
+          disableRipple={!assignmentId}
+          sx={{
+            height: '100%',
+            alignItems: 'stretch',
+            display: 'flex'
+          }}
+        >
+          <CardContent
+            sx={{
+              width: '100%',
+              p: { xs: 2, sm: 3 },
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1.5
+            }}
           >
-            <Box>
-              <Typography 
-                variant="subtitle1" 
-                fontWeight="medium"
-                sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}
-              >
-                {assignment.title}
-              </Typography>
-              <Typography 
-                variant="body2" 
-                color="text.secondary"
-                sx={{ 
-                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                  display: '-webkit-box',
-                  WebkitLineClamp: { xs: 2, sm: 3 },
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden'
-                }}
-              >
-                {assignment.description}
-              </Typography>
+            <Box
+              display="flex"
+              alignItems="flex-start"
+              justifyContent="space-between"
+              flexDirection={{ xs: 'column', sm: 'row' }}
+              gap={{ xs: 1.5, sm: 2 }}
+              textAlign={{ xs: 'center', sm: 'left' }}
+            >
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight="bold"
+                  sx={{ fontSize: { xs: '0.95rem', sm: '1.05rem' }, mb: 0.5 }}
+                >
+                  {assignment.title}
+                </Typography>
+                {assignment.course?.name && (
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}
+                  >
+                    {assignment.course.name}
+                  </Typography>
+                )}
+                {assignment.description && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      fontSize: { xs: '0.75rem', sm: '0.85rem' },
+                      display: '-webkit-box',
+                      WebkitLineClamp: { xs: 2, sm: 3 },
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {assignment.description}
+                  </Typography>
+                )}
+              </Box>
+              <Box textAlign={{ xs: 'center', sm: 'right' }}>
+                <Chip
+                  label={chipLabel}
+                  color={visuals.chipColor}
+                  size="small"
+                  sx={{
+                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                    height: { xs: 24, sm: 28 },
+                    fontWeight: 600
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  display="block"
+                  color="text.secondary"
+                  sx={{
+                    mt: 1,
+                    fontSize: { xs: '0.7rem', sm: '0.75rem' }
+                  }}
+                >
+                  {assignment.max_points || assignment.maxPoints || 0} puntos
+                </Typography>
+              </Box>
             </Box>
-            <Box textAlign={{ xs: 'center', sm: 'right' }}>
-              <Chip
-                label={isOverdue ? 'Vencida' : `${daysLeft} días`}
-                color={isOverdue ? 'error' : daysLeft <= 3 ? 'warning' : 'default'}
-                size="small"
-                sx={{ 
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                  height: { xs: 24, sm: 28 }
-                }}
-              />
-              <Typography 
-                variant="caption" 
-                display="block" 
-                color="text.secondary" 
-                sx={{ 
-                  mt: 1,
-                  fontSize: { xs: '0.7rem', sm: '0.75rem' }
-                }}
-              >
-                {assignment.max_points || assignment.maxPoints || 0} puntos
-              </Typography>
+
+            <Box
+              display="flex"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              justifyContent="space-between"
+              flexDirection={{ xs: 'column', sm: 'row' }}
+              gap={{ xs: 1, sm: 0 }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AccessTime sx={{ fontSize: 18, color: visuals.accent }} />
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 600, color: visuals.accent, letterSpacing: 0.3 }}
+                >
+                  {dueDateLabel}
+                </Typography>
+              </Box>
+              {assignmentId && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: 'text.secondary',
+                    fontWeight: 500,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.8
+                  }}
+                >
+                  Ver detalles ->
+                </Typography>
+              )}
             </Box>
-          </Box>
-        </CardContent>
+          </CardContent>
+        </CardActionArea>
       </Card>
     </motion.div>
   );
