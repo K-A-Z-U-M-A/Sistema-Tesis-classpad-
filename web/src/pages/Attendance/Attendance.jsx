@@ -613,13 +613,14 @@ export default function Attendance() {
   };
   
   // Cerrar sesión expandida
-  const closeExpandedSession = (sessionId) => {
+  const closeExpandedSession = (sessionId, options = {}) => {
+    const { keepSelected = false } = options;
     setExpandedSessions(prev => {
       const newSet = new Set(prev);
       newSet.delete(sessionId);
       return newSet;
     });
-    if (selectedSession?.id === sessionId) {
+    if (!keepSelected && selectedSession?.id === sessionId) {
       setSelectedSession(null);
     }
   };
@@ -1502,7 +1503,7 @@ export default function Attendance() {
               variant="contained"
               onClick={() => {
                 setStudentAttendanceDialogOpen(true);
-                closeExpandedSession(selectedSession.id);
+                closeExpandedSession(selectedSession.id, { keepSelected: true });
               }}
               disabled={loading}
             >

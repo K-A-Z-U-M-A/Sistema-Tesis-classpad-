@@ -240,7 +240,13 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
     
     const result = await pool.query(query, params);
 
-    res.json({ success: true, data: result.rows });
+    // Map is_published to status for frontend compatibility
+    const assignments = result.rows.map(row => ({
+      ...row,
+      status: row.is_published ? 'published' : 'draft'
+    }));
+
+    res.json({ success: true, data: assignments });
   } catch (error) {
     console.error('Error getting unit assignments:', error);
     res.status(500).json({ error: { message: 'Error interno del servidor', code: 'GET_UNIT_ASSIGNMENTS_FAILED' } });
@@ -491,7 +497,13 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
       }
     }
 
-    res.status(201).json({ success: true, data: assignment });
+    res.status(201).json({ 
+      success: true, 
+      data: {
+        ...assignment,
+        status: assignment.is_published ? 'published' : 'draft'
+      }
+    });
   } catch (error) {
     console.error('Error creating assignment in unit:', error);
     console.error('Error stack:', error.stack);

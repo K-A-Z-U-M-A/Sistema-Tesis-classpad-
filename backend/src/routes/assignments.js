@@ -228,6 +228,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
       data: {
         assignment: {
           ...assignment,
+          status: assignment.is_published ? 'published' : 'draft',
           rubric: parsedRubric
         },
         attachments: attachmentsResult.rows,
@@ -387,6 +388,7 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
       
       assignments.push({
         ...assignment,
+        status: assignment.is_published ? 'published' : 'draft',
         attachments: attachmentsResult.rows,
         submissions: submissionsResult.rows,
         assigned_student_count: assignedStudentCount,
@@ -644,10 +646,12 @@ router.put('/:id', authMiddleware, async (req, res) => {
       }
     }
 
+    const assignment = result.rows[0];
     res.json({
       success: true,
       data: {
-        ...result.rows[0],
+        ...assignment,
+        status: assignment.is_published ? 'published' : 'draft',
         rubric: parsedRubric
       }
     });
