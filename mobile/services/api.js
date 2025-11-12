@@ -394,6 +394,10 @@ class ApiService {
     });
   }
 
+  async getCourseAttendanceStats(courseId) {
+    return this.request(`/attendance/courses/${courseId}/stats`);
+  }
+
   // Message methods
   async getMessages(courseId) {
     return this.request(`/messages/${courseId}`);

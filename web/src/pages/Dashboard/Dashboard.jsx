@@ -16,7 +16,8 @@ import {
   ListItem,
   ListItemText,
   ListItemAvatar,
-  Avatar
+  Avatar,
+  Button
 } from '@mui/material';
 import {
   School,
@@ -56,80 +57,127 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
-// Componente de tarjeta de estadística
-const StatCard = ({ title, value, icon, color, subtitle }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.5 }}
-  >
-    <Card
-      sx={{
-        height: '100%',
-        background: `linear-gradient(135deg, ${color}15, ${color}05)`,
-        border: `1px solid ${color}20`,
-        borderRadius: 3
-      }}
+// Componente de tarjeta de estadística mejorado
+const StatCard = ({ title, value, icon, color, subtitle }) => {
+  // Formatear el valor para mostrar
+  const formatValue = (val) => {
+    // Si el valor ya es un string, devolverlo tal cual (puede incluir % u otros formatos)
+    if (typeof val === 'string') return val;
+    
+    // Si es null o undefined, devolver N/A
+    if (val === null || val === undefined) return 'N/A';
+    
+    // Si es un número
+    if (typeof val === 'number') {
+      // Si es un número entero, devolverlo formateado
+      if (Number.isInteger(val)) return val.toLocaleString('es-ES');
+      // Si es un número decimal, formatearlo con 1 decimal
+      return val.toFixed(1);
+    }
+    
+    // Para cualquier otro tipo, convertir a string
+    return String(val);
+  };
+
+  const displayValue = formatValue(value);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
     >
-      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-        <Box 
-          display="flex" 
-          alignItems="center" 
-          justifyContent="space-between"
-          flexDirection={{ xs: 'column', sm: 'row' }}
-          gap={{ xs: 1, sm: 0 }}
-          textAlign={{ xs: 'center', sm: 'left' }}
-        >
-          <Box>
-            <Typography 
-              variant="h4" 
-              component="div" 
-              color={color} 
-              fontWeight="bold"
-              sx={{ fontSize: { xs: '1.8rem', sm: '2.125rem' } }}
-            >
-              {value}
-            </Typography>
-            <Typography 
-              variant="body2" 
-              color="text.secondary" 
-              sx={{ 
-                mt: 1,
-                fontSize: { xs: '0.75rem', sm: '0.875rem' }
-              }}
-            >
-              {title}
-            </Typography>
-            {subtitle && (
-              <Typography 
-                variant="caption" 
-                color="text.secondary"
-                sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
-              >
-                {subtitle}
-              </Typography>
-            )}
-          </Box>
-          <Box
-            sx={{
-              p: { xs: 1, sm: 1.5 },
-              borderRadius: 2,
-              backgroundColor: `${color}15`,
-              color: color,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
+      <Card
+        sx={{
+          height: '100%',
+          minHeight: { xs: 120, sm: 140 },
+          background: `linear-gradient(135deg, ${color}15, ${color}05)`,
+          border: `1px solid ${color}30`,
+          borderRadius: 3,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
+          }
+        }}
+      >
+        <CardContent sx={{ p: { xs: 2, sm: 3 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Box 
+            display="flex" 
+            alignItems="flex-start" 
+            justifyContent="space-between"
+            sx={{ 
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: { xs: 1.5, sm: 2 },
+              flex: 1
             }}
           >
-            {React.cloneElement(icon, { 
-              sx: { fontSize: { xs: 20, sm: 24 } } 
-            })}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography 
+                variant="h4" 
+                component="div" 
+                sx={{ 
+                  color: color,
+                  fontWeight: 700,
+                  fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.5rem' },
+                  lineHeight: 1.2,
+                  mb: 0.5,
+                  wordBreak: 'break-word'
+                }}
+              >
+                {displayValue}
+              </Typography>
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  color: 'text.secondary',
+                  fontWeight: 500,
+                  fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                  mb: subtitle ? 0.5 : 0
+                }}
+              >
+                {title}
+              </Typography>
+              {subtitle && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: 'text.secondary',
+                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                    display: 'block',
+                    mt: 0.5,
+                    opacity: 0.8
+                  }}
+                >
+                  {subtitle}
+                </Typography>
+              )}
+            </Box>
+            <Box
+              sx={{
+                p: { xs: 1.25, sm: 1.5 },
+                borderRadius: 2,
+                backgroundColor: `${color}20`,
+                color: color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                width: { xs: 48, sm: 56 },
+                height: { xs: 48, sm: 56 }
+              }}
+            >
+              {React.cloneElement(icon, { 
+                sx: { fontSize: { xs: 24, sm: 28 } } 
+              })}
+            </Box>
           </Box>
-        </Box>
-      </CardContent>
-    </Card>
-  </motion.div>
-);
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
 
 // Componente de tarjeta de curso
 const CourseCard = ({ course }) => {
@@ -587,59 +635,86 @@ const Dashboard = () => {
 
   // Calcular estadísticas básicas (solo conteos, no promedios globales)
   const totalCourses = isTeacher 
-    ? (teacherStats?.totalCourses || courses.length || 0)
-    : (teacherStats?.totalCourses || courses.length || 0);
+    ? (teacherStats?.totalCourses ?? courses.length ?? 0)
+    : (teacherStats?.totalCourses ?? courses.length ?? 0);
   const totalAssignments = isTeacher
-    ? (teacherStats?.totalAssignments || assignments.length || 0)
-    : (teacherStats?.totalAssignments || assignments.length || 0);
+    ? (teacherStats?.totalAssignments ?? assignments.length ?? 0)
+    : (teacherStats?.totalAssignments ?? assignments.length ?? 0);
   
-  // Para estudiantes
-  const completedAssignments = !isTeacher && teacherStats 
-    ? (teacherStats.completedAssignments || 0)
+  // Para estudiantes - calcular desde las tareas si no hay estadísticas del backend
+  const completedAssignments = !isTeacher
+    ? (teacherStats?.completedAssignments ?? 
+       assignments.filter(a => a.submission_id || a.submission_status === 'submitted' || a.submission_status === 'graded').length ?? 0)
     : 0;
-  const pendingAssignments = !isTeacher && teacherStats
-    ? (teacherStats.pendingAssignments || 0)
+  const pendingAssignments = !isTeacher
+    ? (teacherStats?.pendingAssignments ?? 
+       assignments.filter(a => {
+         if (a.submission_id) return false;
+         if (!a.due_date) return true;
+         return new Date(a.due_date) >= new Date();
+       }).length ?? 0)
     : 0;
-  const overdueAssignments = !isTeacher && teacherStats
-    ? (teacherStats.overdueAssignments || 0)
+  const overdueAssignments = !isTeacher
+    ? (teacherStats?.overdueAssignments ?? 
+       assignments.filter(a => {
+         if (a.submission_id) return false;
+         if (!a.due_date) return false;
+         return new Date(a.due_date) < new Date();
+       }).length ?? 0)
     : 0;
-  const averageGrade = !isTeacher && teacherStats
-    ? (teacherStats.averageGrade || 0)
+  // Calcular promedio de calificaciones para estudiantes
+  const averageGrade = !isTeacher
+    ? (teacherStats && typeof teacherStats.averageGrade === 'number' && teacherStats.averageGrade > 0
+        ? teacherStats.averageGrade
+        : (() => {
+            // Intentar calcular desde las tareas si hay calificaciones
+            const gradedAssignments = assignments.filter(a => 
+              a.grade !== null && a.grade !== undefined && a.submission_status === 'graded'
+            );
+            if (gradedAssignments.length > 0) {
+              const sum = gradedAssignments.reduce((acc, a) => {
+                const grade = typeof a.grade === 'number' ? a.grade : parseFloat(a.grade);
+                return acc + (isNaN(grade) ? 0 : grade);
+              }, 0);
+              return sum / gradedAssignments.length;
+            }
+            return 0;
+          })())
     : 0;
   
   // Para profesores
   // Sumar estudiantes de todos los cursos (cada curso es independiente)
   const totalStudents = isTeacher && teacherStats?.coursesStats
-    ? teacherStats.coursesStats.reduce((sum, course) => sum + (course.studentCount || 0), 0)
+    ? teacherStats.coursesStats.reduce((sum, course) => sum + (course.studentCount ?? 0), 0)
     : isTeacher
-    ? courses.reduce((sum, course) => sum + (course.student_count || 0), 0)
+    ? courses.reduce((sum, course) => sum + (course.student_count ?? 0), 0)
     : 0;
   
   // Estudiantes activos (últimos 7 días)
   const totalActiveStudents = isTeacher && teacherStats
-    ? (teacherStats.totalActiveStudents 
-      || teacherStats.coursesStats?.reduce((sum, course) => sum + (course.activeStudentsCount || 0), 0))
+    ? (teacherStats.totalActiveStudents ?? 
+       teacherStats.coursesStats?.reduce((sum, course) => sum + (course.activeStudentsCount ?? 0), 0) ?? 0)
     : 0;
   
   // Sumar tareas pendientes de revisión (por curso)
   const assignmentsPendingReview = isTeacher && teacherStats
-    ? (teacherStats.assignmentsPendingReview || 0)
+    ? (teacherStats.assignmentsPendingReview ?? 0)
     : 0;
   const assignmentsUpcoming = isTeacher && teacherStats
-    ? (teacherStats.assignmentsUpcoming || 0)
+    ? (teacherStats.assignmentsUpcoming ?? 0)
     : 0;
   
   // Actividad reciente
   const recentSubmissions = isTeacher && teacherStats
-    ? (teacherStats.recentSubmissions || 0)
+    ? (teacherStats.recentSubmissions ?? 0)
     : 0;
   const recentGrades = isTeacher && teacherStats
-    ? (teacherStats.recentGrades || 0)
+    ? (teacherStats.recentGrades ?? 0)
     : 0;
   
   // Tasa de participación promedio
   const averageParticipationRate = isTeacher && teacherStats
-    ? (teacherStats.averageParticipationRate || 0)
+    ? (typeof teacherStats.averageParticipationRate === 'number' ? teacherStats.averageParticipationRate : 0)
     : 0;
   
   // Para estadísticas por curso
@@ -719,7 +794,7 @@ const Dashboard = () => {
                 value={totalStudents}
                 icon={<People />}
                 color="#34C759"
-                subtitle={`${totalActiveStudents} activos (7 días)`}
+                subtitle={totalActiveStudents > 0 ? `${totalActiveStudents} activos (7 días)` : 'Sin actividad reciente'}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
@@ -734,7 +809,7 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
                 title="Tasa de Participación"
-                value={averageParticipationRate > 0 ? `${averageParticipationRate.toFixed(1)}%` : 'N/A'}
+                value={averageParticipationRate > 0 ? `${averageParticipationRate.toFixed(1)}%` : '0%'}
                 icon={<TrendingUp />}
                 color="#9C27B0"
                 subtitle="Promedio de entregas"
@@ -773,69 +848,85 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={3}>
               <StatCard
                 title="Promedio"
-                value={averageGrade > 0 ? `${averageGrade.toFixed(1)}%` : 'N/A'}
+                value={averageGrade > 0 ? `${averageGrade.toFixed(1)}%` : '0%'}
                 icon={<TrendingUp />}
                 color="#9C27B0"
-                subtitle="Calificaciones"
+                subtitle={averageGrade > 0 ? 'Calificaciones' : 'Sin calificaciones aún'}
               />
             </Grid>
           </>
         )}
       </Grid>
 
+      {/* Estadísticas adicionales para estudiantes */}
+      {!isTeacher && (
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mt: 2 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Tareas Pendientes"
+              value={pendingAssignments}
+              icon={<Schedule />}
+              color="#FF9800"
+              subtitle="Por entregar"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Tareas Vencidas"
+              value={overdueAssignments}
+              icon={<Warning />}
+              color="#F44336"
+              subtitle="Requieren atención"
+            />
+          </Grid>
+        </Grid>
+      )}
+
       {/* Estadísticas adicionales para profesores - Métricas de actividad */}
       {isTeacher && teacherStats && (
         <>
           <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mt: 2 }}>
-            {assignmentsPendingReview > 0 && (
-              <Grid item xs={12} sm={6} md={3}>
-                <StatCard
-                  title="Tareas Pendientes"
-                  value={assignmentsPendingReview}
-                  icon={<Warning />}
-                  color="#FF5722"
-                  subtitle="Sin calificar"
-                />
-              </Grid>
-            )}
-            {assignmentsUpcoming > 0 && (
-              <Grid item xs={12} sm={6} md={3}>
-                <StatCard
-                  title="Tareas Próximas"
-                  value={assignmentsUpcoming}
-                  icon={<Schedule />}
-                  color="#FF9800"
-                  subtitle="Vencen en 7 días"
-                />
-              </Grid>
-            )}
-            {recentSubmissions > 0 && (
-              <Grid item xs={12} sm={6} md={3}>
-                <StatCard
-                  title="Entregas Recientes"
-                  value={recentSubmissions}
-                  icon={<CheckCircle />}
-                  color="#4CAF50"
-                  subtitle="Últimos 7 días"
-                />
-              </Grid>
-            )}
-            {recentGrades > 0 && (
-              <Grid item xs={12} sm={6} md={3}>
-                <StatCard
-                  title="Calificaciones Recientes"
-                  value={recentGrades}
-                  icon={<Assessment />}
-                  color="#2196F3"
-                  subtitle="Últimos 7 días"
-                />
-              </Grid>
-            )}
-            {teacherStats.totalAttendanceSessions > 0 && (
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard
+                title="Tareas Pendientes"
+                value={assignmentsPendingReview}
+                icon={<Warning />}
+                color="#FF5722"
+                subtitle="Sin calificar"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard
+                title="Tareas Próximas"
+                value={assignmentsUpcoming}
+                icon={<Schedule />}
+                color="#FF9800"
+                subtitle="Vencen en 7 días"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard
+                title="Entregas Recientes"
+                value={recentSubmissions}
+                icon={<CheckCircle />}
+                color="#4CAF50"
+                subtitle="Últimos 7 días"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <StatCard
+                title="Calificaciones Recientes"
+                value={recentGrades}
+                icon={<Assessment />}
+                color="#2196F3"
+                subtitle="Últimos 7 días"
+              />
+            </Grid>
+            {(teacherStats.totalAttendanceSessions ?? 0) > 0 && (
               <Grid item xs={12} sm={6} md={3}>
                 <StatCard
                   title="Sesiones de Asistencia"
-                  value={teacherStats.totalAttendanceSessions}
+                  value={teacherStats.totalAttendanceSessions ?? 0}
                   icon={<CalendarToday />}
                   color="#00BCD4"
                   subtitle="Total creadas"
@@ -897,7 +988,7 @@ const Dashboard = () => {
           <Grid container spacing={3} sx={{ mt: 2 }}>
             {performanceData.length > 0 ? (
               <>
-                {/* Gráfico de rendimiento por curso */}
+                {/* Primera fila: Gráfico de rendimiento y Resumen por curso */}
                 <Grid item xs={12} md={8}>
                   <Card sx={{ borderRadius: 3 }}>
                     <CardContent>
@@ -909,96 +1000,143 @@ const Dashboard = () => {
                   </Card>
                 </Grid>
 
-              {/* Resumen por curso mejorado */}
-              <Grid item xs={12} md={4}>
-                <Card sx={{ borderRadius: 3, height: '100%' }}>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 3 }}>
-                      Resumen por Curso
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '70vh', overflowY: 'auto', pr: 1 }}>
-                      {performanceData.map((course, index) => (
-                        <Card 
-                          key={index} 
-                          variant="outlined" 
-                          sx={{ 
-                            p: 1.5, 
-                            borderLeft: `3px solid ${coursesWithStats[index]?.color || '#1976d2'}`,
-                            '&:hover': {
-                              boxShadow: 2
-                            }
-                          }}
-                        >
-                          <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                            {course.fullName || course.name}
+                {/* Resumen por curso mejorado */}
+                <Grid item xs={12} md={4}>
+                  <Card sx={{ borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+                      <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
+                        Resumen por Curso
+                      </Typography>
+                      <Box 
+                        sx={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: 2, 
+                          flex: 1,
+                          overflowY: 'auto',
+                          overflowX: 'hidden',
+                          pr: 1,
+                          minHeight: 0
+                        }}
+                      >
+                        {performanceData.length === 0 ? (
+                          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                            No hay datos de cursos disponibles
                           </Typography>
-                          <Grid container spacing={1} sx={{ mt: 0.5 }}>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">Estudiantes:</Typography>
-                              <Typography variant="body2" fontWeight="bold">{course.studentCount}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">Activos:</Typography>
-                              <Typography variant="body2" fontWeight="bold" color="success.main">
-                                {course.activeStudentsCount}
+                        ) : (
+                          performanceData.map((course, index) => (
+                            <Card 
+                              key={index} 
+                              variant="outlined" 
+                              sx={{ 
+                                p: 2, 
+                                borderLeft: `4px solid ${coursesWithStats[index]?.color || '#1976d2'}`,
+                                '&:hover': {
+                                  boxShadow: 3,
+                                  transform: 'translateY(-2px)',
+                                  transition: 'all 0.2s ease'
+                                },
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              <Typography 
+                                variant="subtitle2" 
+                                fontWeight="bold" 
+                                gutterBottom
+                                sx={{ 
+                                  mb: 1.5,
+                                  wordBreak: 'break-word',
+                                  lineHeight: 1.3
+                                }}
+                              >
+                                {course.fullName || course.name}
                               </Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">Tareas:</Typography>
-                              <Typography variant="body2" fontWeight="bold">{course.assignmentCount}</Typography>
-                            </Grid>
-                            <Grid item xs={6}>
-                              <Typography variant="caption" color="text.secondary">Entregas:</Typography>
-                              <Typography variant="body2" fontWeight="bold">{course.submissionCount}</Typography>
-                            </Grid>
-                            {course.participationRate > 0 && (
-                              <Grid item xs={12}>
-                                <Typography variant="caption" color="text.secondary">Participación:</Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <LinearProgress 
-                                    variant="determinate" 
-                                    value={course.participationRate} 
-                                    sx={{ flexGrow: 1, height: 6, borderRadius: 3 }}
-                                    color={course.participationRate >= 70 ? 'success' : course.participationRate >= 50 ? 'warning' : 'error'}
-                                  />
-                                  <Typography variant="caption" fontWeight="bold">
-                                    {course.participationRate.toFixed(0)}%
+                              <Grid container spacing={1.5}>
+                                <Grid item xs={6}>
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    Estudiantes:
                                   </Typography>
-                                </Box>
+                                  <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5 }}>
+                                    {course.studentCount || 0}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    Activos:
+                                  </Typography>
+                                  <Typography variant="body2" fontWeight="bold" color="success.main" sx={{ mt: 0.5 }}>
+                                    {course.activeStudentsCount || 0}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    Tareas:
+                                  </Typography>
+                                  <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5 }}>
+                                    {course.assignmentCount || 0}
+                                  </Typography>
+                                </Grid>
+                                <Grid item xs={6}>
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    Entregas:
+                                  </Typography>
+                                  <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5 }}>
+                                    {course.submissionCount || 0}
+                                  </Typography>
+                                </Grid>
+                                {course.participationRate > 0 && (
+                                  <Grid item xs={12} sx={{ mt: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                                      Participación:
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <LinearProgress 
+                                        variant="determinate" 
+                                        value={course.participationRate} 
+                                        sx={{ flexGrow: 1, height: 8, borderRadius: 2 }}
+                                        color={course.participationRate >= 70 ? 'success' : course.participationRate >= 50 ? 'warning' : 'error'}
+                                      />
+                                      <Typography variant="caption" fontWeight="bold" sx={{ minWidth: '35px' }}>
+                                        {course.participationRate.toFixed(0)}%
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                )}
                               </Grid>
-                            )}
-                          </Grid>
-                        </Card>
-                      ))}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
+                            </Card>
+                          ))
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
 
-                {/* Distribución de calificaciones (agregado) */}
+                {/* Segunda fila: Distribución de calificaciones */}
                 {performanceData.some(c => c.gradeDistribution && Object.values(c.gradeDistribution).some(v => v > 0)) && (
-                  <Grid item xs={12} md={4}>
+                  <Grid item xs={12}>
                     <Card sx={{ borderRadius: 3 }}>
-                      <CardContent>
+                      <CardContent sx={{ p: 3 }}>
                         <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 3 }}>
                           Distribución de Calificaciones
                         </Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <Grid container spacing={3}>
                           {performanceData.map((course, index) => {
                             const dist = course.gradeDistribution || {};
                             const total = (dist.excellent || 0) + (dist.good || 0) + (dist.average || 0) + (dist.poor || 0);
                             if (total === 0) return null;
                             
                             return (
-                              <Box key={index}>
-                                <Typography variant="caption" fontWeight="bold" gutterBottom>
-                                  {course.fullName || course.name}
-                                </Typography>
-                                <GradeDistributionChart gradeDistribution={dist} />
-                              </Box>
+                              <Grid item xs={12} sm={6} md={4} key={index}>
+                                <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ mb: 2 }}>
+                                    {course.fullName || course.name}
+                                  </Typography>
+                                  <GradeDistributionChart gradeDistribution={dist} />
+                                </Box>
+                              </Grid>
                             );
                           })}
-                        </Box>
+                        </Grid>
                       </CardContent>
                     </Card>
                   </Grid>

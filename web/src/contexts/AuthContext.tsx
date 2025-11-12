@@ -39,14 +39,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Logs de depuración removidos para reducir ruido en consola
-
   // Inicializar autenticación al montar el componente
+  // IMPORTANTE: Solo se ejecuta una vez al montar, no reacciona a cambios externos
   useEffect(() => {
+    // Inicializar la autenticación solo para esta pestaña
     authStore.initializeAuth();
-  }, []); // Removido authStore de las dependencias para evitar bucle infinito
+    
+    // NO escuchar eventos de storage - cada pestaña es independiente
+    // Esto previene que cambios en otras pestañas afecten esta
+    
+    return () => {
+      // Cleanup si es necesario
+    };
+  }, []); // Array vacío - solo se ejecuta al montar
 
   // Redirigir automáticamente al dashboard si ya hay sesión válida
+  // Solo reaccionar a cambios en ESTA pestaña, no a cambios externos
   useEffect(() => {
     if (!authStore.loading && authStore.user) {
       const path = location.pathname;

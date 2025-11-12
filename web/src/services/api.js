@@ -1,13 +1,19 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+import createSessionManager from './sessionManager';
+
+// Crear instancia única del sessionManager para este módulo
+const sessionManager = createSessionManager();
 
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
+    this.sessionManager = sessionManager;
   }
 
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
-    let token = localStorage.getItem('authToken');
+    // Usar sessionManager para obtener el token de la sesión actual
+    let token = this.sessionManager.getItem('authToken');
     if (typeof token === 'string') {
       // Sanitize potential quotes/spaces
       token = token.replace(/^"|"$/g, '').trim();
@@ -92,8 +98,9 @@ class ApiService {
   }
 
   async logout() {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    // Limpiar datos de esta sesión
+    this.sessionManager.removeItem('authToken');
+    this.sessionManager.removeItem('user');
   }
 
   // Google OAuth
@@ -101,13 +108,13 @@ class ApiService {
     return `${this.baseURL}/auth/google`;
   }
 
-  // Token management
+  // Token management - usa sessionManager para múltiples sesiones
   setToken(token) {
-    localStorage.setItem('authToken', token);
+    this.sessionManager.setItem('authToken', token);
   }
 
   getToken() {
-    return localStorage.getItem('authToken');
+    return this.sessionManager.getItem('authToken');
   }
 
   isAuthenticated() {
@@ -407,6 +414,10 @@ class ApiService {
     return this.request(`/attendance/sessions/${sessionId}`, {
       method: 'DELETE'
     });
+  }
+
+  async getCourseAttendanceStats(courseId) {
+    return this.request(`/attendance/courses/${courseId}/stats`);
   }
 }
 

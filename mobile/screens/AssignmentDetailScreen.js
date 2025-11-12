@@ -197,7 +197,7 @@ export default function AssignmentDetailScreen({ route, navigation }) {
           uri: result.uri,
           type: result.mimeType || 'application/octet-stream',
           name: result.name,
-        } as any);
+        });
 
         await api.uploadSubmissionFile(submissionId, formData);
         await loadMySubmission();
