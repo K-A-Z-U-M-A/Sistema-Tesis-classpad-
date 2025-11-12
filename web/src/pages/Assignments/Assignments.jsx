@@ -97,11 +97,21 @@ const Assignments = () => {
               // console.log(`🔍 Respuesta de tareas para curso ${course.id}:`, assignmentsResponse);
               if (assignmentsResponse.success && assignmentsResponse.data) {
                 // Agregar información del curso a cada tarea
-                // FILTRAR: Solo incluir tareas publicadas (status === 'published' o is_published === true)
+                // FILTRAR según el rol:
+                // - Estudiantes: Solo tareas publicadas
+                // - Profesores: Todas las tareas (publicadas y borradores)
                 const courseAssignments = assignmentsResponse.data
                   .filter(assignment => {
-                    // Solo mostrar tareas publicadas
-                    return assignment.status === 'published' || assignment.is_published === true;
+                    // Si es estudiante, solo mostrar tareas publicadas
+                    if (userProfile?.role === 'student') {
+                      // Verificar tanto status como is_published para mayor seguridad
+                      const isPublished = assignment.status === 'published' || 
+                                         assignment.is_published === true ||
+                                         assignment.is_published === 1;
+                      return isPublished;
+                    }
+                    // Si es profesor, mostrar todas las tareas (publicadas y borradores)
+                    return true;
                   })
                   .map(assignment => {
                     return {
@@ -183,6 +193,22 @@ const Assignments = () => {
   const userSubjects = [...new Set(
     userCourses.map(course => course.subject).filter(Boolean)
   )];
+
+  // Opciones del filtro de estado según el rol
+  const statusFilterOptions = userProfile?.role === 'student' 
+    ? [
+        { value: 'pending', label: 'Pendientes' },
+        { value: 'urgent', label: 'Urgentes' },
+        { value: 'overdue', label: 'Vencidas' },
+        { value: 'completed', label: 'Completadas' }
+      ]
+    : [
+        { value: 'all_submitted', label: 'Todas entregadas' },
+        { value: 'partial_submitted', label: 'Entregas parciales' },
+        { value: 'no_submissions', label: 'Sin entregas' },
+        { value: 'overdue', label: 'Vencidas' },
+        { value: 'no_students', label: 'Sin estudiantes' }
+      ];
 
   // Obtener estado de la tarea
   const getAssignmentStatus = (assignment) => {
@@ -510,17 +536,6 @@ const Assignments = () => {
                   value={deliveryStatusFilter}
                   onChange={(e) => setDeliveryStatusFilter(e.target.value)}
                   label="Estado"
-                  MenuProps={{
-                    PaperProps: {
-                      sx: {
-                        '& .MuiMenuItem-root': {
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 122, 255, 0.08)',
-                          },
-                        },
-                      },
-                    },
-                  }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2
@@ -528,22 +543,11 @@ const Assignments = () => {
                   }}
                 >
                   <MenuItem value="">Todos los estados</MenuItem>
-                  {userProfile?.role === 'student' ? (
-                    <>
-                      <MenuItem value="pending">Pendientes</MenuItem>
-                      <MenuItem value="urgent">Urgentes</MenuItem>
-                      <MenuItem value="overdue">Vencidas</MenuItem>
-                      <MenuItem value="completed">Completadas</MenuItem>
-                    </>
-                  ) : (
-                    <>
-                      <MenuItem value="all_submitted">Todas entregadas</MenuItem>
-                      <MenuItem value="partial_submitted">Entregas parciales</MenuItem>
-                      <MenuItem value="no_submissions">Sin entregas</MenuItem>
-                      <MenuItem value="overdue">Vencidas</MenuItem>
-                      <MenuItem value="no_students">Sin estudiantes</MenuItem>
-                    </>
-                  )}
+                  {statusFilterOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>

@@ -679,7 +679,7 @@ router.get('/me/assignments', authMiddleware, async (req, res) => {
          LEFT JOIN submissions s ON a.id = s.assignment_id AND s.student_id = $1
          WHERE (cs.student_id = $1 OR e.student_id = $1)
            AND (cs.status = 'active' OR e.status = 'active')
-           AND a.status = 'published'
+           AND a.is_published = true
            AND (
              -- Assignment has no specific students (for everyone)
              NOT EXISTS (SELECT 1 FROM assignment_students WHERE assignment_id = a.id)
@@ -732,7 +732,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
            LEFT JOIN submissions s ON a.id = s.assignment_id AND s.student_id = $1
            WHERE (cs.student_id = $1 OR e.student_id = $1)
              AND (cs.status = 'active' OR e.status = 'active')
-             AND a.status = 'published'`,
+             AND a.is_published = true`,
           [userId]
         );
         const assignments = assignmentsResult.rows || [];
@@ -1162,7 +1162,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
           
           try {
             const publishedAssignmentsResult = await pool.query(
-              `SELECT COUNT(*) as count FROM assignments WHERE course_id::text = $1::text AND status = 'published'`,
+              `SELECT COUNT(*) as count FROM assignments WHERE course_id::text = $1::text AND is_published = true`,
               [String(courseId)]
             );
             publishedAssignments = parseInt(publishedAssignmentsResult.rows[0]?.count || '0', 10);

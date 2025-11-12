@@ -223,6 +223,17 @@ const CourseDetail = () => {
             
             let assignments = assignmentsRes.success ? (assignmentsRes.data || []) : [];
             
+            // Filtrar tareas según el rol: estudiantes solo ven tareas publicadas
+            if (userProfile?.role === 'student') {
+              assignments = assignments.filter(assignment => {
+                // Verificar tanto status como is_published para mayor seguridad
+                const isPublished = assignment.status === 'published' || 
+                                   assignment.is_published === true ||
+                                   assignment.is_published === 1;
+                return isPublished;
+              });
+            }
+            
             // Load attachments and materials for each assignment
             if (assignments.length > 0) {
               await Promise.all(assignments.map(async (assignment) => {
@@ -253,7 +264,18 @@ const CourseDetail = () => {
         setUnitMaterialsMap(materialsMap);
       }
       if (assignmentsRes.success) {
-        setAssignments(assignmentsRes.data || []);
+        // Filtrar tareas según el rol: estudiantes solo ven tareas publicadas
+        const allAssignments = assignmentsRes.data || [];
+        const filteredAssignments = userProfile?.role === 'student'
+          ? allAssignments.filter(assignment => {
+              // Verificar tanto status como is_published para mayor seguridad
+              const isPublished = assignment.status === 'published' || 
+                                 assignment.is_published === true ||
+                                 assignment.is_published === 1;
+              return isPublished;
+            })
+          : allAssignments;
+        setAssignments(filteredAssignments);
       }
       if (messagesRes.success) {
         setMessages(messagesRes.data || []);

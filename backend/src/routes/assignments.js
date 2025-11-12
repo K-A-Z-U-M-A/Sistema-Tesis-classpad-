@@ -313,7 +313,7 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
         LEFT JOIN users u ON a.created_by = u.id
         LEFT JOIN submissions s ON a.id = s.assignment_id AND s.student_id = $2
         WHERE a.course_id = $1
-          AND a.status = 'published'
+          AND a.is_published = true
           AND (
             -- Assignment has no specific students (for everyone)
             NOT EXISTS (SELECT 1 FROM assignment_students WHERE assignment_id = a.id)
