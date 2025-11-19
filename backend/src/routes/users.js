@@ -51,7 +51,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     // Construir la consulta SELECT dinámicamente
     const baseColumns = ['id', 'email', 'display_name', 'photo_url', 'role', 'description', 'created_at', 'updated_at', 'last_login', 'is_active', 'provider'];
     const selectColumns = [...baseColumns];
-    
+
     // Agregar columnas de perfil solo si existen
     if (existingColumns.includes('cedula')) selectColumns.push('cedula');
     if (existingColumns.includes('location')) selectColumns.push('location');
@@ -131,7 +131,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
-    
+
     if (isNaN(userId)) {
       return res.status(400).json({
         error: {
@@ -279,7 +279,7 @@ router.get('/me/profile-complete', authMiddleware, async (req, res) => {
         },
       });
     }
-    
+
     const existingColumns = columnCheck.rows.map(row => row.column_name);
     const hasAllColumns = ['cedula', 'location', 'birth_date', 'gender'].every(col => existingColumns.includes(col));
 
@@ -340,7 +340,7 @@ router.get('/me/profile-complete', authMiddleware, async (req, res) => {
     }
 
     const user = userResult.rows[0];
-    
+
     // Campos requeridos para considerar el perfil completo
     // phone es opcional, los demás son requeridos
     const isComplete = !!(
@@ -394,14 +394,14 @@ router.get('/me/profile-complete', authMiddleware, async (req, res) => {
 router.put('/me', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { 
-      displayName, 
-      photoURL, 
-      cedula, 
-      location, 
-      birthDate, 
-      gender, 
-      phone 
+    const {
+      displayName,
+      photoURL,
+      cedula,
+      location,
+      birthDate,
+      gender,
+      phone
     } = req.body;
 
     // Validaciones
@@ -478,10 +478,10 @@ router.put('/me', authMiddleware, async (req, res) => {
 
     // Construir el SELECT de retorno dinámicamente según las columnas existentes
     const returnColumns = [
-      'id', 'email', 'display_name', 'photo_url', 'role', 'description', 
+      'id', 'email', 'display_name', 'photo_url', 'role', 'description',
       'created_at', 'updated_at', 'last_login', 'is_active', 'provider'
     ];
-    
+
     // Agregar columnas de perfil solo si existen
     if (existingColumns.includes('cedula')) returnColumns.push('cedula');
     if (existingColumns.includes('location')) returnColumns.push('location');
@@ -542,9 +542,9 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     const userRole = normalizeRole(req.user.role);
-    
+
     let result;
-    
+
     if (userRole === 'teacher') {
       // Para profesores: obtener cursos donde es owner o co-docente
       result = await pool.query(
@@ -585,7 +585,7 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
         [userId]
       );
     }
-    
+
     // Obtener conteos para cada curso
     const courses = await Promise.all(result.rows.map(async (course) => {
       const [studentCount, assignmentCount] = await Promise.all([
@@ -601,7 +601,7 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
           [course.id, 'published']
         ).catch(() => ({ rows: [{ count: '0' }] }))
       ]);
-      
+
       return {
         ...course,
         student_count: parseInt(studentCount.rows[0]?.count || '0', 10),
@@ -832,22 +832,22 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
       totalStudents: 0,
       totalAssignments: 0,
       totalSubmissions: 0,
-      
+
       // Estadísticas de asistencia
       totalAttendanceSessions: 0,
       averageAttendanceRate: 0,
       totalAttendanceRecords: 0,
-      
+
       // Estadísticas de rendimiento
       averageGrade: 0,
       assignmentsPendingReview: 0,
       assignmentsUpcoming: 0,
-      
+
       // Estadísticas de estudiantes
       activeStudents: 0,
       studentsWithLowAttendance: 0,
       studentsWithLowPerformance: 0,
-      
+
       // Estadísticas por curso
       coursesStats: []
     };
@@ -884,9 +884,9 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
 
       const courses = coursesResult.rows || [];
       statistics.totalCourses = courses.length;
-      
+
       console.log(`📚 Found ${courses.length} courses for teacher ${userId}`);
-      
+
       if (courses.length === 0) {
         console.log('⚠️ No courses found for teacher, returning empty statistics');
         return res.json({
@@ -906,7 +906,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
            AND cs.status = 'active'`,
         [userId]
       );
-      
+
       // Luego desde enrollments (si existe)
       let studentsFromEnrollments = 0;
       try {
@@ -924,7 +924,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
         // Si la tabla enrollments no existe, usar solo course_students
         console.warn('Enrollments table may not exist:', err.message);
       }
-      
+
       // Usar el mayor de los dos (pueden ser duplicados si ambas tablas existen)
       const studentsFromCourseStudents = parseInt(studentsFromCourseStudentsResult.rows[0]?.count || '0', 10);
       statistics.totalStudents = Math.max(studentsFromCourseStudents, studentsFromEnrollments);
@@ -1000,7 +1000,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
 
         let totalRate = 0;
         let sessionsWithStudents = 0;
-        
+
         for (const session of attendanceRateResult.rows) {
           // Contar estudiantes en el curso
           let totalStudents = 0;
@@ -1012,7 +1012,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
               [session.course_id]
             );
             totalStudents = parseInt(courseStudentsCountResult.rows[0]?.count || '0', 10);
-            
+
             // También verificar enrollments
             try {
               const enrollmentsCountResult = await pool.query(
@@ -1029,9 +1029,9 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
           } catch (err) {
             console.warn('Error counting students for attendance session:', err.message);
           }
-          
+
           const presentCount = parseInt(session.present_count || '0', 10);
-          
+
           if (totalStudents > 0) {
             totalRate += (presentCount / totalStudents) * 100;
             sessionsWithStudents++;
@@ -1091,11 +1091,11 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
       // 9. Estadísticas por curso - MEJORADAS con más métricas
       for (const course of courses) {
         const courseId = course.id;
-        
+
         // Determinar el tipo de ID y el cast apropiado
         const courseIdCast = getCourseIdCast(courseId);
         const courseIdParam = courseIdCast === '::uuid' ? courseId : String(courseId);
-        
+
         // Estudiantes en el curso
         let studentCount = 0;
         try {
@@ -1122,7 +1122,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
               console.warn(`Could not count students from course_students for course ${courseId}:`, e2.message);
             }
           }
-          
+
           // También verificar enrollments
           try {
             const enrollmentsResult = await pool.query(
@@ -1159,7 +1159,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
             );
             assignmentCount = parseInt(courseAssignmentsResult.rows[0]?.count || '0', 10);
           }
-          
+
           try {
             const publishedAssignmentsResult = await pool.query(
               `SELECT COUNT(*) as count FROM assignments WHERE course_id::text = $1::text AND is_published = true`,
@@ -1190,7 +1190,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
           );
           submissionCount = parseInt(submissionsResult.rows[0]?.total_submissions || '0', 10);
           gradedSubmissions = parseInt(submissionsResult.rows[0]?.graded_count || '0', 10);
-          
+
           // Calcular tasa de participación: entregas / (tareas publicadas * estudiantes)
           const expectedSubmissions = publishedAssignments * studentCount;
           if (expectedSubmissions > 0) {
@@ -1273,7 +1273,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
             [String(courseId)]
           );
           attendanceSessionsCount = parseInt(courseSessionsResult.rows[0]?.session_count || '0', 10);
-          
+
           if (attendanceSessionsCount > 0 && studentCount > 0) {
             const courseAttendanceResult = await pool.query(
               `SELECT 
@@ -1331,7 +1331,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
           upcomingAssignmentsCount
         });
       }
-      
+
       console.log(`✅ Statistics calculated for ${statistics.coursesStats.length} courses`);
 
       // 10. Agregar estadísticas de actividad reciente (últimos 7 días)
@@ -1370,8 +1370,8 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
 
       // 11. Calcular tasa de participación promedio
       const totalParticipationRate = statistics.coursesStats.reduce((sum, course) => sum + (course.participationRate || 0), 0);
-      statistics.averageParticipationRate = statistics.coursesStats.length > 0 
-        ? Math.round((totalParticipationRate / statistics.coursesStats.length) * 10) / 10 
+      statistics.averageParticipationRate = statistics.coursesStats.length > 0
+        ? Math.round((totalParticipationRate / statistics.coursesStats.length) * 10) / 10
         : 0;
 
       // 12. Calcular estudiantes activos totales (últimos 7 días)
@@ -1504,6 +1504,125 @@ router.put('/:id', authMiddleware, async (req, res) => {
         code: 'UPDATE_USER_PROFILE_FAILED'
       }
     });
+  }
+});
+
+// GET /api/users/students/:studentId/progress/:courseId - Get student progress
+router.get('/students/:studentId/progress/:courseId', authMiddleware, async (req, res) => {
+  try {
+    const { studentId, courseId } = req.params;
+
+    console.log('🔍 Getting student progress for:', { studentId, courseId, teacherId: req.user.id });
+
+    // Only teachers can view
+    if (req.user.role !== 'teacher') {
+      return res.status(403).json({ error: { message: 'Forbidden', code: 'FORBIDDEN' } });
+    }
+
+    // Get student info
+    const studentResult = await pool.query(
+      'SELECT id, display_name, email, is_active FROM users WHERE id = $1',
+      [studentId]
+    );
+
+    if (studentResult.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'Student not found', code: 'NOT_FOUND' } });
+    }
+
+    const student = studentResult.rows[0];
+
+    // Get assignments
+    const cast = getCourseIdCast(courseId);
+    const assignmentsResult = await pool.query(
+      `SELECT a.id, a.title, a.due_date, a.max_points,
+              s.id as submission_id, s.grade, s.status as submission_status
+       FROM assignments a
+       LEFT JOIN submissions s ON s.assignment_id = a.id AND s.student_id = $1
+       WHERE a.course_id = $2${cast}
+       ORDER BY a.due_date DESC LIMIT 50`,
+      [studentId, courseId]
+    );
+
+    const assignments = assignmentsResult.rows;
+    const grades = assignments.filter(a => a.grade !== null).map(a => parseFloat(a.grade));
+    const averageGrade = grades.length > 0 ? grades.reduce((sum, g) => sum + g, 0) / grades.length : 0;
+
+    // Get attendance records (optional - might not exist in all databases)
+    let attendance = [];
+    let totalSessions = 0;
+    let attendedSessions = 0;
+    let lateSessions = 0;
+    let absentSessions = 0;
+    let attendanceRate = 0;
+
+    try {
+      const attendanceResult = await pool.query(
+        `SELECT s.id as session_id, s.created_at as date, s.title as session_name,
+                r.status, r.recorded_at as timestamp
+         FROM attendance_sessions s
+         LEFT JOIN attendance_records r ON r.session_id = s.id AND r.student_id = $1
+         WHERE s.course_id = $2${cast}
+         ORDER BY s.created_at DESC LIMIT 50`,
+        [studentId, courseId]
+      );
+
+      attendance = attendanceResult.rows;
+      totalSessions = attendance.length;
+      attendedSessions = attendance.filter(a => a.status === 'present').length;
+      lateSessions = attendance.filter(a => a.status === 'late').length;
+      absentSessions = attendance.filter(a => a.status === 'absent').length;
+      attendanceRate = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
+    } catch (attendanceError) {
+      console.log('⚠️ Attendance query failed:', attendanceError.message);
+      // Keep default values (all zeros and empty array)
+    }
+
+    res.json({
+      success: true,
+      data: {
+        student: {
+          id: student.id,
+          displayName: student.display_name,
+          email: student.email,
+          cedula: null,
+          isActive: student.is_active,
+          photoUrl: null
+        },
+        statistics: {
+          averageGrade: parseFloat(averageGrade.toFixed(2)),
+          attendanceRate: parseFloat(attendanceRate.toFixed(2)),
+          totalAssignments: assignments.length,
+          submittedAssignments: assignments.filter(a => a.submission_id).length,
+          gradedAssignments: grades.length,
+          pendingAssignments: assignments.filter(a => !a.submission_id).length,
+          overdueAssignments: 0,
+          totalSessions,
+          attendedSessions,
+          lateSessions,
+          absentSessions
+        },
+        assignments: assignments.map(a => ({
+          id: a.id,
+          title: a.title,
+          dueDate: a.due_date,
+          maxPoints: a.max_points,
+          submissionId: a.submission_id,
+          grade: a.grade,
+          submissionStatus: a.submission_status,
+          isOverdue: false
+        })),
+        attendance: attendance.map(a => ({
+          sessionId: a.session_id,
+          date: a.date,
+          sessionName: a.session_name,
+          status: a.status || 'not_recorded',
+          timestamp: a.timestamp
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error in student progress:', error);
+    res.status(500).json({ error: { message: error.message, code: 'SERVER_ERROR' } });
   }
 });
 

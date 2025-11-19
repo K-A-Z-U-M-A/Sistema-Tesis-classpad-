@@ -8,6 +8,7 @@ import pool from './config/database.js';
 import passport from './config/passport.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
+import studentRoutes from './routes/students.js';
 import teacherRoutes from './routes/teachers.js';
 import courseRoutes from './routes/courses.js';
 import unitRoutes from './routes/units.js';
@@ -74,6 +75,7 @@ app.get('/api/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/units', unitRoutes);
@@ -109,20 +111,20 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🌐 External access: http://[TU_IP]:${PORT}/api/health`);
-  
+
   // Asegurar que las tablas de asistencia existan
   await ensureAttendanceTables();
-  
+
   // Asegurar que los campos de perfil existan
   await ensureProfileFields();
 });
 
 const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
-  
+
   server.close(async () => {
     console.log('HTTP server closed');
-    
+
     try {
       await pool.end();
       console.log('Database connections closed');

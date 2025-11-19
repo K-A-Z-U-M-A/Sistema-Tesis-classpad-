@@ -54,7 +54,7 @@ class ApiService {
         const error = new Error(data.error?.message || `HTTP error! status: ${response.status}`);
         error.code = data.error?.code;
         error.status = response.status;
-        
+
         // Si el token es inválido, limpiar el localStorage y redirigir al login
         if (response.status === 401 && (error.code === 'INVALID_TOKEN' || error.message.includes('Invalid token'))) {
           console.log('🔍 Token inválido detectado, limpiando localStorage');
@@ -64,7 +64,7 @@ class ApiService {
             window.location.href = '/login';
           }
         }
-        
+
         throw error;
       }
 
@@ -418,6 +418,11 @@ class ApiService {
 
   async getCourseAttendanceStats(courseId) {
     return this.request(`/attendance/courses/${courseId}/stats`);
+  }
+
+  // Get student progress in a course
+  async getStudentProgress(studentId, courseId) {
+    return this.request(`/users/students/${studentId}/progress/${courseId}`);
   }
 }
 

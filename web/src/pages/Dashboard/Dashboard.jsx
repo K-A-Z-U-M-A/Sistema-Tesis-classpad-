@@ -59,15 +59,15 @@ import {
 } from 'recharts';
 
 // Componente de tarjeta de estadística mejorado
-const StatCard = ({ title, value, icon, color, subtitle }) => {
+const StatCard = ({ title, value, icon, color, subtitle, onClick }) => {
   // Formatear el valor para mostrar
   const formatValue = (val) => {
     // Si el valor ya es un string, devolverlo tal cual (puede incluir % u otros formatos)
     if (typeof val === 'string') return val;
-    
+
     // Si es null o undefined, devolver N/A
     if (val === null || val === undefined) return 'N/A';
-    
+
     // Si es un número
     if (typeof val === 'number') {
       // Si es un número entero, devolverlo formateado
@@ -75,7 +75,7 @@ const StatCard = ({ title, value, icon, color, subtitle }) => {
       // Si es un número decimal, formatearlo con 1 decimal
       return val.toFixed(1);
     }
-    
+
     // Para cualquier otro tipo, convertir a string
     return String(val);
   };
@@ -97,28 +97,30 @@ const StatCard = ({ title, value, icon, color, subtitle }) => {
           borderRadius: 3,
           boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
           transition: 'all 0.3s ease',
+          cursor: onClick ? 'pointer' : 'default',
           '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
+            transform: onClick ? 'translateY(-4px)' : 'none',
+            boxShadow: onClick ? '0 4px 16px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.08)'
           }
         }}
+        onClick={onClick}
       >
         <CardContent sx={{ p: { xs: 2, sm: 3 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <Box 
-            display="flex" 
-            alignItems="flex-start" 
+          <Box
+            display="flex"
+            alignItems="flex-start"
             justifyContent="space-between"
-            sx={{ 
+            sx={{
               flexDirection: { xs: 'column', sm: 'row' },
               gap: { xs: 1.5, sm: 2 },
               flex: 1
             }}
           >
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography 
-                variant="h4" 
-                component="div" 
-                sx={{ 
+              <Typography
+                variant="h4"
+                component="div"
+                sx={{
                   color: color,
                   fontWeight: 700,
                   fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.5rem' },
@@ -129,9 +131,9 @@ const StatCard = ({ title, value, icon, color, subtitle }) => {
               >
                 {displayValue}
               </Typography>
-              <Typography 
-                variant="body2" 
-                sx={{ 
+              <Typography
+                variant="body2"
+                sx={{
                   color: 'text.secondary',
                   fontWeight: 500,
                   fontSize: { xs: '0.8rem', sm: '0.875rem' },
@@ -141,9 +143,9 @@ const StatCard = ({ title, value, icon, color, subtitle }) => {
                 {title}
               </Typography>
               {subtitle && (
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
+                <Typography
+                  variant="caption"
+                  sx={{
                     color: 'text.secondary',
                     fontSize: { xs: '0.7rem', sm: '0.75rem' },
                     display: 'block',
@@ -169,8 +171,8 @@ const StatCard = ({ title, value, icon, color, subtitle }) => {
                 height: { xs: 48, sm: 56 }
               }}
             >
-              {React.cloneElement(icon, { 
-                sx: { fontSize: { xs: 24, sm: 28 } } 
+              {React.cloneElement(icon, {
+                sx: { fontSize: { xs: 24, sm: 28 } }
               })}
             </Box>
           </Box>
@@ -191,8 +193,8 @@ const CourseCard = ({ course }) => {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card sx={{ 
-        height: '100%', 
+      <Card sx={{
+        height: '100%',
         cursor: 'pointer',
         borderRadius: 3,
         '&:hover': {
@@ -202,10 +204,10 @@ const CourseCard = ({ course }) => {
         transition: 'all 0.3s ease'
       }}>
         <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-          <Box 
-            display="flex" 
-            alignItems="center" 
-            justifyContent="space-between" 
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
             mb={2}
             sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 0 } }}
           >
@@ -226,17 +228,17 @@ const CourseCard = ({ course }) => {
               label={course.is_active ? 'Activo' : 'Inactivo'}
               color={course.is_active ? 'success' : 'default'}
               size="small"
-              sx={{ 
+              sx={{
                 fontSize: { xs: '0.7rem', sm: '0.75rem' },
                 height: { xs: 24, sm: 28 }
               }}
             />
           </Box>
 
-          <Typography 
-            variant="h6" 
+          <Typography
+            variant="h6"
             gutterBottom
-            sx={{ 
+            sx={{
               fontSize: { xs: '1.1rem', sm: '1.25rem' },
               lineHeight: { xs: 1.3, sm: 1.4 }
             }}
@@ -244,27 +246,27 @@ const CourseCard = ({ course }) => {
             {course.name}
           </Typography>
 
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
+          <Typography
+            variant="body2"
+            color="text.secondary"
             gutterBottom
             sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
           >
             {course.course_code || course.code} • {course.subject}
           </Typography>
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
+          <Typography
+            variant="body2"
+            color="text.secondary"
             gutterBottom
             sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
           >
             {course.turn || course.grade} • {course.description || 'Sin descripción'}
           </Typography>
 
-          <Typography 
-            variant="body2" 
-            color="text.secondary" 
-            sx={{ 
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
               mb: 2,
               fontSize: { xs: '0.75rem', sm: '0.875rem' }
             }}
@@ -273,8 +275,8 @@ const CourseCard = ({ course }) => {
           </Typography>
 
           <Box sx={{ mb: 1 }}>
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               color="text.secondary"
               sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
             >
@@ -316,12 +318,12 @@ const PendingTask = ({ assignment }) => {
   const statusKey = !hasDueDate
     ? 'noDue'
     : isOverdue
-    ? 'overdue'
-    : isUrgent
-    ? 'urgent'
-    : isSoon
-    ? 'soon'
-    : 'scheduled';
+      ? 'overdue'
+      : isUrgent
+        ? 'urgent'
+        : isSoon
+          ? 'soon'
+          : 'scheduled';
 
   const statusVisuals = {
     overdue: {
@@ -360,20 +362,20 @@ const PendingTask = ({ assignment }) => {
   const chipLabel = !hasDueDate
     ? 'Sin fecha límite'
     : isOverdue
-    ? 'Vencida'
-    : daysLeft === 0
-    ? 'Entrega hoy'
-    : daysLeft === 1
-    ? '1 día'
-    : `${daysLeft} días`;
+      ? 'Vencida'
+      : daysLeft === 0
+        ? 'Entrega hoy'
+        : daysLeft === 1
+          ? '1 día'
+          : `${daysLeft} días`;
 
   const dueDateLabel = hasDueDate
     ? dueDate.toLocaleString('es-ES', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
     : 'Entrega flexible';
 
   const handleNavigate = () => {
@@ -546,21 +548,21 @@ const PerformanceChart = ({ data }) => {
       </Box>
     );
   }
-  
+
   return (
     <ResponsiveContainer width="100%" height={300}>
       <RechartsBarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis 
-          dataKey="name" 
-          angle={-45} 
-          textAnchor="end" 
+        <XAxis
+          dataKey="name"
+          angle={-45}
+          textAnchor="end"
           height={100}
           tick={{ fontSize: 11 }}
           interval={0}
         />
         <YAxis domain={[0, 100]} />
-        <Tooltip 
+        <Tooltip
           formatter={(value, name) => {
             if (name === 'Promedio (%)' || name === 'Asistencia (%)' || name === 'Participación (%)') {
               return [`${value.toFixed(1)}%`, name];
@@ -631,7 +633,7 @@ const Dashboard = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Cargar cursos del usuario
       const coursesResponse = await api.getMyCourses();
       const userCourses = coursesResponse.data?.courses || coursesResponse.data || [];
@@ -671,111 +673,111 @@ const Dashboard = () => {
   // Filtrar tareas pendientes para estudiantes
   const pendingTasks = userProfile?.role === 'student'
     ? assignments.filter(a => {
-        // Si ya tiene una entrega (submission_id), no es pendiente
-        if (a.submission_id) return false;
-        // Si no tiene fecha límite, es pendiente
-        if (!a.due_date) return true;
-        // Si la fecha límite ya pasó o aún no ha pasado, es pendiente
-        return true;
-      }).sort((a, b) => {
-        // Ordenar: primero las vencidas, luego por fecha de vencimiento
-        if (!a.due_date) return 1;
-        if (!b.due_date) return -1;
-        const dateA = new Date(a.due_date);
-        const dateB = new Date(b.due_date);
-        const now = new Date();
-        const aOverdue = dateA < now;
-        const bOverdue = dateB < now;
-        if (aOverdue && !bOverdue) return -1;
-        if (!aOverdue && bOverdue) return 1;
-        return dateA - dateB;
-      })
+      // Si ya tiene una entrega (submission_id), no es pendiente
+      if (a.submission_id) return false;
+      // Si no tiene fecha límite, es pendiente
+      if (!a.due_date) return true;
+      // Si la fecha límite ya pasó o aún no ha pasado, es pendiente
+      return true;
+    }).sort((a, b) => {
+      // Ordenar: primero las vencidas, luego por fecha de vencimiento
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      const dateA = new Date(a.due_date);
+      const dateB = new Date(b.due_date);
+      const now = new Date();
+      const aOverdue = dateA < now;
+      const bOverdue = dateB < now;
+      if (aOverdue && !bOverdue) return -1;
+      if (!aOverdue && bOverdue) return 1;
+      return dateA - dateB;
+    })
     : [];
 
   // Preparar datos para gráficos - SOLO datos reales de la base de datos
   const performanceData = isTeacher && teacherStats?.coursesStats?.length > 0
     ? teacherStats.coursesStats.map(course => ({
-        name: course.courseName?.substring(0, 15) || 'Curso',
-        fullName: course.courseName,
-        averageGrade: course.averageGrade || 0,
-        attendanceRate: course.attendanceRate || 0,
-        participationRate: course.participationRate || 0,
-        studentCount: course.studentCount || 0,
-        activeStudentsCount: course.activeStudentsCount || 0,
-        assignmentCount: course.assignmentCount || 0,
-        publishedAssignments: course.publishedAssignments || 0,
-        submissionCount: course.submissionCount || 0,
-        gradedSubmissions: course.gradedSubmissions || 0,
-        gradeDistribution: course.gradeDistribution || {},
-        pendingReviewCount: course.pendingReviewCount || 0,
-        upcomingAssignmentsCount: course.upcomingAssignmentsCount || 0,
-        attendanceSessionsCount: course.attendanceSessionsCount || 0
-      }))
+      name: course.courseName?.substring(0, 15) || 'Curso',
+      fullName: course.courseName,
+      averageGrade: course.averageGrade || 0,
+      attendanceRate: course.attendanceRate || 0,
+      participationRate: course.participationRate || 0,
+      studentCount: course.studentCount || 0,
+      activeStudentsCount: course.activeStudentsCount || 0,
+      assignmentCount: course.assignmentCount || 0,
+      publishedAssignments: course.publishedAssignments || 0,
+      submissionCount: course.submissionCount || 0,
+      gradedSubmissions: course.gradedSubmissions || 0,
+      gradeDistribution: course.gradeDistribution || {},
+      pendingReviewCount: course.pendingReviewCount || 0,
+      upcomingAssignmentsCount: course.upcomingAssignmentsCount || 0,
+      attendanceSessionsCount: course.attendanceSessionsCount || 0
+    }))
     : [];
 
   // Calcular estadísticas básicas (solo conteos, no promedios globales)
-  const totalCourses = isTeacher 
+  const totalCourses = isTeacher
     ? (teacherStats?.totalCourses ?? courses.length ?? 0)
     : (teacherStats?.totalCourses ?? courses.length ?? 0);
   const totalAssignments = isTeacher
     ? (teacherStats?.totalAssignments ?? assignments.length ?? 0)
     : (teacherStats?.totalAssignments ?? assignments.length ?? 0);
-  
+
   // Para estudiantes - calcular desde las tareas si no hay estadísticas del backend
   const completedAssignments = !isTeacher
-    ? (teacherStats?.completedAssignments ?? 
-       assignments.filter(a => a.submission_id || a.submission_status === 'submitted' || a.submission_status === 'graded').length ?? 0)
+    ? (teacherStats?.completedAssignments ??
+      assignments.filter(a => a.submission_id || a.submission_status === 'submitted' || a.submission_status === 'graded').length ?? 0)
     : 0;
   const pendingAssignments = !isTeacher
-    ? (teacherStats?.pendingAssignments ?? 
-       assignments.filter(a => {
-         if (a.submission_id) return false;
-         if (!a.due_date) return true;
-         return new Date(a.due_date) >= new Date();
-       }).length ?? 0)
+    ? (teacherStats?.pendingAssignments ??
+      assignments.filter(a => {
+        if (a.submission_id) return false;
+        if (!a.due_date) return true;
+        return new Date(a.due_date) >= new Date();
+      }).length ?? 0)
     : 0;
   const overdueAssignments = !isTeacher
-    ? (teacherStats?.overdueAssignments ?? 
-       assignments.filter(a => {
-         if (a.submission_id) return false;
-         if (!a.due_date) return false;
-         return new Date(a.due_date) < new Date();
-       }).length ?? 0)
+    ? (teacherStats?.overdueAssignments ??
+      assignments.filter(a => {
+        if (a.submission_id) return false;
+        if (!a.due_date) return false;
+        return new Date(a.due_date) < new Date();
+      }).length ?? 0)
     : 0;
   // Calcular promedio de calificaciones para estudiantes
   const averageGrade = !isTeacher
     ? (teacherStats && typeof teacherStats.averageGrade === 'number' && teacherStats.averageGrade > 0
-        ? teacherStats.averageGrade
-        : (() => {
-            // Intentar calcular desde las tareas si hay calificaciones
-            const gradedAssignments = assignments.filter(a => 
-              a.grade !== null && a.grade !== undefined && a.submission_status === 'graded'
-            );
-            if (gradedAssignments.length > 0) {
-              const sum = gradedAssignments.reduce((acc, a) => {
-                const grade = typeof a.grade === 'number' ? a.grade : parseFloat(a.grade);
-                return acc + (isNaN(grade) ? 0 : grade);
-              }, 0);
-              return sum / gradedAssignments.length;
-            }
-            return 0;
-          })())
+      ? teacherStats.averageGrade
+      : (() => {
+        // Intentar calcular desde las tareas si hay calificaciones
+        const gradedAssignments = assignments.filter(a =>
+          a.grade !== null && a.grade !== undefined && a.submission_status === 'graded'
+        );
+        if (gradedAssignments.length > 0) {
+          const sum = gradedAssignments.reduce((acc, a) => {
+            const grade = typeof a.grade === 'number' ? a.grade : parseFloat(a.grade);
+            return acc + (isNaN(grade) ? 0 : grade);
+          }, 0);
+          return sum / gradedAssignments.length;
+        }
+        return 0;
+      })())
     : 0;
-  
+
   // Para profesores
   // Sumar estudiantes de todos los cursos (cada curso es independiente)
   const totalStudents = isTeacher && teacherStats?.coursesStats
     ? teacherStats.coursesStats.reduce((sum, course) => sum + (course.studentCount ?? 0), 0)
     : isTeacher
-    ? courses.reduce((sum, course) => sum + (course.student_count ?? 0), 0)
-    : 0;
-  
+      ? courses.reduce((sum, course) => sum + (course.student_count ?? 0), 0)
+      : 0;
+
   // Estudiantes activos (últimos 7 días)
   const totalActiveStudents = isTeacher && teacherStats
-    ? (teacherStats.totalActiveStudents ?? 
-       teacherStats.coursesStats?.reduce((sum, course) => sum + (course.activeStudentsCount ?? 0), 0) ?? 0)
+    ? (teacherStats.totalActiveStudents ??
+      teacherStats.coursesStats?.reduce((sum, course) => sum + (course.activeStudentsCount ?? 0), 0) ?? 0)
     : 0;
-  
+
   // Sumar tareas pendientes de revisión (por curso)
   const assignmentsPendingReview = isTeacher && teacherStats
     ? (teacherStats.assignmentsPendingReview ?? 0)
@@ -783,7 +785,7 @@ const Dashboard = () => {
   const assignmentsUpcoming = isTeacher && teacherStats
     ? (teacherStats.assignmentsUpcoming ?? 0)
     : 0;
-  
+
   // Actividad reciente
   const recentSubmissions = isTeacher && teacherStats
     ? (teacherStats.recentSubmissions ?? 0)
@@ -791,12 +793,12 @@ const Dashboard = () => {
   const recentGrades = isTeacher && teacherStats
     ? (teacherStats.recentGrades ?? 0)
     : 0;
-  
+
   // Tasa de participación promedio
   const averageParticipationRate = isTeacher && teacherStats
     ? (typeof teacherStats.averageParticipationRate === 'number' ? teacherStats.averageParticipationRate : 0)
     : 0;
-  
+
   // Para estadísticas por curso
   const coursesWithStats = teacherStats?.coursesStats || [];
 
@@ -820,17 +822,17 @@ const Dashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <Typography 
-          variant="h3" 
-          gutterBottom 
+        <Typography
+          variant="h3"
+          gutterBottom
           fontWeight="bold"
           sx={{ fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' } }}
         >
           ¡Hola {userProfile?.displayName || userProfile?.display_name || 'Ingeniero'}! 👋
         </Typography>
-        <Typography 
-          variant="h6" 
-          color="text.secondary" 
+        <Typography
+          variant="h6"
+          color="text.secondary"
           gutterBottom
           sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
         >
@@ -840,8 +842,8 @@ const Dashboard = () => {
 
       {/* Banner de notificación si el perfil no está completo - Solo para estudiantes */}
       {!isTeacher && profileComplete === false && (
-        <Alert 
-          severity="warning" 
+        <Alert
+          severity="warning"
           sx={{ mt: 2, mb: 3, cursor: 'pointer' }}
           onClick={() => navigate('/profile/complete')}
           action={
@@ -866,6 +868,7 @@ const Dashboard = () => {
                 icon={<School />}
                 color="#007AFF"
                 subtitle="Cursos que gestionas"
+                onClick={() => navigate('/courses')}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
@@ -875,6 +878,7 @@ const Dashboard = () => {
                 icon={<People />}
                 color="#34C759"
                 subtitle={totalActiveStudents > 0 ? `${totalActiveStudents} activos (7 días)` : 'Sin actividad reciente'}
+                onClick={() => navigate('/people')}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
@@ -884,6 +888,7 @@ const Dashboard = () => {
                 icon={<Assignment />}
                 color="#FF9500"
                 subtitle="En todos los cursos"
+                onClick={() => navigate('/assignments')}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
@@ -973,6 +978,7 @@ const Dashboard = () => {
                 icon={<Warning />}
                 color="#FF5722"
                 subtitle="Sin calificar"
+                onClick={() => navigate('/assignments')}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
@@ -982,6 +988,7 @@ const Dashboard = () => {
                 icon={<Schedule />}
                 color="#FF9800"
                 subtitle="Vencen en 7 días"
+                onClick={() => navigate('/assignments')}
               />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
@@ -1010,6 +1017,7 @@ const Dashboard = () => {
                   icon={<CalendarToday />}
                   color="#00BCD4"
                   subtitle="Total creadas"
+                  onClick={() => navigate('/attendance')}
                 />
               </Grid>
             )}
@@ -1021,6 +1029,7 @@ const Dashboard = () => {
                   icon={<People />}
                   color="#8BC34A"
                   subtitle="Últimos 7 días"
+                  onClick={() => navigate('/people')}
                 />
               </Grid>
             )}
@@ -1031,7 +1040,12 @@ const Dashboard = () => {
             <Grid container spacing={2} sx={{ mt: 2 }}>
               {assignmentsPendingReview > 0 && (
                 <Grid item xs={12} md={6}>
-                  <Alert severity="warning" icon={<Warning />}>
+                  <Alert
+                    severity="warning"
+                    icon={<Warning />}
+                    onClick={() => navigate('/assignments')}
+                    sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
+                  >
                     <AlertTitle>Tareas Pendientes de Revisión</AlertTitle>
                     Tienes {assignmentsPendingReview} tarea(s) esperando calificación. Revisa y califica para mantener a los estudiantes actualizados.
                   </Alert>
@@ -1039,7 +1053,12 @@ const Dashboard = () => {
               )}
               {assignmentsUpcoming > 0 && (
                 <Grid item xs={12} md={6}>
-                  <Alert severity="info" icon={<Schedule />}>
+                  <Alert
+                    severity="info"
+                    icon={<Schedule />}
+                    onClick={() => navigate('/assignments')}
+                    sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
+                  >
                     <AlertTitle>Tareas Próximas a Vencer</AlertTitle>
                     {assignmentsUpcoming} tarea(s) vencerán en los próximos 7 días. Considera recordar a los estudiantes.
                   </Alert>
@@ -1047,7 +1066,12 @@ const Dashboard = () => {
               )}
               {teacherStats.studentsWithLowAttendance > 0 && (
                 <Grid item xs={12} md={6}>
-                  <Alert severity="error" icon={<ErrorOutline />}>
+                  <Alert
+                    severity="error"
+                    icon={<ErrorOutline />}
+                    onClick={() => navigate('/people')}
+                    sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
+                  >
                     <AlertTitle>Estudiantes con Baja Asistencia</AlertTitle>
                     {teacherStats.studentsWithLowAttendance} estudiante(s) tienen asistencia menor al 70%. Considera contactarlos.
                   </Alert>
@@ -1055,7 +1079,12 @@ const Dashboard = () => {
               )}
               {teacherStats.studentsWithLowPerformance > 0 && (
                 <Grid item xs={12} md={6}>
-                  <Alert severity="error" icon={<ErrorOutline />}>
+                  <Alert
+                    severity="error"
+                    icon={<ErrorOutline />}
+                    onClick={() => navigate('/people')}
+                    sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
+                  >
                     <AlertTitle>Estudiantes con Bajo Rendimiento</AlertTitle>
                     {teacherStats.studentsWithLowPerformance} estudiante(s) tienen promedio menor al 60%. Pueden necesitar apoyo adicional.
                   </Alert>
@@ -1087,11 +1116,11 @@ const Dashboard = () => {
                       <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
                         Resumen por Curso
                       </Typography>
-                      <Box 
-                        sx={{ 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          gap: 2, 
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 2,
                           flex: 1,
                           overflowY: 'auto',
                           overflowX: 'hidden',
@@ -1105,11 +1134,11 @@ const Dashboard = () => {
                           </Typography>
                         ) : (
                           performanceData.map((course, index) => (
-                            <Card 
-                              key={index} 
-                              variant="outlined" 
-                              sx={{ 
-                                p: 2, 
+                            <Card
+                              key={index}
+                              variant="outlined"
+                              sx={{
+                                p: 2,
                                 borderLeft: `4px solid ${coursesWithStats[index]?.color || '#1976d2'}`,
                                 '&:hover': {
                                   boxShadow: 3,
@@ -1119,11 +1148,11 @@ const Dashboard = () => {
                                 transition: 'all 0.2s ease'
                               }}
                             >
-                              <Typography 
-                                variant="subtitle2" 
-                                fontWeight="bold" 
+                              <Typography
+                                variant="subtitle2"
+                                fontWeight="bold"
                                 gutterBottom
-                                sx={{ 
+                                sx={{
                                   mb: 1.5,
                                   wordBreak: 'break-word',
                                   lineHeight: 1.3
@@ -1170,9 +1199,9 @@ const Dashboard = () => {
                                       Participación:
                                     </Typography>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <LinearProgress 
-                                        variant="determinate" 
-                                        value={course.participationRate} 
+                                      <LinearProgress
+                                        variant="determinate"
+                                        value={course.participationRate}
                                         sx={{ flexGrow: 1, height: 8, borderRadius: 2 }}
                                         color={course.participationRate >= 70 ? 'success' : course.participationRate >= 50 ? 'warning' : 'error'}
                                       />
@@ -1204,7 +1233,7 @@ const Dashboard = () => {
                             const dist = course.gradeDistribution || {};
                             const total = (dist.excellent || 0) + (dist.good || 0) + (dist.average || 0) + (dist.poor || 0);
                             if (total === 0) return null;
-                            
+
                             return (
                               <Grid item xs={12} sm={6} md={4} key={index}>
                                 <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
@@ -1233,9 +1262,9 @@ const Dashboard = () => {
                     <Grid container spacing={2}>
                       {coursesWithStats.map((course, index) => (
                         <Grid item xs={12} sm={6} md={4} key={course.courseId || index}>
-                          <Card 
+                          <Card
                             variant="outlined"
-                            sx={{ 
+                            sx={{
                               height: '100%',
                               borderLeft: `4px solid ${course.color || '#1976d2'}`,
                               transition: 'transform 0.2s, box-shadow 0.2s',
@@ -1284,9 +1313,9 @@ const Dashboard = () => {
                                         {course.participationRate.toFixed(1)}%
                                       </Typography>
                                     </Box>
-                                    <LinearProgress 
-                                      variant="determinate" 
-                                      value={course.participationRate} 
+                                    <LinearProgress
+                                      variant="determinate"
+                                      value={course.participationRate}
                                       sx={{ height: 6, borderRadius: 3 }}
                                       color={course.participationRate >= 70 ? 'success' : course.participationRate >= 50 ? 'warning' : 'error'}
                                     />
@@ -1320,9 +1349,9 @@ const Dashboard = () => {
                                 )}
                                 {course.pendingReviewCount > 0 && (
                                   <Grid item xs={12}>
-                                    <Chip 
-                                      label={`${course.pendingReviewCount} pendientes revisión`} 
-                                      size="small" 
+                                    <Chip
+                                      label={`${course.pendingReviewCount} pendientes revisión`}
+                                      size="small"
                                       color="warning"
                                       icon={<Warning />}
                                     />
@@ -1330,9 +1359,9 @@ const Dashboard = () => {
                                 )}
                                 {course.upcomingAssignmentsCount > 0 && (
                                   <Grid item xs={12}>
-                                    <Chip 
-                                      label={`${course.upcomingAssignmentsCount} próximas a vencer`} 
-                                      size="small" 
+                                    <Chip
+                                      label={`${course.upcomingAssignmentsCount} próximas a vencer`}
+                                      size="small"
                                       color="info"
                                       icon={<Schedule />}
                                     />
@@ -1358,9 +1387,9 @@ const Dashboard = () => {
                     <Grid container spacing={2}>
                       {courses.map((course, index) => (
                         <Grid item xs={12} sm={6} md={4} key={course.id || index}>
-                          <Card 
+                          <Card
                             variant="outlined"
-                            sx={{ 
+                            sx={{
                               height: '100%',
                               borderLeft: `4px solid ${course.color || '#1976d2'}`,
                               transition: 'transform 0.2s, box-shadow 0.2s',
@@ -1428,10 +1457,10 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
             >
-              <Typography 
-                variant="h5" 
-                gutterBottom 
-                sx={{ 
+              <Typography
+                variant="h5"
+                gutterBottom
+                sx={{
                   mb: 3,
                   fontSize: { xs: '1.25rem', sm: '1.5rem' }
                 }}
@@ -1471,10 +1500,10 @@ const Dashboard = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.4 }}
             >
-              <Typography 
-                variant="h5" 
-                gutterBottom 
-                sx={{ 
+              <Typography
+                variant="h5"
+                gutterBottom
+                sx={{
                   mb: 3,
                   fontSize: { xs: '1.25rem', sm: '1.5rem' }
                 }}
@@ -1488,9 +1517,9 @@ const Dashboard = () => {
               ) : (
                 <Card sx={{ borderRadius: 3 }}>
                   <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary" 
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
                       textAlign="center"
                       sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
                     >

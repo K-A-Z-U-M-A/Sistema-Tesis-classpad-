@@ -73,7 +73,7 @@ router.get('/', authMiddleware, async (req, res) => {
          ORDER BY c.created_at DESC`,
         [req.user.id]
       );
-      
+
       // Get counts and students for each course
       courses = await Promise.all(result.rows.map(async (course) => {
         const [studentCount, assignmentCount, studentsResult] = await Promise.all([
@@ -98,7 +98,7 @@ router.get('/', authMiddleware, async (req, res) => {
              ORDER BY enrolled_at
           `, [course.id])
         ]);
-        
+
         return {
           ...course,
           student_count: parseInt(studentCount.rows[0].count),
@@ -126,7 +126,7 @@ router.get('/', authMiddleware, async (req, res) => {
          ORDER BY COALESCE(cs.enrolled_at, e.enrolled_at) DESC`,
         [req.user.id]
       );
-      
+
       // Get counts and students for each course
       courses = await Promise.all(result.rows.map(async (course) => {
         const [studentCount, assignmentCount, studentsResult] = await Promise.all([
@@ -151,7 +151,7 @@ router.get('/', authMiddleware, async (req, res) => {
              ORDER BY enrolled_at
           `, [course.id])
         ]);
-        
+
         return {
           ...course,
           student_count: parseInt(studentCount.rows[0].count),
@@ -185,7 +185,7 @@ router.get('/', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
-    
+
     if (role !== 'teacher') {
       return res.status(403).json({
         error: {
@@ -248,7 +248,7 @@ router.post('/', authMiddleware, async (req, res) => {
 router.get('/my-courses', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
-    
+
     if (role !== 'student') {
       return res.status(403).json({
         error: {
@@ -273,7 +273,7 @@ router.get('/my-courses', authMiddleware, async (req, res) => {
         pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
         pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND status = $2', [course.id, 'published'])
       ]);
-      
+
       return {
         ...course,
         student_count: parseInt(studentCount.rows[0].count),
@@ -300,7 +300,7 @@ router.get('/my-courses', authMiddleware, async (req, res) => {
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.id;
-    
+
     // Accept both INTEGER and UUID IDs
     if (!(isIntegerString(courseId) || isUuid(courseId))) {
       return res.status(400).json({ error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' } });
@@ -506,7 +506,7 @@ router.post('/:id/units', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.id;
-    
+
     if (isNaN(courseId)) {
       return res.status(400).json({
         error: {
@@ -574,7 +574,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.post('/enroll', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
-    
+
     if (role !== 'student') {
       return res.status(403).json({
         error: {
@@ -662,7 +662,7 @@ router.post('/enroll', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.id;
-    
+
     if (!(isIntegerString(courseId) || isUuid(courseId))) {
       return res.status(400).json({
         error: {
@@ -730,32 +730,32 @@ router.get('/:id/students', authMiddleware, async (req, res) => {
     // Check if user is teacher
     const isTeacher = await isCourseTeacher(req.user.id, courseId);
     if (!isTeacher) {
-      return res.status(403).json({ 
-        error: { message: 'Solo los profesores pueden ver los estudiantes', code: 'INSUFFICIENT_PERMISSIONS' } 
+      return res.status(403).json({
+        error: { message: 'Solo los profesores pueden ver los estudiantes', code: 'INSUFFICIENT_PERMISSIONS' }
       });
     }
 
     // Get students from either enrollments or course_students table
     const cast = isUuid(courseId) ? '::uuid' : '';
-    
+
     // Try enrollments first (newer table with UUID support)
     let result;
     let queryError = null;
-    
+
     try {
       result = await pool.query(
-        `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, 
+        `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
                 e.enrolled_at, e.status
          FROM users u
          INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
          ORDER BY u.display_name`,
         [courseId]
       );
-      
+
       // If no results, try course_students (legacy table)
       if (result.rows.length === 0) {
         result = await pool.query(
-          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url,
+          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
                   cs.enrolled_at, cs.status
            FROM users u
            INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
@@ -769,7 +769,7 @@ router.get('/:id/students', authMiddleware, async (req, res) => {
       // Fallback to course_students on error
       try {
         result = await pool.query(
-          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url,
+          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
                   cs.enrolled_at, cs.status
            FROM users u
            INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
@@ -781,7 +781,7 @@ router.get('/:id/students', authMiddleware, async (req, res) => {
         throw err2;
       }
     }
-    
+
     // Log query error if first failed but second succeeded
     if (queryError && result.rows.length > 0) {
       console.log('✅ Fallback query succeeded');
@@ -807,7 +807,7 @@ router.post('/:id/enroll', authMiddleware, async (req, res) => {
     }
 
     const { role } = req.user;
-    
+
     if (role !== 'teacher') {
       return res.status(403).json({
         error: {
@@ -923,7 +923,7 @@ router.post('/:id/enroll', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('Error enrolling student:', error);
-    
+
     // Handle unique constraint violation
     if (error.code === '23505') {
       return res.status(400).json({
@@ -948,7 +948,7 @@ router.delete('/:id/students/:studentId', authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.id;
     const studentId = req.params.studentId;
-    
+
     if (!(isIntegerString(courseId) || isUuid(courseId))) {
       return res.status(400).json({
         error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' }
@@ -956,7 +956,7 @@ router.delete('/:id/students/:studentId', authMiddleware, async (req, res) => {
     }
 
     const { role } = req.user;
-    
+
     if (role !== 'teacher') {
       return res.status(403).json({
         error: {
