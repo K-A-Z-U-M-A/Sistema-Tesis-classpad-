@@ -132,7 +132,15 @@ const Dashboard = () => {
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={6} sm={3}>
-                  <Box textAlign="center">
+                  <Box
+                    textAlign="center"
+                    onClick={() => navigate('/courses')}
+                    sx={{
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s',
+                      '&:hover': { transform: 'scale(1.05)' }
+                    }}
+                  >
                     <Typography variant="h4" color="primary">
                       {mockCourses.length}
                     </Typography>
@@ -142,7 +150,15 @@ const Dashboard = () => {
                   </Box>
                 </Grid>
                 <Grid item xs={6} sm={3}>
-                  <Box textAlign="center">
+                  <Box
+                    textAlign="center"
+                    onClick={() => navigate('/assignments')}
+                    sx={{
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s',
+                      '&:hover': { transform: 'scale(1.05)' }
+                    }}
+                  >
                     <Typography variant="h4" color="secondary">
                       5
                     </Typography>
@@ -152,7 +168,15 @@ const Dashboard = () => {
                   </Box>
                 </Grid>
                 <Grid item xs={6} sm={3}>
-                  <Box textAlign="center">
+                  <Box
+                    textAlign="center"
+                    onClick={() => navigate('/attendance')}
+                    sx={{
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s',
+                      '&:hover': { transform: 'scale(1.05)' }
+                    }}
+                  >
                     <Typography variant="h4" color="success.main">
                       85%
                     </Typography>
@@ -267,11 +291,24 @@ const Dashboard = () => {
               <List>
                 {mockRecentPosts.map((post, index) => (
                   <Box key={post.id}>
-                    <ListItem>
+                    <ListItem
+                      button
+                      onClick={() => {
+                        if (post.type === 'assignment') {
+                          navigate('/assignments');
+                        } else {
+                          navigate('/courses');
+                        }
+                      }}
+                      sx={{
+                        cursor: 'pointer',
+                        '&:hover': { backgroundColor: 'action.hover' }
+                      }}
+                    >
                       <ListItemAvatar>
                         <Avatar>
                           {post.type === 'assignment' ? <Assignment /> :
-                           post.type === 'material' ? <School /> : <Notifications />}
+                            post.type === 'material' ? <School /> : <Notifications />}
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
@@ -280,7 +317,7 @@ const Dashboard = () => {
                       />
                       <Chip
                         label={post.type === 'assignment' ? 'Tarea' :
-                               post.type === 'material' ? 'Material' : 'Anuncio'}
+                          post.type === 'material' ? 'Material' : 'Anuncio'}
                         size="small"
                         color={post.type === 'assignment' ? 'warning' : 'info'}
                       />
@@ -302,7 +339,11 @@ const Dashboard = () => {
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Card variant="outlined">
+                  <Card
+                    variant="outlined"
+                    onClick={() => navigate('/assignments')}
+                    sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
+                  >
                     <CardContent>
                       <Typography variant="h6" color="warning.main">
                         Mañana
@@ -317,7 +358,11 @@ const Dashboard = () => {
                   </Card>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Card variant="outlined">
+                  <Card
+                    variant="outlined"
+                    onClick={() => navigate('/assignments')}
+                    sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
+                  >
                     <CardContent>
                       <Typography variant="h6" color="info.main">
                         Viernes
@@ -332,7 +377,11 @@ const Dashboard = () => {
                   </Card>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Card variant="outlined">
+                  <Card
+                    variant="outlined"
+                    onClick={() => navigate('/assignments')}
+                    sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
+                  >
                     <CardContent>
                       <Typography variant="h6" color="success.main">
                         Lunes
@@ -347,7 +396,11 @@ const Dashboard = () => {
                   </Card>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Card variant="outlined">
+                  <Card
+                    variant="outlined"
+                    onClick={() => navigate('/attendance')}
+                    sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
+                  >
                     <CardContent>
                       <Typography variant="h6" color="secondary.main">
                         Miércoles
