@@ -17,6 +17,9 @@ import messageRoutes from './routes/messages.js';
 import submissionRoutes from './routes/submissions.js';
 import { router as notificationRoutes } from './routes/notifications.js';
 import attendanceRoutes from './routes/attendance.js';
+import gradeRoutes from './routes/grades.js';
+import reportRoutes from './routes/reports.js';
+import passwordRecoveryRoutes from './routes/passwordRecovery.js';
 import ensureAttendanceTables from './ensure-attendance-tables.js';
 import ensureProfileFields from './ensure-profile-fields.js';
 
@@ -74,6 +77,7 @@ app.get('/api/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', passwordRecoveryRoutes); // Rutas de recuperación de contraseña
 app.use('/api/users', userRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/teachers', teacherRoutes);
@@ -84,6 +88,8 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/grades', gradeRoutes);
+app.use('/api/reports', reportRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
