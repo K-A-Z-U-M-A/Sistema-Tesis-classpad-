@@ -152,6 +152,14 @@ class ApiService {
     });
   }
 
+  // Update profile (name and photo)
+  updateProfile(data) {
+    return this.request('/users/update-profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   async checkProfileComplete() {
     return this.request('/users/me/profile-complete');
   }
@@ -418,6 +426,135 @@ class ApiService {
 
   async getCourseAttendanceStats(courseId) {
     return this.request(`/attendance/courses/${courseId}/stats`);
+  }
+
+  // Course Archiving methods
+  async getArchivedCourses() {
+    return this.request('/courses/archived');
+  }
+
+  async archiveCourse(courseId) {
+    return this.request(`/courses/${courseId}/archive`, { method: 'PUT' });
+  }
+
+  async unarchiveCourse(courseId) {
+    return this.request(`/courses/${courseId}/unarchive`, { method: 'PUT' });
+  }
+
+  // Grades methods
+  async getCourseGrades(courseId) {
+    return this.request(`/grades/course/${courseId}`);
+  }
+
+  async getStudentGrades(studentId, courseId) {
+    return this.request(`/grades/student/${studentId}/course/${courseId}`);
+  }
+
+  async getCourseAttendanceStats(courseId) {
+    return this.request(`/attendance/courses/${courseId}/stats`);
+  }
+
+  async getMyAssignments() {
+    return this.request('/users/me/assignments');
+  }
+
+  async updateGrade(gradeId, data) {
+    return this.request(`/grades/${gradeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async bulkUpdateGrades(courseId, grades) {
+    return this.request(`/grades/course/${courseId}/bulk`, {
+      method: 'PUT',
+      body: JSON.stringify({ grades })
+    });
+  }
+
+  async generateTP(courseId) {
+    return this.request(`/grades/generate-tp/${courseId}`, { method: 'PUT' });
+  }
+
+  async publishGrades(courseId, studentIds = null) {
+    return this.request(`/grades/publish/${courseId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ studentIds })
+    });
+  }
+
+  // Reports methods
+  async exportGradesToExcel(courseId) {
+    const url = `${this.baseURL}/reports/course/${courseId}/excel`;
+    const token = this.getToken();
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al exportar a Excel');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `Calificaciones_${courseId}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(downloadUrl);
+  }
+
+  async exportGradesToPDF(courseId) {
+    const url = `${this.baseURL}/reports/course/${courseId}/pdf`;
+    const token = this.getToken();
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al exportar a PDF');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `Calificaciones_${courseId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(downloadUrl);
+  }
+
+  // HTTP method helpers for easier usage
+  async get(endpoint) {
+    return this.request(endpoint, { method: 'GET' });
+  }
+
+  async post(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async put(endpoint, data) {
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async delete(endpoint) {
+    return this.request(endpoint, { method: 'DELETE' });
   }
 
   // Get student progress in a course

@@ -65,7 +65,7 @@ const menuItems = [
 
 const teacherMenuItems = [
   { text: 'Crear Curso', icon: <Add />, path: '/create-course' },
-  { text: 'Administrar', icon: <Dashboard />, path: '/admin' },
+  { text: 'Administrar', icon: <Dashboard />, path: '/administrar' },
 ];
 
 export default function AppLayout({ children }) {
@@ -77,7 +77,7 @@ export default function AppLayout({ children }) {
   const location = useLocation();
   const { userProfile, logout } = useAuth();
   const pendingAssignmentsCount = useAssignmentCount();
-  
+
   // Obtener información de la sesión actual
   const sessionInfo = sessionManager.getSessionInfo();
   const sessionRole = sessionInfo?.role || userProfile?.role;
@@ -198,7 +198,7 @@ export default function AppLayout({ children }) {
                   item.icon
                 )}
               </ListItemIcon>
-              <ListItemText 
+              <ListItemText
                 primary={item.text}
                 sx={{
                   '& .MuiListItemText-primary': {
@@ -272,29 +272,29 @@ export default function AppLayout({ children }) {
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <Avatar
             src={userProfile?.photoURL || userProfile?.photo_url}
-            sx={{ 
-              width: { xs: 35, sm: 40 }, 
-              height: { xs: 35, sm: 40 }, 
+            sx={{
+              width: { xs: 35, sm: 40 },
+              height: { xs: 35, sm: 40 },
               mr: 2,
               bgcolor: userProfile?.photoURL || userProfile?.photo_url ? 'transparent' : 'primary.main'
             }}
           >
-            {userProfile?.displayName?.charAt(0)?.toUpperCase() || 
-             userProfile?.display_name?.charAt(0)?.toUpperCase() || 
-             'U'}
+            {userProfile?.displayName?.charAt(0)?.toUpperCase() ||
+              userProfile?.display_name?.charAt(0)?.toUpperCase() ||
+              'U'}
           </Avatar>
           <Box>
-            <Typography 
-              variant="body2" 
-              sx={{ 
+            <Typography
+              variant="body2"
+              sx={{
                 fontWeight: 600,
                 fontSize: { xs: '0.875rem', sm: '0.875rem' }
               }}
             >
               {userProfile?.displayName || userProfile?.display_name || 'Usuario'}
             </Typography>
-            <Typography 
-              variant="caption" 
+            <Typography
+              variant="caption"
               color="text.secondary"
               sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
             >
@@ -339,8 +339,8 @@ export default function AppLayout({ children }) {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ 
-              mr: { xs: 1, sm: 2 }, 
+            sx={{
+              mr: { xs: 1, sm: 2 },
               display: { md: 'none' },
               p: { xs: 1, sm: 1.5 }
             }}
@@ -348,11 +348,11 @@ export default function AppLayout({ children }) {
             <MenuIcon />
           </IconButton>
 
-          <Typography 
-            variant="h6" 
-            noWrap 
-            component="div" 
-            sx={{ 
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{
               flexGrow: 1,
               fontSize: { xs: '1rem', sm: '1.25rem' },
               fontWeight: 600
@@ -388,23 +388,23 @@ export default function AppLayout({ children }) {
           <IconButton
             color="inherit"
             onClick={handleProfileMenuOpen}
-            sx={{ 
+            sx={{
               ml: { xs: 0.5, sm: 1 },
               p: { xs: 0.5, sm: 1 }
             }}
           >
             <Avatar
               src={userProfile?.photoURL || userProfile?.photo_url}
-              sx={{ 
-                width: { xs: 28, sm: 32 }, 
+              sx={{
+                width: { xs: 28, sm: 32 },
                 height: { xs: 28, sm: 32 },
                 fontSize: { xs: '0.875rem', sm: '1rem' },
                 bgcolor: userProfile?.photoURL || userProfile?.photo_url ? 'transparent' : 'primary.main'
               }}
             >
-              {userProfile?.displayName?.charAt(0)?.toUpperCase() || 
-               userProfile?.display_name?.charAt(0)?.toUpperCase() || 
-               'U'}
+              {userProfile?.displayName?.charAt(0)?.toUpperCase() ||
+                userProfile?.display_name?.charAt(0)?.toUpperCase() ||
+                'U'}
             </Avatar>
           </IconButton>
         </Toolbar>
