@@ -163,7 +163,7 @@ router.post('/login', async (req, res) => {
     console.log('🔍 Verifying password...');
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     console.log('🔍 Password verification result:', isValidPassword);
-    
+
     if (!isValidPassword) {
       console.log('❌ Invalid password');
       return res.status(401).json({
@@ -239,21 +239,21 @@ router.get('/me', authMiddleware, async (req, res) => {
 router.get('/google', (req, res, next) => {
   console.log('🔍 Google auth - query params:', req.query);
   console.log('🔍 Google auth - flow param:', req.query.flow);
-  
+
   // Store the flow parameter in session or pass it through state
   if (req.query.flow === 'redirect') {
     // We'll use a custom state parameter to pass the flow type
     req.session = req.session || {};
     req.session.oauthFlow = 'redirect';
   }
-  
+
   passport.authenticate('google', {
     scope: ['profile', 'email'],
     state: req.query.flow || 'popup' // Pass flow as state parameter
   })(req, res, next);
 });
 
-router.get('/google/callback', 
+router.get('/google/callback',
   passport.authenticate('google', { session: false }),
   async (req, res) => {
     try {
@@ -294,5 +294,92 @@ router.get('/google/callback',
     }
   }
 );
+
+// Update recovery email endpoint
+router.put('/update-recovery-email', authMiddleware, async (req, res) => {
+  try {
+    const { recoveryEmail } = req.body;
+    const userId = req.user.id;
+    const userEmail = req.user.email;
+    const displayName = req.user.display_name;
+
+    console.log(`🔐 Intento de actualizar recovery_email para usuario ${userId}`);
+
+    // Validaciones
+    if (!recoveryEmail) {
+      return res.status(400).json({
+        error: {
+          message: 'El correo de recuperación es requerido',
+          code: 'MISSING_RECOVERY_EMAIL'
+        }
+      });
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recoveryEmail)) {
+      return res.status(400).json({
+        error: {
+          message: 'Formato de correo inválido',
+          code: 'INVALID_EMAIL_FORMAT'
+        }
+      });
+    }
+
+    const normalizedRecoveryEmail = recoveryEmail.toLowerCase().trim();
+
+    // No puede ser igual al email principal
+    if (normalizedRecoveryEmail === userEmail.toLowerCase()) {
+      return res.status(400).json({
+        error: {
+          message: 'El correo de recuperación no puede ser igual al correo principal',
+          code: 'SAME_AS_MAIN_EMAIL'
+        }
+      });
+    }
+
+    // Verificar que no exista en otro usuario
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE recovery_email = $1 AND id != $2',
+      [normalizedRecoveryEmail, userId]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(409).json({
+        error: {
+          message: 'Este correo ya está en uso como correo de recuperación',
+          code: 'RECOVERY_EMAIL_IN_USE'
+        }
+      });
+    }
+
+    // Actualizar recovery_email
+    await pool.query(
+      'UPDATE users SET recovery_email = $1 WHERE id = $2',
+      [normalizedRecoveryEmail, userId]
+    );
+
+    console.log(`✅ Recovery email actualizado para usuario ${userId}: ${normalizedRecoveryEmail}`);
+
+    // TODO: Enviar notificación al email principal
+    // await emailService.sendRecoveryEmailChangedNotification(userEmail, normalizedRecoveryEmail, displayName);
+
+    res.json({
+      data: {
+        message: 'Correo de recuperación actualizado correctamente',
+        recoveryEmail: normalizedRecoveryEmail
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating recovery email:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error al actualizar el correo de recuperación',
+        code: 'INTERNAL_ERROR'
+      }
+    });
+  }
+});
 
 export default router;

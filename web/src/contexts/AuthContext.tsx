@@ -44,10 +44,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     // Inicializar la autenticación solo para esta pestaña
     authStore.initializeAuth();
-    
+
     // NO escuchar eventos de storage - cada pestaña es independiente
     // Esto previene que cambios en otras pestañas afecten esta
-    
+
     return () => {
       // Cleanup si es necesario
     };
@@ -56,13 +56,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Redirigir automáticamente al dashboard si ya hay sesión válida
   // Solo reaccionar a cambios en ESTA pestaña, no a cambios externos
   useEffect(() => {
-    if (!authStore.loading && authStore.user) {
+    if (!authStore.loading && authStore.user && authStore.user.id && !authStore.error) {
       const path = location.pathname;
       if (path === '/' || path === '/login' || path === '/signup' || path === '/auth/callback') {
         navigate('/dashboard', { replace: true });
       }
     }
-  }, [authStore.loading, authStore.user, location.pathname, navigate]);
+  }, [authStore.loading, authStore.user, authStore.error, location.pathname, navigate]);
 
   const value: AuthContextType = {
     user: authStore.user,
@@ -72,7 +72,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     loading: authStore.loading,
     error: authStore.error,
     login: async (email: string, password: string) => {
-      await authStore.login({ email, password });
+      // CRITICAL FIX: Explicitly re-throw errors so Login.jsx can catch them
+      try {
+        await authStore.login({ email, password });
+      } catch (error) {
+        throw error; // Re-throw to propagate to Login component
+      }
     },
     loginWithGoogle: authStore.loginWithGoogle,
     register: authStore.register,
@@ -88,4 +93,4 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       {children}
     </AuthContext.Provider>
   );
-}; 
+};

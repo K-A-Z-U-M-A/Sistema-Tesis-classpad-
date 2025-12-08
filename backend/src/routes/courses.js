@@ -54,14 +54,14 @@ async function hasCourseAccess(userId, courseId) {
   return result.rows.length > 0;
 }
 
-// GET /api/courses - Get user's courses
+// GET /api/courses - Get user's courses (ONLY ACTIVE)
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
     let courses;
 
     if (role === 'teacher') {
-      // Get courses where user is owner or teacher
+      // Get courses where user is owner or teacher - ONLY ACTIVE
       const result = await pool.query(
         `SELECT DISTINCT c.*, 
                 u.display_name as owner_name,
@@ -69,7 +69,8 @@ router.get('/', authMiddleware, async (req, res) => {
          FROM courses c
          LEFT JOIN users u ON c.owner_id = u.id
          LEFT JOIN course_teachers ct ON c.id = ct.course_id
-         WHERE c.owner_id = $1 OR ct.teacher_id = $1
+         WHERE (c.owner_id = $1 OR ct.teacher_id = $1)
+         AND c.archived = false
          ORDER BY c.created_at DESC`,
         [req.user.id]
       );
@@ -112,7 +113,7 @@ router.get('/', authMiddleware, async (req, res) => {
         };
       }));
     } else {
-      // Get courses where user is student (from both course_students and enrollments)
+      // Get courses where user is student (from both course_students and enrollments) - ONLY ACTIVE
       const result = await pool.query(
         `SELECT DISTINCT c.*, 
                 u.display_name as owner_name,
@@ -123,6 +124,7 @@ router.get('/', authMiddleware, async (req, res) => {
          LEFT JOIN course_students cs ON c.id = cs.course_id AND cs.student_id = $1 AND cs.status = 'active'
          LEFT JOIN enrollments e ON c.id = e.course_id AND e.student_id = $1 AND e.status = 'active'
          WHERE (cs.student_id = $1 OR e.student_id = $1)
+         AND c.archived = false
          ORDER BY COALESCE(cs.enrolled_at, e.enrolled_at) DESC`,
         [req.user.id]
       );
@@ -291,6 +293,58 @@ router.get('/my-courses', authMiddleware, async (req, res) => {
       error: {
         message: 'Error interno del servidor',
         code: 'FETCH_COURSES_FAILED'
+      }
+    });
+  }
+});
+
+// GET /api/courses/archived - Get archived courses (teachers only)
+// IMPORTANT: This route MUST be before /:id to prevent "archived" from being treated as an ID
+router.get('/archived', authMiddleware, async (req, res) => {
+  try {
+    const { role } = req.user;
+
+    if (role !== 'teacher') {
+      return res.status(403).json({
+        error: {
+          message: 'Solo los profesores pueden ver cursos archivados',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        }
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        c.id, 
+        c.name, 
+        c.description,
+        c.turn,
+        c.grade,
+        c.semester,
+        c.year,
+        c.color,
+        c.image_url,
+        c.course_code,
+        c.archived_at,
+        c.created_at,
+        (SELECT COUNT(*) FROM course_students cs WHERE cs.course_id = c.id) as student_count
+      FROM courses c
+      WHERE c.owner_id = $1 
+      AND c.archived = true
+      ORDER BY c.archived_at DESC`,
+      [req.user.id]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Error getting archived courses:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
+        code: 'GET_ARCHIVED_COURSES_FAILED'
       }
     });
   }
@@ -1013,6 +1067,193 @@ router.delete('/:id/students/:studentId', authMiddleware, async (req, res) => {
       error: {
         message: 'Error interno del servidor',
         code: 'UNENROLL_STUDENT_FAILED'
+      }
+    });
+  }
+});
+
+// PUT /api/courses/:id/archive - Archive a course (owner only)
+router.put('/:courseId/archive', authMiddleware, async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { courseId } = req.params;
+    const { role, id: userId } = req.user;
+
+    if (role !== 'teacher') {
+      return res.status(403).json({
+        error: {
+          message: 'Solo los profesores pueden archivar cursos',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        }
+      });
+    }
+
+    console.log('🗂️ Archivando curso:', courseId);
+
+    await client.query('BEGIN');
+
+    // Check if user is owner
+    const courseResult = await client.query(
+      'SELECT id, name, owner_id, archived FROM courses WHERE id = $1',
+      [courseId]
+    );
+
+    if (courseResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        error: {
+          message: 'Curso no encontrado',
+          code: 'COURSE_NOT_FOUND'
+        }
+      });
+    }
+
+    const course = courseResult.rows[0];
+
+    if (course.owner_id !== userId) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        error: {
+          message: 'Solo el propietario puede archivar el curso',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        }
+      });
+    }
+
+    if (course.archived) {
+      await client.query('ROLLBACK');
+      return res.json({
+        success: true,
+        message: 'El curso ya está archivado',
+        data: course
+      });
+    }
+
+    // 1. Delete all student enrollments
+    await client.query(
+      'DELETE FROM enrollments WHERE course_id = $1',
+      [courseId]
+    );
+
+    await client.query(
+      'DELETE FROM course_students WHERE course_id = $1',
+      [courseId]
+    );
+
+    console.log('✅ Inscripciones de estudiantes eliminadas');
+
+    // 2. Mark course as archived
+    const archiveResult = await client.query(
+      `UPDATE courses 
+       SET archived = true,
+           archived_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [courseId]
+    );
+
+    await client.query('COMMIT');
+
+    console.log('✅ Curso archivado exitosamente');
+
+    res.json({
+      success: true,
+      message: 'Curso archivado exitosamente. Los estudiantes han sido removidos.',
+      data: archiveResult.rows[0]
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error archivando curso:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
+        code: 'ARCHIVE_COURSE_FAILED',
+        details: error.message
+      }
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// PUT /api/courses/:id/unarchive - Unarchive (restore) a course (owner only)
+router.put('/:courseId/unarchive', authMiddleware, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { role, id: userId } = req.user;
+
+    if (role !== 'teacher') {
+      return res.status(403).json({
+        error: {
+          message: 'Solo los profesores pueden restaurar cursos',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        }
+      });
+    }
+
+    console.log('📂 Restaurando curso:', courseId);
+
+    // Check if user is owner
+    const courseResult = await pool.query(
+      'SELECT id, name, owner_id, archived FROM courses WHERE id = $1',
+      [courseId]
+    );
+
+    if (courseResult.rows.length === 0) {
+      return res.status(404).json({
+        error: {
+          message: 'Curso no encontrado',
+          code: 'COURSE_NOT_FOUND'
+        }
+      });
+    }
+
+    const course = courseResult.rows[0];
+
+    if (course.owner_id !== userId) {
+      return res.status(403).json({
+        error: {
+          message: 'Solo el propietario puede restaurar el curso',
+          code: 'INSUFFICIENT_PERMISSIONS'
+        }
+      });
+    }
+
+    if (!course.archived) {
+      return res.json({
+        success: true,
+        message: 'El curso ya está activo',
+        data: course
+      });
+    }
+
+    // Unarchive course
+    const result = await pool.query(
+      `UPDATE courses 
+       SET archived = false,
+           archived_at = NULL,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [courseId]
+    );
+
+    console.log('✅ Curso restaurado exitosamente');
+
+    res.json({
+      success: true,
+      message: 'Curso restaurado exitosamente. Ahora está visible para nuevas inscripciones.',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('❌ Error restaurando curso:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
+        code: 'UNARCHIVE_COURSE_FAILED',
+        details: error.message
       }
     });
   }

@@ -1,0 +1,67 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║          INFORME DE BASE DE DATOS - CLASSPAD                 ║
+║          Fecha: 21/11/2025, 02:35:56                    ║
+╚══════════════════════════════════════════════════════════════╝
+
+📊 RESUMEN GENERAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Base de Datos: classpad_db
+Total de Tablas: 25
+
+📋 TABLAS Y REGISTROS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  assignment_attachments              2 registros
+  assignment_students                 3 registros
+  assignments                         6 registros
+  attendance_holidays                 0 registros
+  attendance_records                  2 registros
+  attendance_sessions                13 registros
+  comments                            5 registros
+  course_students                     0 registros
+  course_teachers                     4 registros
+  courses                             4 registros
+  enrollments                        29 registros
+  files                               3 registros
+  grades                              0 registros
+  materials                          11 registros
+  message_attachments                 0 registros
+  message_comments                    0 registros
+  messages                           16 registros
+  notifications                      86 registros
+  qr_tokens                           0 registros
+  rubric_criteria                     0 registros
+  submission_files                    6 registros
+  submissions                         9 registros
+  units                              15 registros
+  unread_notifications               68 registros
+  users                              32 registros
+
+📈 ESTADÍSTICAS DETALLADAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👥 USUARIOS POR ROL:
+  - teacher: 9 usuarios
+  - student: 22 usuarios
+  - admin: 1 usuarios
+
+📚 CURSOS:
+  - Total: 4
+  - Activos: 4
+  - Archivados: 0
+
+📝 TAREAS POR ESTADO:
+  - draft: 2 tareas
+  - published: 4 tareas
+
+🎓 CALIFICACIONES:
+  - Total registros: 0
+  - Promedio general: N/A
+  - Promedio mínimo: N/A
+  - Promedio máximo: N/A
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Fin del informe
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

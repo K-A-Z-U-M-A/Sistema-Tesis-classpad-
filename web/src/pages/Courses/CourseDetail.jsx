@@ -81,7 +81,11 @@ import {
   Reply,
   ExpandLess,
   Send,
-  Search
+  Search,
+  Star,
+  Archive as ArchiveIcon,
+  TrendingUp,
+  ArrowBack
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -131,7 +135,7 @@ const CourseDetail = () => {
   const [assignmentMenuItem, setAssignmentMenuItem] = useState(null);
   const [editAssignmentDialog, setEditAssignmentDialog] = useState(false);
   const [editAssignment, setEditAssignment] = useState({ id: null, unit_id: null, title: '', description: '', due_date: '', due_time: '', is_published: true, attachments: [] });
-  
+
   // New material upload states
   const [materialUploadDialog, setMaterialUploadDialog] = useState(false);
   const [materialUploadUnitId, setMaterialUploadUnitId] = useState(null);
@@ -149,7 +153,7 @@ const CourseDetail = () => {
     const searchParams = new URLSearchParams(location.search);
     const tab = searchParams.get('tab');
     const assignmentId = searchParams.get('assignment');
-    
+
     if (tab) {
       switch (tab) {
         case 'units':
@@ -168,7 +172,7 @@ const CourseDetail = () => {
           setActiveTab(0);
       }
     }
-    
+
     // If there's an assignment ID, we could scroll to it or highlight it
     if (assignmentId && assignments.length > 0) {
       // Find the assignment and scroll to it
@@ -207,7 +211,7 @@ const CourseDetail = () => {
       if (unitsRes.success) {
         const unitsData = unitsRes.data || [];
         // Filter units based on user role - students only see published units
-        const filteredUnits = userProfile?.role === 'student' 
+        const filteredUnits = userProfile?.role === 'student'
           ? unitsData.filter(unit => unit.is_published === true)
           : unitsData;
         setUnits(filteredUnits);
@@ -220,20 +224,20 @@ const CourseDetail = () => {
               api.request(`/units/${u.id}/assignments`),
               api.request(`/units/${u.id}/materials`)
             ]);
-            
+
             let assignments = assignmentsRes.success ? (assignmentsRes.data || []) : [];
-            
+
             // Filtrar tareas según el rol: estudiantes solo ven tareas publicadas
             if (userProfile?.role === 'student') {
               assignments = assignments.filter(assignment => {
                 // Verificar tanto status como is_published para mayor seguridad
-                const isPublished = assignment.status === 'published' || 
-                                   assignment.is_published === true ||
-                                   assignment.is_published === 1;
+                const isPublished = assignment.status === 'published' ||
+                  assignment.is_published === true ||
+                  assignment.is_published === 1;
                 return isPublished;
               });
             }
-            
+
             // Load attachments and materials for each assignment
             if (assignments.length > 0) {
               await Promise.all(assignments.map(async (assignment) => {
@@ -242,7 +246,7 @@ const CourseDetail = () => {
                     api.request(`/assignments/${assignment.id}/attachments`),
                     api.getAssignmentMaterials(assignment.id)
                   ]);
-                  
+
                   assignment.attachments = attachmentsRes.success ? (attachmentsRes.data?.data || []) : [];
                   assignment.materials = materialsRes.success ? (materialsRes.data || []) : [];
                 } catch (error) {
@@ -252,7 +256,7 @@ const CourseDetail = () => {
                 }
               }));
             }
-            
+
             assignmentsMap[u.id] = assignments;
             materialsMap[u.id] = materialsRes.success ? (materialsRes.data || []) : [];
           } catch {
@@ -268,12 +272,12 @@ const CourseDetail = () => {
         const allAssignments = assignmentsRes.data || [];
         const filteredAssignments = userProfile?.role === 'student'
           ? allAssignments.filter(assignment => {
-              // Verificar tanto status como is_published para mayor seguridad
-              const isPublished = assignment.status === 'published' || 
-                                 assignment.is_published === true ||
-                                 assignment.is_published === 1;
-              return isPublished;
-            })
+            // Verificar tanto status como is_published para mayor seguridad
+            const isPublished = assignment.status === 'published' ||
+              assignment.is_published === true ||
+              assignment.is_published === 1;
+            return isPublished;
+          })
           : allAssignments;
         setAssignments(filteredAssignments);
       }
@@ -328,7 +332,7 @@ const CourseDetail = () => {
     try {
       const response = await api.request(`/messages/${editingMessage}`, {
         method: 'PUT',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           title: editMessageTitle.trim(),
           content: editMessageContent.trim()
         })
@@ -388,17 +392,17 @@ const CourseDetail = () => {
   // Helper function to get user role from message
   const getUserRole = (message) => {
     if (!course) return 'student';
-    
+
     // Check if the message author is the course owner
     if (course.owner_id === message.sender_id) {
       return 'teacher';
     }
-    
+
     // Check if the message author is in the teachers list
     if (course.teachers && course.teachers.some(teacher => teacher.id === message.sender_id)) {
       return 'teacher';
     }
-    
+
     return 'student';
   };
 
@@ -463,13 +467,13 @@ const CourseDetail = () => {
         points: newTask.points === '' ? 100 : newTask.points || 100,
         type: 'assignment',
         status: newTask.is_published ? 'published' : 'draft',
-        target_student_ids: newTask.targetStudents === 'specific' && newTask.selectedStudentIds.length > 0 
-          ? newTask.selectedStudentIds 
+        target_student_ids: newTask.targetStudents === 'specific' && newTask.selectedStudentIds.length > 0
+          ? newTask.selectedStudentIds
           : null
       });
       if (res.success) {
         const assignmentId = res.data?.id;
-        
+
         // Upload file attachments if any
         if (assignmentId && newTaskAttachments.length > 0) {
           for (const attachment of newTaskAttachments) {
@@ -487,7 +491,7 @@ const CourseDetail = () => {
             }
           }
         }
-        
+
         toast.success('Tarea creada');
         setNewTaskDialog(false);
         setNewTask({ title: '', description: '', due_date: '', due_time: '', points: 100, is_published: true, targetStudents: 'all', selectedStudentIds: [] });
@@ -551,10 +555,20 @@ const CourseDetail = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <Box 
-          display="flex" 
-          alignItems={{ xs: 'flex-start', sm: 'center' }} 
-          gap={2} 
+        <Box mb={2}>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBack />}
+            onClick={() => navigate('/courses')}
+            sx={{ borderRadius: 2 }}
+          >
+            Volver a Mis Cursos
+          </Button>
+        </Box>
+        <Box
+          display="flex"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          gap={2}
           mb={4}
           flexDirection={{ xs: 'column', sm: 'row' }}
         >
@@ -572,47 +586,47 @@ const CourseDetail = () => {
             <School sx={{ color: 'white', fontSize: { xs: 24, sm: 30 } }} />
           </Box>
           <Box flex={1} width="100%">
-            <Typography 
-              variant="h3" 
+            <Typography
+              variant="h3"
               fontWeight="bold"
               sx={{ fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' } }}
             >
               {course.name}
             </Typography>
-            <Typography 
-              variant="h6" 
+            <Typography
+              variant="h6"
               color="text.secondary"
               sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
             >
               {course.turn} {course.grade && `• ${course.grade}`}
             </Typography>
-            <Typography 
-              variant="body1" 
+            <Typography
+              variant="body1"
               color="text.secondary"
               sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
             >
               {course.description}
             </Typography>
             {course.course_code && (
-              <Box sx={{ 
-                mt: 2, 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                mt: 2,
+                display: 'flex',
+                alignItems: 'center',
                 gap: 1,
                 flexWrap: 'wrap'
               }}>
-                <Typography 
-                  variant="body2" 
+                <Typography
+                  variant="body2"
                   color="text.secondary"
                   sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
                 >
                   Código de la clase:
                 </Typography>
-                <Chip 
-                  label={course.course_code} 
-                  color="primary" 
+                <Chip
+                  label={course.course_code}
+                  color="primary"
                   variant="outlined"
-                  sx={{ 
+                  sx={{
                     fontWeight: 'bold',
                     fontSize: { xs: '0.75rem', sm: '0.875rem' }
                   }}
@@ -625,11 +639,84 @@ const CourseDetail = () => {
                     navigator.clipboard.writeText(course.course_code);
                     toast.success('Código copiado al portapapeles');
                   }}
-                  sx={{ 
+                  sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' }
                   }}
                 >
                   Copiar
+                </Button>
+              </Box>
+            )}
+
+            {/* Action Buttons for Teachers */}
+            {userProfile?.role === 'teacher' && (
+              <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
+                <Button
+                  variant="contained"
+                  startIcon={<Star />}
+                  onClick={() => navigate(`/courses/${courseId}/manage`)}
+                  sx={{
+                    bgcolor: '#1976d2',
+                    '&:hover': { bgcolor: '#1565c0' },
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    px: 2.5,
+                    py: 1,
+                    borderRadius: 2,
+                    boxShadow: 2
+                  }}
+                >
+                  Administrar Curso
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<ArchiveIcon />}
+                  onClick={async () => {
+                    if (window.confirm('¿Estás seguro de que deseas archivar este curso? Todos los estudiantes serán removidos.')) {
+                      try {
+                        await api.archiveCourse(courseId);
+                        toast.success('Curso archivado exitosamente');
+                        navigate('/courses');
+                      } catch (error) {
+                        toast.error('Error al archivar el curso');
+                      }
+                    }
+                  }}
+                  sx={{
+                    bgcolor: '#ff9800',
+                    '&:hover': { bgcolor: '#f57c00' },
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    px: 2.5,
+                    py: 1,
+                    borderRadius: 2,
+                    boxShadow: 2
+                  }}
+                >
+                  Archivar Curso
+                </Button>
+              </Box>
+            )}
+
+            {/* Action Button for Students */}
+            {userProfile?.role === 'student' && (
+              <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
+                <Button
+                  variant="contained"
+                  startIcon={<TrendingUp />}
+                  onClick={() => navigate(`/courses/${courseId}/progress`)}
+                  sx={{
+                    bgcolor: '#9c27b0',
+                    '&:hover': { bgcolor: '#7b1fa2' },
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    px: 2.5,
+                    py: 1,
+                    borderRadius: 2,
+                    boxShadow: 2
+                  }}
+                >
+                  Ver mi progreso
                 </Button>
               </Box>
             )}
@@ -638,7 +725,7 @@ const CourseDetail = () => {
             <Chip
               label={course.is_active ? 'Activo' : 'Inactivo'}
               color={course.is_active ? 'success' : 'default'}
-              sx={{ 
+              sx={{
                 fontSize: { xs: '0.75rem', sm: '0.875rem' }
               }}
             />
@@ -649,8 +736,8 @@ const CourseDetail = () => {
       {/* Tabs */}
       <Card sx={{ borderRadius: 3 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs 
-            value={activeTab} 
+          <Tabs
+            value={activeTab}
             onChange={handleTabChange}
             variant="scrollable"
             scrollButtons="auto"
@@ -673,21 +760,21 @@ const CourseDetail = () => {
           {/* Tab Content */}
           {activeTab === 0 && (
             <Box>
-              <Box 
-                display="flex" 
-                justifyContent="space-between" 
-                alignItems={{ xs: 'flex-start', sm: 'center' }} 
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
                 mb={3}
                 flexDirection={{ xs: 'column', sm: 'row' }}
                 gap={{ xs: 2, sm: 0 }}
               >
-                <Typography 
-                  variant="h5" 
-                  fontWeight="bold" 
-                  component="div" 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                <Typography
+                  variant="h5"
+                  fontWeight="bold"
+                  component="div"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: 1,
                     fontSize: { xs: '1.25rem', sm: '1.5rem' }
                   }}
@@ -700,7 +787,7 @@ const CourseDetail = () => {
                     variant="contained"
                     startIcon={<Add />}
                     onClick={() => setNewUnitDialog(true)}
-                    sx={{ 
+                    sx={{
                       borderRadius: 2,
                       width: { xs: '100%', sm: 'auto' }
                     }}
@@ -713,11 +800,11 @@ const CourseDetail = () => {
               {units.length > 0 ? (
                 <Stack spacing={2}>
                   {units.map((unit, index) => (
-                    <Accordion 
-                      key={unit.id} 
-                      expanded={!!expandedUnits[unit.id]} 
+                    <Accordion
+                      key={unit.id}
+                      expanded={!!expandedUnits[unit.id]}
                       onChange={() => setExpandedUnits(prev => ({ ...prev, [unit.id]: !prev[unit.id] }))}
-                      sx={{ 
+                      sx={{
                         border: '1px solid',
                         borderColor: 'divider',
                         borderRadius: 3,
@@ -731,7 +818,7 @@ const CourseDetail = () => {
                     >
                       <AccordionSummary
                         expandIcon={<ExpandMore />}
-                        sx={{ 
+                        sx={{
                           backgroundColor: 'grey.50',
                           borderRadius: '12px 12px 0 0',
                           '&.Mui-expanded': {
@@ -741,24 +828,24 @@ const CourseDetail = () => {
                           py: { xs: 1, sm: 1.5 }
                         }}
                       >
-                        <Box sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          width: '100%', 
+                        <Box sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          width: '100%',
                           gap: { xs: 1, sm: 2 }
                         }}>
-                          <Avatar sx={{ 
-                            bgcolor: 'primary.main', 
-                            width: { xs: 35, sm: 40 }, 
+                          <Avatar sx={{
+                            bgcolor: 'primary.main',
+                            width: { xs: 35, sm: 40 },
                             height: { xs: 35, sm: 40 }
                           }}>
                             <Folder color="white" sx={{ fontSize: { xs: 18, sm: 20 } }} />
                           </Avatar>
                           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                            <Typography 
-                              variant="h6" 
+                            <Typography
+                              variant="h6"
                               fontWeight="bold"
-                              sx={{ 
+                              sx={{
                                 fontSize: { xs: '1rem', sm: '1.25rem' },
                                 lineHeight: { xs: 1.3, sm: 1.4 }
                               }}
@@ -772,10 +859,10 @@ const CourseDetail = () => {
                               variant="body2"
                               color="text.secondary"
                             />
-                            <Box sx={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: { xs: 0.5, sm: 1 }, 
+                            <Box sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: { xs: 0.5, sm: 1 },
                               mt: 1,
                               flexWrap: 'wrap'
                             }}>
@@ -784,7 +871,7 @@ const CourseDetail = () => {
                                 color={unit.is_published ? 'success' : 'default'}
                                 size="small"
                                 icon={unit.is_published ? <Bookmark /> : <BookmarkBorder />}
-                                sx={{ 
+                                sx={{
                                   fontSize: { xs: '0.7rem', sm: '0.75rem' },
                                   height: { xs: 24, sm: 28 }
                                 }}
@@ -794,7 +881,7 @@ const CourseDetail = () => {
                                 variant="outlined"
                                 size="small"
                                 icon={<AttachFile />}
-                                sx={{ 
+                                sx={{
                                   fontSize: { xs: '0.7rem', sm: '0.75rem' },
                                   height: { xs: 24, sm: 28 }
                                 }}
@@ -804,7 +891,7 @@ const CourseDetail = () => {
                                 variant="outlined"
                                 size="small"
                                 icon={<Assignment />}
-                                sx={{ 
+                                sx={{
                                   fontSize: { xs: '0.7rem', sm: '0.75rem' },
                                   height: { xs: 24, sm: 28 }
                                 }}
@@ -812,14 +899,14 @@ const CourseDetail = () => {
                             </Box>
                           </Box>
                           {isTeacher && (
-                            <IconButton 
-                              size="small" 
-                              onClick={(e) => { 
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
                                 e.stopPropagation();
-                                setUnitMenuAnchor(e.currentTarget); 
-                                setUnitMenuUnit(unit); 
+                                setUnitMenuAnchor(e.currentTarget);
+                                setUnitMenuUnit(unit);
                               }}
-                              sx={{ 
+                              sx={{
                                 alignSelf: { xs: 'flex-start', sm: 'center' },
                                 mt: { xs: -0.5, sm: 0 }
                               }}
@@ -832,16 +919,16 @@ const CourseDetail = () => {
                       <AccordionDetails sx={{ pt: 0, px: { xs: 1, sm: 2 } }}>
                         <Box sx={{ pl: { xs: 0, sm: 6 } }}>
                           {/* Materiales de la unidad */}
-                          <Paper elevation={0} sx={{ 
-                            p: { xs: 1.5, sm: 2 }, 
-                            mb: 2, 
-                            backgroundColor: 'grey.25', 
-                            borderRadius: 2 
+                          <Paper elevation={0} sx={{
+                            p: { xs: 1.5, sm: 2 },
+                            mb: 2,
+                            backgroundColor: 'grey.25',
+                            borderRadius: 2
                           }}>
-                            <Box 
-                              display="flex" 
-                              justifyContent="space-between" 
-                              alignItems={{ xs: 'flex-start', sm: 'center' }} 
+                            <Box
+                              display="flex"
+                              justifyContent="space-between"
+                              alignItems={{ xs: 'flex-start', sm: 'center' }}
                               mb={2}
                               flexDirection={{ xs: 'column', sm: 'row' }}
                               gap={{ xs: 1, sm: 0 }}
@@ -851,10 +938,10 @@ const CourseDetail = () => {
                                 Materiales de Estudio
                               </Typography>
                               {isTeacher && (
-                                <Button 
-                                  size="small" 
-                                  variant="outlined" 
-                                  startIcon={<Add />} 
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<Add />}
                                   onClick={() => handleOpenMaterialUpload(unit.id)}
                                   sx={{ borderRadius: 2 }}
                                 >
@@ -862,7 +949,7 @@ const CourseDetail = () => {
                                 </Button>
                               )}
                             </Box>
-                            
+
                             <MaterialList
                               materials={unitMaterialsMap[unit.id] || []}
                               showDelete={isTeacher}
@@ -887,10 +974,10 @@ const CourseDetail = () => {
                                 Tareas y Actividades
                               </Typography>
                               {isTeacher && (
-                                <Button 
-                                  size="small" 
-                                  variant="outlined" 
-                                  startIcon={<Add />} 
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<Add />}
                                   onClick={() => handleOpenNewTask(unit.id)}
                                   sx={{ borderRadius: 2 }}
                                 >
@@ -898,13 +985,13 @@ const CourseDetail = () => {
                                 </Button>
                               )}
                             </Box>
-                            
+
                             {Array.isArray(unitAssignmentsMap[unit.id]) && unitAssignmentsMap[unit.id].length > 0 ? (
                               <List dense>
                                 {unitAssignmentsMap[unit.id].map((a) => (
-                                  <Box 
+                                  <Box
                                     key={a.id}
-                                    sx={{ 
+                                    sx={{
                                       borderRadius: 1,
                                       mb: 0.5,
                                       cursor: 'pointer',
@@ -912,7 +999,7 @@ const CourseDetail = () => {
                                       borderColor: 'divider',
                                       p: 2,
                                       backgroundColor: 'background.paper',
-                                      '&:hover': { 
+                                      '&:hover': {
                                         backgroundColor: 'action.hover',
                                         borderColor: 'primary.main'
                                       },
@@ -935,9 +1022,9 @@ const CourseDetail = () => {
                                         </Typography>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                                           <Schedule fontSize="small" color="warning" />
-                                          <Typography 
-                                            variant="caption" 
-                                            sx={{ 
+                                          <Typography
+                                            variant="caption"
+                                            sx={{
                                               color: '#ff9800',
                                               fontWeight: 600,
                                               fontSize: '0.75rem'
@@ -964,12 +1051,12 @@ const CourseDetail = () => {
                                         </Box>
                                       </Box>
                                       {isTeacher && (
-                                        <IconButton 
-                                          size="small" 
-                                          onClick={(e) => { 
+                                        <IconButton
+                                          size="small"
+                                          onClick={(e) => {
                                             e.stopPropagation();
-                                            setAssignmentMenuAnchor(e.currentTarget); 
-                                            setAssignmentMenuItem({ ...a, unit_id: unit.id }); 
+                                            setAssignmentMenuAnchor(e.currentTarget);
+                                            setAssignmentMenuItem({ ...a, unit_id: unit.id });
                                           }}
                                           sx={{ flexShrink: 0 }}
                                         >
@@ -1031,12 +1118,12 @@ const CourseDetail = () => {
                 <Grid container spacing={2}>
                   {assignments.map((assignment) => (
                     <Grid item xs={12} key={assignment.id}>
-                      <Card 
-                        variant="outlined" 
+                      <Card
+                        variant="outlined"
                         id={`assignment-${assignment.id}`}
-                        sx={{ 
+                        sx={{
                           cursor: 'pointer',
-                          '&:hover': { 
+                          '&:hover': {
                             boxShadow: 2,
                             borderColor: 'primary.main'
                           }
@@ -1059,7 +1146,7 @@ const CourseDetail = () => {
                                 size="small"
                               />
                               {isTeacher && (
-                                <IconButton 
+                                <IconButton
                                   size="small"
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -1120,16 +1207,16 @@ const CourseDetail = () => {
 
           {activeTab === 2 && (
             <Box>
-              <Box 
-                display="flex" 
-                justifyContent="space-between" 
-                alignItems={{ xs: 'flex-start', sm: 'center' }} 
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
                 mb={3}
                 flexDirection={{ xs: 'column', sm: 'row' }}
                 gap={{ xs: 2, sm: 0 }}
               >
-                <Typography 
-                  variant="h5" 
+                <Typography
+                  variant="h5"
                   fontWeight="bold"
                   sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
                 >
@@ -1139,7 +1226,7 @@ const CourseDetail = () => {
                   variant="contained"
                   startIcon={<Add />}
                   onClick={() => setNewMessageDialog(true)}
-                  sx={{ 
+                  sx={{
                     width: { xs: '100%', sm: 'auto' }
                   }}
                 >
@@ -1151,18 +1238,18 @@ const CourseDetail = () => {
                 <List sx={{ p: 0 }}>
                   {messages.map((message, index) => (
                     <React.Fragment key={message.id}>
-                      <ListItem 
+                      <ListItem
                         alignItems="flex-start"
-                        sx={{ 
+                        sx={{
                           px: { xs: 0, sm: 1 },
                           py: { xs: 1, sm: 2 }
                         }}
                       >
                         <ListItemAvatar sx={{ minWidth: { xs: 40, sm: 56 } }}>
-                          <Avatar 
+                          <Avatar
                             src={message.author_photo}
-                            sx={{ 
-                              width: { xs: 35, sm: 40 }, 
+                            sx={{
+                              width: { xs: 35, sm: 40 },
                               height: { xs: 35, sm: 40 }
                             }}
                           >
@@ -1174,35 +1261,35 @@ const CourseDetail = () => {
                           disableTypography
                           sx={{ m: 0 }}
                           primary={
-                            <Box 
-                              component="div" 
-                              display="flex" 
-                              alignItems="center" 
+                            <Box
+                              component="div"
+                              display="flex"
+                              alignItems="center"
                               gap={1}
                               flexDirection={{ xs: 'column', sm: 'row' }}
                               alignItems={{ xs: 'flex-start', sm: 'center' }}
                             >
                               <Box display="flex" alignItems="center" gap={0.5}>
-                                <Typography 
-                                  variant="subtitle1" 
+                                <Typography
+                                  variant="subtitle1"
                                   fontWeight="bold"
                                   sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
                                 >
                                   {message.author_name}
                                 </Typography>
                                 {getUserRole(message) === 'teacher' && (
-                                  <Verified 
-                                    fontSize="small" 
-                                    color="primary" 
-                                    sx={{ 
+                                  <Verified
+                                    fontSize="small"
+                                    color="primary"
+                                    sx={{
                                       fontSize: { xs: 16, sm: 18 },
                                       filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))'
-                                    }} 
+                                    }}
                                   />
                                 )}
                               </Box>
-                              <Box sx={{ 
-                                display: 'flex', 
+                              <Box sx={{
+                                display: 'flex',
                                 gap: { xs: 0.5, sm: 1 },
                                 flexWrap: 'wrap',
                                 alignItems: 'center'
@@ -1212,7 +1299,7 @@ const CourseDetail = () => {
                                   size="small"
                                   color={getUserRole(message) === 'teacher' ? 'primary' : 'default'}
                                   variant={getUserRole(message) === 'teacher' ? 'filled' : 'outlined'}
-                                  sx={{ 
+                                  sx={{
                                     fontSize: { xs: '0.7rem', sm: '0.75rem' },
                                     height: { xs: 24, sm: 28 }
                                   }}
@@ -1222,10 +1309,10 @@ const CourseDetail = () => {
                                   size="small"
                                   color={
                                     message.type === 'announcement' ? 'info' :
-                                    message.type === 'discussion' ? 'secondary' :
-                                    message.type === 'question' ? 'warning' : 'primary'
+                                      message.type === 'discussion' ? 'secondary' :
+                                        message.type === 'question' ? 'warning' : 'primary'
                                   }
-                                  sx={{ 
+                                  sx={{
                                     fontSize: { xs: '0.7rem', sm: '0.75rem' },
                                     height: { xs: 24, sm: 28 }
                                   }}
@@ -1235,7 +1322,7 @@ const CourseDetail = () => {
                                     label="Fijado"
                                     size="small"
                                     color="secondary"
-                                    sx={{ 
+                                    sx={{
                                       fontSize: { xs: '0.7rem', sm: '0.75rem' },
                                       height: { xs: 24, sm: 28 }
                                     }}
@@ -1247,14 +1334,14 @@ const CourseDetail = () => {
                                     size="small"
                                     color="warning"
                                     variant="outlined"
-                                    sx={{ 
+                                    sx={{
                                       fontSize: { xs: '0.7rem', sm: '0.75rem' },
                                       height: { xs: 24, sm: 28 }
                                     }}
                                   />
                                 )}
                               </Box>
-                              <Box sx={{ 
+                              <Box sx={{
                                 ml: { xs: 0, sm: 'auto' },
                                 alignSelf: { xs: 'flex-end', sm: 'center' }
                               }}>
@@ -1312,9 +1399,9 @@ const CourseDetail = () => {
                               ) : (
                                 <Box sx={{ mb: 1 }}>
                                   {message.title && (
-                                    <Typography 
-                                      variant="subtitle1" 
-                                      sx={{ 
+                                    <Typography
+                                      variant="subtitle1"
+                                      sx={{
                                         fontWeight: 600,
                                         fontSize: { xs: '1rem', sm: '1.1rem' },
                                         lineHeight: { xs: 1.3, sm: 1.4 },
@@ -1326,9 +1413,9 @@ const CourseDetail = () => {
                                     </Typography>
                                   )}
                                   {message.content && (
-                                    <Typography 
-                                      variant="body2" 
-                                      sx={{ 
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
                                         fontSize: { xs: '0.875rem', sm: '0.875rem' },
                                         lineHeight: { xs: 1.4, sm: 1.5 },
                                         color: 'text.secondary'
@@ -1339,17 +1426,17 @@ const CourseDetail = () => {
                                   )}
                                 </Box>
                               )}
-                              <Box 
-                                display="flex" 
-                                alignItems="center" 
-                                gap={1} 
-                                sx={{ 
+                              <Box
+                                display="flex"
+                                alignItems="center"
+                                gap={1}
+                                sx={{
                                   mb: 1,
                                   flexWrap: 'wrap'
                                 }}
                               >
-                                <Typography 
-                                  variant="caption" 
+                                <Typography
+                                  variant="caption"
                                   color="text.secondary"
                                   sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
                                 >
@@ -1372,7 +1459,7 @@ const CourseDetail = () => {
                                   Responder
                                 </Button>
                               </Box>
-                              
+
                               {/* Comments Section */}
                               {expandedMessages.has(message.id) && message.comments && message.comments.length > 0 && (
                                 <Box sx={{ ml: 2, mt: 2, borderLeft: '2px solid', borderColor: 'divider', pl: 2 }}>
@@ -1387,13 +1474,13 @@ const CourseDetail = () => {
                                             {comment.author_name}
                                           </Typography>
                                           {getUserRole({ sender_id: comment.author_id }) === 'teacher' && (
-                                            <Verified 
-                                              fontSize="small" 
-                                              color="primary" 
-                                              sx={{ 
+                                            <Verified
+                                              fontSize="small"
+                                              color="primary"
+                                              sx={{
                                                 fontSize: '16px',
                                                 filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))'
-                                              }} 
+                                              }}
                                             />
                                           )}
                                         </Box>
@@ -1408,7 +1495,7 @@ const CourseDetail = () => {
                                   ))}
                                 </Box>
                               )}
-                              
+
                               {/* Reply Form */}
                               {replyingToMessage === message.id && (
                                 <Box sx={{ ml: 2, mt: 2, borderLeft: '2px solid', borderColor: 'primary.main', pl: 2 }}>
@@ -1504,7 +1591,7 @@ const CourseDetail = () => {
                   {course.students?.length || 0} alumno(s) inscrito(s)
                 </Typography>
               </Box>
-              
+
               {/* Campo de búsqueda */}
               <TextField
                 fullWidth
@@ -1543,7 +1630,7 @@ const CourseDetail = () => {
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                       <Person sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                       <Typography variant="body1" color="text.secondary">
-                        {studentSearchTerm 
+                        {studentSearchTerm
                           ? 'No se encontraron alumnos con ese criterio de búsqueda'
                           : 'No hay alumnos inscritos en este curso'}
                       </Typography>
@@ -1642,7 +1729,7 @@ const CourseDetail = () => {
       <Menu anchorEl={unitMenuAnchor} open={Boolean(unitMenuAnchor)} onClose={() => { setUnitMenuAnchor(null); setUnitMenuUnit(null); }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-     >
+      >
         <MenuItem onClick={() => {
           if (unitMenuUnit) {
             setEditUnit({ id: unitMenuUnit.id, title: unitMenuUnit.title || '', description: unitMenuUnit.description || '', is_published: !!unitMenuUnit.is_published, order_index: unitMenuUnit.order_index || unitMenuUnit.order || 1 });
@@ -1693,13 +1780,13 @@ const CourseDetail = () => {
               console.error('🔍 Error loading attachments:', error);
               attachments = [];
             }
-            
-            const assignmentData = { 
-              id: assignmentMenuItem.id, 
-              unit_id: assignmentMenuItem.unit_id, 
-              title: assignmentMenuItem.title || '', 
-              description: assignmentMenuItem.description || '', 
-              due_date: assignmentMenuItem.due_date ? assignmentMenuItem.due_date.substring(0,10) : '', 
+
+            const assignmentData = {
+              id: assignmentMenuItem.id,
+              unit_id: assignmentMenuItem.unit_id,
+              title: assignmentMenuItem.title || '',
+              description: assignmentMenuItem.description || '',
+              due_date: assignmentMenuItem.due_date ? assignmentMenuItem.due_date.substring(0, 10) : '',
               due_time: assignmentMenuItem.due_time || '',
               is_published: !!assignmentMenuItem.is_published,
               status: assignmentMenuItem.is_published ? 'published' : 'draft',
@@ -1839,7 +1926,7 @@ const CourseDetail = () => {
               <Tab icon={<Link />} label="Enlace" />
             </Tabs>
           </Box>
-          
+
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
@@ -1860,7 +1947,7 @@ const CourseDetail = () => {
                 </Button>
                 {taskAttachmentForm.file && (
                   <Typography variant="body2" sx={{ ml: 2, display: 'inline' }}>
-                    {taskAttachmentForm.file.name} • {(taskAttachmentForm.file.size/1024/1024).toFixed(2)} MB
+                    {taskAttachmentForm.file.name} • {(taskAttachmentForm.file.size / 1024 / 1024).toFixed(2)} MB
                   </Typography>
                 )}
               </Grid>
@@ -2012,7 +2099,7 @@ const CourseDetail = () => {
               {editAssignment.status === 'published' ? 'Cambiar a borrador' : 'Publicar'}
             </Button>
           </Box>
-          
+
           {/* Adjuntos existentes */}
           {editAssignment.attachments && editAssignment.attachments.length > 0 && (
             <Box sx={{ mt: 3 }}>
@@ -2022,25 +2109,25 @@ const CourseDetail = () => {
               </Typography>
               <List dense>
                 {editAssignment.attachments.map((attachment) => (
-                  <ListItem 
+                  <ListItem
                     key={attachment.id}
                     component="a"
                     href={attachment.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    sx={{ 
+                    sx={{
                       cursor: 'pointer',
                       borderRadius: 1,
                       mb: 0.5,
-                      '&:hover': { 
+                      '&:hover': {
                         backgroundColor: 'action.hover',
                         '& .MuiListItemText-primary': { color: 'primary.main' }
                       }
                     }}
                     secondaryAction={
-                      <IconButton 
-                        edge="end" 
-                        aria-label="delete" 
+                      <IconButton
+                        edge="end"
+                        aria-label="delete"
                         size="small"
                         onClick={async (e) => {
                           e.preventDefault();
@@ -2062,12 +2149,12 @@ const CourseDetail = () => {
                   >
                     <ListItemAvatar>
                       <Avatar sx={{ width: 32, height: 32 }}>
-                        {attachment.type === 'document' ? <AttachFile /> : 
-                         attachment.type === 'link' ? <Link /> : 
-                         attachment.type === 'image' ? <Image /> :
-                         attachment.type === 'video' ? <VideoLibrary /> :
-                         attachment.type === 'audio' ? <Audiotrack /> :
-                         <AttachFile />}
+                        {attachment.type === 'document' ? <AttachFile /> :
+                          attachment.type === 'link' ? <Link /> :
+                            attachment.type === 'image' ? <Image /> :
+                              attachment.type === 'video' ? <VideoLibrary /> :
+                                attachment.type === 'audio' ? <Audiotrack /> :
+                                  <AttachFile />}
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
@@ -2093,12 +2180,12 @@ const CourseDetail = () => {
               </List>
             </Box>
           )}
-          
+
           {/* Botón para agregar adjuntos */}
           <Box sx={{ mt: 2 }}>
-            <Button 
-              variant="outlined" 
-              startIcon={<Add />} 
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
               onClick={() => handleOpenAssignmentAttachment(editAssignment.id)}
               size="small"
             >
@@ -2173,208 +2260,208 @@ const CourseDetail = () => {
         </Fab>
       )}
 
-       {/* Dialog crear unidad */}
-       <Dialog open={newUnitDialog} onClose={() => setNewUnitDialog(false)} maxWidth="md" fullWidth>
-         <DialogTitle>Nueva Unidad</DialogTitle>
-         <DialogContent>
-           <TextField
-             fullWidth
-             label="Título de la Unidad"
-             value={newUnit.title}
-             onChange={(e) => setNewUnit(prev => ({ ...prev, title: e.target.value }))}
-             required
-             sx={{ mt: 1 }}
-           />
-           <TextField
-             fullWidth
-             label="Descripción"
-             value={newUnit.description}
-             onChange={(e) => setNewUnit(prev => ({ ...prev, description: e.target.value }))}
-             multiline
-             rows={3}
-             sx={{ mt: 2 }}
-           />
-           
-           {/* Materiales didácticos (opcionales) */}
-           <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 2, mb: 2 }}>
-             <Tabs value={materialTab} onChange={(e, v) => {
-               setMaterialTab(v);
-               const typeByTab = v === 0 ? 'file' : v === 1 ? 'link' : 'video';
-               setMaterialForm(prev => ({ ...prev, type: typeByTab }));
-             }}>
-               <Tab icon={<AttachFile />} label="Archivo" />
-               <Tab icon={<Link />} label="Enlace" />
-               <Tab icon={<YouTube />} label="Video" />
-             </Tabs>
-           </Box>
-           <Grid container spacing={2}>
-             <Grid item xs={12}>
-               <TextField
-                 fullWidth
-                 label="Título del material"
-                 value={materialForm.title}
-                 onChange={(e) => setMaterialForm(prev => ({ ...prev, title: e.target.value }))}
-               />
-             </Grid>
-             <Grid item xs={12}>
-               <TextField
-                 fullWidth
-                 label="Descripción (opcional)"
-                 value={materialForm.description}
-                 onChange={(e) => setMaterialForm(prev => ({ ...prev, description: e.target.value }))}
-                 multiline
-                 rows={2}
-               />
-             </Grid>
-             {materialForm.type === 'file' ? (
-               <Grid item xs={12}>
-                 <Button variant="outlined" component="label" startIcon={<CloudUpload />}>
-                   Seleccionar archivo
-                   <input type="file" hidden onChange={(e) => {
-                     const f = e.target.files?.[0] || null;
-                     setMaterialForm(prev => ({ ...prev, file: f }));
-                   }} />
-                 </Button>
-                 {materialForm.file && (
-                   <Typography variant="body2" sx={{ ml: 2, display: 'inline' }}>
-                     {materialForm.file.name} • {(materialForm.file.size/1024/1024).toFixed(2)} MB
-                   </Typography>
-                 )}
-               </Grid>
-             ) : (
-               <Grid item xs={12}>
-                 <TextField
-                   fullWidth
-                   label={materialForm.type === 'video' ? 'URL de YouTube' : 'URL del recurso'}
-                   placeholder={materialForm.type === 'video' ? 'https://www.youtube.com/watch?v=...' : 'https://...'}
-                   value={materialForm.url}
-                   onChange={(e) => setMaterialForm(prev => ({ ...prev, url: e.target.value }))}
-                 />
-               </Grid>
-             )}
-             <Grid item xs={12}>
-               <Box display="flex" justifyContent="flex-end">
-                 <Button variant="outlined" onClick={() => {
-                   if (!materialForm.title.trim()) { toast.error('El título del material es requerido'); return; }
-                   if (materialForm.type !== 'file' && !materialForm.url.trim()) { toast.error('La URL es requerida'); return; }
-                   const newMat = {
-                     id: `${Date.now()}`,
-                     type: materialForm.type,
-                     title: materialForm.title.trim(),
-                     description: materialForm.description.trim(),
-                     url: materialForm.type === 'file' ? '' : materialForm.url.trim(),
-                     file: materialForm.file || null,
-                     fileName: materialForm.file?.name || null,
-                     fileSize: materialForm.file?.size || null,
-                     fileType: materialForm.file?.type || null,
-                   };
-                   setNewUnitMaterials(prev => [...prev, newMat]);
-                   setMaterialForm({ type: materialForm.type, title: '', description: '', url: '', file: null });
-                 }}>Agregar material</Button>
-               </Box>
-             </Grid>
-           </Grid>
+      {/* Dialog crear unidad */}
+      <Dialog open={newUnitDialog} onClose={() => setNewUnitDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Nueva Unidad</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Título de la Unidad"
+            value={newUnit.title}
+            onChange={(e) => setNewUnit(prev => ({ ...prev, title: e.target.value }))}
+            required
+            sx={{ mt: 1 }}
+          />
+          <TextField
+            fullWidth
+            label="Descripción"
+            value={newUnit.description}
+            onChange={(e) => setNewUnit(prev => ({ ...prev, description: e.target.value }))}
+            multiline
+            rows={3}
+            sx={{ mt: 2 }}
+          />
 
-           {newUnitMaterials.length > 0 && (
-             <Box sx={{ mt: 2 }}>
-               <Typography variant="subtitle2" sx={{ mb: 1 }}>Materiales a subir</Typography>
-               <List>
-                 {newUnitMaterials.map((m) => (
-                   <React.Fragment key={m.id}>
-                     <ListItem
-                       secondaryAction={
-                         <IconButton edge="end" onClick={() => setNewUnitMaterials(prev => prev.filter(x => x.id !== m.id))}>
-                           <DeleteIcon />
-                         </IconButton>
-                       }
-                     >
-                       <ListItemAvatar>
-                         <Avatar>
-                           {m.type === 'file' ? <AttachFile /> : m.type === 'link' ? <Link /> : <Description />}
-                         </Avatar>
-                       </ListItemAvatar>
-                       <ListItemText
-                         component="div"
-                         primary={m.title}
-                         secondary={m.url || m.description}
-                       />
-                     </ListItem>
-                     <Divider />
-                   </React.Fragment>
-                 ))}
-               </List>
-             </Box>
-           )}
-           
-           <Grid container spacing={2} sx={{ mt: 0 }}>
-             <Grid item xs={6}>
-               <TextField
-                 fullWidth
-                 label="Orden"
-                 type="number"
-                 value={newUnit.order}
-                 onChange={(e) => setNewUnit(prev => ({ ...prev, order: Number(e.target.value) }))}
-                 inputProps={{ min: 1 }}
-               />
-             </Grid>
-             <Grid item xs={6}>
-               <Box display="flex" alignItems="center" height="100%">
-                 <Chip
-                   label={newUnit.is_published ? 'Se publicará' : 'Guardar como borrador'}
-                   color={newUnit.is_published ? 'success' : 'default'}
-                   sx={{ mr: 1 }}
-                 />
-                 <Button size="small" onClick={() => setNewUnit(prev => ({ ...prev, is_published: !prev.is_published }))}>
-                   {newUnit.is_published ? 'Cambiar a borrador' : 'Publicar al crear'}
-                 </Button>
-               </Box>
-             </Grid>
-           </Grid>
-         </DialogContent>
+          {/* Materiales didácticos (opcionales) */}
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 2, mb: 2 }}>
+            <Tabs value={materialTab} onChange={(e, v) => {
+              setMaterialTab(v);
+              const typeByTab = v === 0 ? 'file' : v === 1 ? 'link' : 'video';
+              setMaterialForm(prev => ({ ...prev, type: typeByTab }));
+            }}>
+              <Tab icon={<AttachFile />} label="Archivo" />
+              <Tab icon={<Link />} label="Enlace" />
+              <Tab icon={<YouTube />} label="Video" />
+            </Tabs>
+          </Box>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Título del material"
+                value={materialForm.title}
+                onChange={(e) => setMaterialForm(prev => ({ ...prev, title: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Descripción (opcional)"
+                value={materialForm.description}
+                onChange={(e) => setMaterialForm(prev => ({ ...prev, description: e.target.value }))}
+                multiline
+                rows={2}
+              />
+            </Grid>
+            {materialForm.type === 'file' ? (
+              <Grid item xs={12}>
+                <Button variant="outlined" component="label" startIcon={<CloudUpload />}>
+                  Seleccionar archivo
+                  <input type="file" hidden onChange={(e) => {
+                    const f = e.target.files?.[0] || null;
+                    setMaterialForm(prev => ({ ...prev, file: f }));
+                  }} />
+                </Button>
+                {materialForm.file && (
+                  <Typography variant="body2" sx={{ ml: 2, display: 'inline' }}>
+                    {materialForm.file.name} • {(materialForm.file.size / 1024 / 1024).toFixed(2)} MB
+                  </Typography>
+                )}
+              </Grid>
+            ) : (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label={materialForm.type === 'video' ? 'URL de YouTube' : 'URL del recurso'}
+                  placeholder={materialForm.type === 'video' ? 'https://www.youtube.com/watch?v=...' : 'https://...'}
+                  value={materialForm.url}
+                  onChange={(e) => setMaterialForm(prev => ({ ...prev, url: e.target.value }))}
+                />
+              </Grid>
+            )}
+            <Grid item xs={12}>
+              <Box display="flex" justifyContent="flex-end">
+                <Button variant="outlined" onClick={() => {
+                  if (!materialForm.title.trim()) { toast.error('El título del material es requerido'); return; }
+                  if (materialForm.type !== 'file' && !materialForm.url.trim()) { toast.error('La URL es requerida'); return; }
+                  const newMat = {
+                    id: `${Date.now()}`,
+                    type: materialForm.type,
+                    title: materialForm.title.trim(),
+                    description: materialForm.description.trim(),
+                    url: materialForm.type === 'file' ? '' : materialForm.url.trim(),
+                    file: materialForm.file || null,
+                    fileName: materialForm.file?.name || null,
+                    fileSize: materialForm.file?.size || null,
+                    fileType: materialForm.file?.type || null,
+                  };
+                  setNewUnitMaterials(prev => [...prev, newMat]);
+                  setMaterialForm({ type: materialForm.type, title: '', description: '', url: '', file: null });
+                }}>Agregar material</Button>
+              </Box>
+            </Grid>
+          </Grid>
+
+          {newUnitMaterials.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Materiales a subir</Typography>
+              <List>
+                {newUnitMaterials.map((m) => (
+                  <React.Fragment key={m.id}>
+                    <ListItem
+                      secondaryAction={
+                        <IconButton edge="end" onClick={() => setNewUnitMaterials(prev => prev.filter(x => x.id !== m.id))}>
+                          <DeleteIcon />
+                        </IconButton>
+                      }
+                    >
+                      <ListItemAvatar>
+                        <Avatar>
+                          {m.type === 'file' ? <AttachFile /> : m.type === 'link' ? <Link /> : <Description />}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        component="div"
+                        primary={m.title}
+                        secondary={m.url || m.description}
+                      />
+                    </ListItem>
+                    <Divider />
+                  </React.Fragment>
+                ))}
+              </List>
+            </Box>
+          )}
+
+          <Grid container spacing={2} sx={{ mt: 0 }}>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Orden"
+                type="number"
+                value={newUnit.order}
+                onChange={(e) => setNewUnit(prev => ({ ...prev, order: Number(e.target.value) }))}
+                inputProps={{ min: 1 }}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <Box display="flex" alignItems="center" height="100%">
+                <Chip
+                  label={newUnit.is_published ? 'Se publicará' : 'Guardar como borrador'}
+                  color={newUnit.is_published ? 'success' : 'default'}
+                  sx={{ mr: 1 }}
+                />
+                <Button size="small" onClick={() => setNewUnit(prev => ({ ...prev, is_published: !prev.is_published }))}>
+                  {newUnit.is_published ? 'Cambiar a borrador' : 'Publicar al crear'}
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
+        </DialogContent>
         <DialogActions>
           <Button onClick={() => setNewUnitDialog(false)}>Cancelar</Button>
-           <Button
-             variant="contained"
-             onClick={async () => {
-               if (!newUnit.title.trim()) { toast.error('El título es requerido'); return; }
-               if (!newUnit.description.trim()) { toast.error('La descripción es requerida'); return; }
-               try {
-                 const res = await api.createUnit(courseId, { title: newUnit.title, description: newUnit.description, is_published: newUnit.is_published, order_index: newUnit.order });
-                 if (res.success) {
-                   const unitId = res.data?.id || res.data?.unit?.id;
-                   // Subir materiales si hay
-                   if (unitId && newUnitMaterials.length > 0) {
-                     for (const mat of newUnitMaterials) {
-                       try {
-                         if (mat.type === 'file' && mat.file) {
-                           const fd = new FormData();
-                           fd.append('title', mat.title);
-                           fd.append('description', mat.description || '');
-                           fd.append('file', mat.file);
-                           await api.request(`/units/${unitId}/materials/upload`, { method: 'POST', body: fd });
-                         } else {
-                           await api.createMaterial(unitId, { type: mat.type, title: mat.title, description: mat.description, url: mat.url });
-                         }
-                       } catch (e) {
-                         console.error('Error adding material:', e);
-                       }
-                     }
-                   }
-                   toast.success('Unidad creada');
-                   setNewUnitDialog(false);
-                   setNewUnit({ title: '', description: '', is_published: false, order: 1 });
-                   setNewUnitMaterials([]);
-                   loadCourseData();
-                 } else {
-                   toast.error(res.error?.message || 'No se pudo crear la unidad');
-                 }
-               } catch (e) {
-                 toast.error('Error al crear la unidad');
-               }
-             }}
-           >
-             Crear
-           </Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              if (!newUnit.title.trim()) { toast.error('El título es requerido'); return; }
+              if (!newUnit.description.trim()) { toast.error('La descripción es requerida'); return; }
+              try {
+                const res = await api.createUnit(courseId, { title: newUnit.title, description: newUnit.description, is_published: newUnit.is_published, order_index: newUnit.order });
+                if (res.success) {
+                  const unitId = res.data?.id || res.data?.unit?.id;
+                  // Subir materiales si hay
+                  if (unitId && newUnitMaterials.length > 0) {
+                    for (const mat of newUnitMaterials) {
+                      try {
+                        if (mat.type === 'file' && mat.file) {
+                          const fd = new FormData();
+                          fd.append('title', mat.title);
+                          fd.append('description', mat.description || '');
+                          fd.append('file', mat.file);
+                          await api.request(`/units/${unitId}/materials/upload`, { method: 'POST', body: fd });
+                        } else {
+                          await api.createMaterial(unitId, { type: mat.type, title: mat.title, description: mat.description, url: mat.url });
+                        }
+                      } catch (e) {
+                        console.error('Error adding material:', e);
+                      }
+                    }
+                  }
+                  toast.success('Unidad creada');
+                  setNewUnitDialog(false);
+                  setNewUnit({ title: '', description: '', is_published: false, order: 1 });
+                  setNewUnitMaterials([]);
+                  loadCourseData();
+                } else {
+                  toast.error(res.error?.message || 'No se pudo crear la unidad');
+                }
+              } catch (e) {
+                toast.error('Error al crear la unidad');
+              }
+            }}
+          >
+            Crear
+          </Button>
         </DialogActions>
       </Dialog>
 
