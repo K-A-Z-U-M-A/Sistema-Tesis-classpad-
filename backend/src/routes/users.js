@@ -49,7 +49,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     const existingColumns = columnCheck.rows.map(row => row.column_name);
 
     // Construir la consulta SELECT dinámicamente
-    const baseColumns = ['id', 'email', 'display_name', 'photo_url', 'role', 'description', 'created_at', 'updated_at', 'last_login', 'is_active', 'provider'];
+    const baseColumns = ['id', 'email', 'display_name', 'photo_url', 'role', 'description', 'created_at', 'updated_at', 'last_login', 'is_active', 'provider', 'recovery_email'];
     const selectColumns = [...baseColumns];
 
     // Agregar columnas de perfil solo si existen
@@ -104,6 +104,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       last_login: u.last_login,
       is_active: u.is_active,
       provider: u.provider,
+      recovery_email: u.recovery_email || null,
     };
 
     // Agregar campos de perfil solo si existen
@@ -1401,6 +1402,278 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
       error: {
         message: 'Error interno del servidor',
         code: 'GET_STATISTICS_FAILED'
+      }
+    });
+  }
+});
+
+/**
+ * PUT /api/users/change-password
+ * Cambiar contraseña del usuario autenticado
+ * Requiere contraseña actual para validación
+ * IMPORTANTE: Esta ruta debe estar ANTES de /:id para evitar conflictos
+ */
+router.put('/change-password', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    // Validar datos
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        error: {
+          message: 'La contraseña actual y la nueva contraseña son requeridas',
+          code: 'MISSING_FIELDS'
+        }
+      });
+    }
+
+    // Importar servicios (lazy loading para evitar dependencias circulares)
+    const passwordService = await import('../../services/PasswordService.js').then(m => m.default);
+    const tokenService = await import('../../services/TokenService.js').then(m => m.default);
+    const emailService = await import('../../services/EmailService.js').then(m => m.default);
+    const bcrypt = await import('bcryptjs').then(m => m.default || m);
+
+    // Validar fortaleza de nueva contraseña
+    const passwordValidation = passwordService.validatePasswordStrength(newPassword);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        error: {
+          message: 'La nueva contraseña no cumple los requisitos de seguridad',
+          code: 'WEAK_PASSWORD',
+          errors: passwordValidation.errors
+        }
+      });
+    }
+
+    // Obtener usuario
+    const userResult = await pool.query(
+      'SELECT id, email, display_name, password_hash, provider FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: {
+          message: 'Usuario no encontrado',
+          code: 'USER_NOT_FOUND'
+        }
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Verificar que el usuario tenga contraseña (no solo OAuth)
+    if (!user.password_hash) {
+      return res.status(400).json({
+        error: {
+          message: 'Este usuario no tiene contraseña establecida. Usa el método de autenticación OAuth.',
+          code: 'NO_PASSWORD_SET'
+        }
+      });
+    }
+
+    // Verificar contraseña actual
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isValidPassword) {
+      return res.status(401).json({
+        error: {
+          message: 'La contraseña actual es incorrecta',
+          code: 'INVALID_CURRENT_PASSWORD'
+        }
+      });
+    }
+
+    // Hash de nueva contraseña
+    const newPasswordHash = await passwordService.hashPassword(newPassword);
+
+    // Actualizar contraseña
+    await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+      [newPasswordHash, userId]
+    );
+
+    // Invalidar todos los tokens JWT del usuario (logout de todas las sesiones)
+    tokenService.invalidateUserTokens(userId);
+
+    // Enviar notificación por email
+    try {
+      await emailService.sendPasswordChangedNotification(user.email, user.display_name);
+    } catch (emailError) {
+      console.warn('⚠️ No se pudo enviar email de notificación:', emailError.message);
+      // No fallar la operación si el email falla
+    }
+
+    console.log(`✅ Contraseña actualizada para usuario ${userId}`);
+
+    const newToken = tokenService.generateToken(user);
+
+    res.json({
+      success: true,
+      data: {
+        message: 'Contraseña actualizada exitosamente',
+        // Generar nuevo token para que el usuario no sea deslogueado inmediatamente
+        token: newToken
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error en change-password:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error al cambiar la contraseña',
+        code: 'INTERNAL_ERROR'
+      }
+    });
+  }
+});
+
+/**
+ * PUT /api/users/update-profile
+ * Actualizar perfil de usuario (solo estudiantes)
+ * 
+ * Body:
+ * - displayName: string (min 3, max 100 caracteres)
+ * - photoURL: string (base64 o URL)
+ */
+router.put('/update-profile', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const { displayName, photoURL } = req.body;
+
+    console.log(`📝 Update profile request for user ${userId} (${userRole})`);
+
+    // Solo estudiantes pueden actualizar su perfil
+    if (userRole !== 'student') {
+      return res.status(403).json({
+        error: {
+          message: 'Solo los estudiantes pueden actualizar su perfil. Los docentes deben contactar al administrador.',
+          code: 'PERMISSION_DENIED'
+        }
+      });
+    }
+
+    // Validar displayName
+    if (displayName !== undefined) {
+      if (typeof displayName !== 'string' || displayName.trim().length < 3) {
+        return res.status(400).json({
+          error: {
+            message: 'El nombre debe tener al menos 3 caracteres',
+            code: 'INVALID_NAME'
+          }
+        });
+      }
+
+      if (displayName.trim().length > 100) {
+        return res.status(400).json({
+          error: {
+            message: 'El nombre no puede superar 100 caracteres',
+            code: 'NAME_TOO_LONG'
+          }
+        });
+      }
+    }
+
+    // Validar photoURL (si se proporciona)
+    if (photoURL !== undefined && photoURL !== null) {
+      if (typeof photoURL !== 'string') {
+        return res.status(400).json({
+          error: {
+            message: 'La foto debe ser una URL o base64 válido',
+            code: 'INVALID_PHOTO'
+          }
+        });
+      }
+
+      // Validar que sea base64 o URL
+      const isBase64 = photoURL.startsWith('data:image/');
+      const isURL = photoURL.startsWith('http://') || photoURL.startsWith('https://');
+
+      if (!isBase64 && !isURL && photoURL.trim() !== '') {
+        return res.status(400).json({
+          error: {
+            message: 'La foto debe ser una URL válida o imagen en base64',
+            code: 'INVALID_PHOTO_FORMAT'
+          }
+        });
+      }
+    }
+
+    // Construir query de actualización
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (displayName !== undefined) {
+      updates.push(`display_name = $${paramCount}`);
+      values.push(displayName.trim());
+      paramCount++;
+    }
+
+    if (photoURL !== undefined) {
+      updates.push(`photo_url = $${paramCount}`);
+      values.push(photoURL);
+      paramCount++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        error: {
+          message: 'No se proporcionaron datos para actualizar',
+          code: 'NO_DATA'
+        }
+      });
+    }
+
+    // Agregar updated_at
+    updates.push(`updated_at = NOW()`);
+    values.push(userId);
+
+    // Ejecutar actualización
+    const query = `
+      UPDATE users 
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING id, email, display_name, photo_url, role, created_at, updated_at
+    `;
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: {
+          message: 'Usuario no encontrado',
+          code: 'USER_NOT_FOUND'
+        }
+      });
+    }
+
+    const updatedUser = result.rows[0];
+
+    console.log(`✅ Profile updated for user ${userId}`);
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          displayName: updatedUser.display_name,
+          photoURL: updatedUser.photo_url,
+          role: updatedUser.role,
+          createdAt: updatedUser.created_at,
+          updatedAt: updatedUser.updated_at
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating profile:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error al actualizar el perfil',
+        code: 'INTERNAL_ERROR'
       }
     });
   }

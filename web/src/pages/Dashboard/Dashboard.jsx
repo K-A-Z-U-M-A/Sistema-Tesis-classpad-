@@ -184,8 +184,15 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick }) => {
 
 // Componente de tarjeta de curso
 const CourseCard = ({ course }) => {
+  const navigate = useNavigate();
   // Usar datos reales del curso
   const progress = course.progress || 0;
+  // Verificar el estado activo del curso - puede venir como is_active o isActive
+  const isActive = course.is_active !== undefined ? course.is_active : (course.isActive !== undefined ? course.isActive : true);
+
+  const handleClick = () => {
+    navigate(`/courses/${course.id}`);
+  };
 
   return (
     <motion.div
@@ -202,7 +209,9 @@ const CourseCard = ({ course }) => {
           boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
         },
         transition: 'all 0.3s ease'
-      }}>
+      }}
+        onClick={handleClick}
+      >
         <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Box
             display="flex"
@@ -225,8 +234,8 @@ const CourseCard = ({ course }) => {
               <School sx={{ color: 'white', fontSize: { xs: 18, sm: 20 } }} />
             </Box>
             <Chip
-              label={course.is_active ? 'Activo' : 'Inactivo'}
-              color={course.is_active ? 'success' : 'default'}
+              label={isActive ? 'Activo' : 'Inactivo'}
+              color={isActive ? 'success' : 'default'}
               size="small"
               sx={{
                 fontSize: { xs: '0.7rem', sm: '0.75rem' },
@@ -526,7 +535,7 @@ const PendingTask = ({ assignment }) => {
                     letterSpacing: 0.8
                   }}
                 >
-                  Ver detalles ->
+                  Ver detalles →
                 </Typography>
               )}
             </Box>
@@ -1097,8 +1106,8 @@ const Dashboard = () => {
           <Grid container spacing={3} sx={{ mt: 2 }}>
             {performanceData.length > 0 ? (
               <>
-                {/* Primera fila: Gráfico de rendimiento y Resumen por curso */}
-                <Grid item xs={12} md={8}>
+                {/* Primera fila: Gráfico de rendimiento */}
+                <Grid item xs={12}>
                   <Card sx={{ borderRadius: 3 }}>
                     <CardContent>
                       <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 3 }}>
@@ -1109,9 +1118,9 @@ const Dashboard = () => {
                   </Card>
                 </Grid>
 
-                {/* Resumen por curso mejorado */}
-                <Grid item xs={12} md={4}>
-                  <Card sx={{ borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                {/* Segunda fila: Resumen por curso mejorado */}
+                <Grid item xs={12}>
+                  <Card sx={{ borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
                     <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
                       <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
                         Resumen por Curso
@@ -1119,17 +1128,17 @@ const Dashboard = () => {
                       <Box
                         sx={{
                           display: 'flex',
-                          flexDirection: 'column',
+                          flexDirection: 'row',
                           gap: 2,
                           flex: 1,
-                          overflowY: 'auto',
-                          overflowX: 'hidden',
-                          pr: 1,
+                          overflowX: 'auto',
+                          overflowY: 'hidden',
+                          pb: 1,
                           minHeight: 0
                         }}
                       >
                         {performanceData.length === 0 ? (
-                          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4, width: '100%' }}>
                             No hay datos de cursos disponibles
                           </Typography>
                         ) : (
@@ -1139,6 +1148,8 @@ const Dashboard = () => {
                               variant="outlined"
                               sx={{
                                 p: 2,
+                                minWidth: '280px',
+                                maxWidth: '320px',
                                 borderLeft: `4px solid ${coursesWithStats[index]?.color || '#1976d2'}`,
                                 '&:hover': {
                                   boxShadow: 3,
@@ -1220,7 +1231,7 @@ const Dashboard = () => {
                   </Card>
                 </Grid>
 
-                {/* Segunda fila: Distribución de calificaciones */}
+                {/* Tercera fila: Distribución de calificaciones */}
                 {performanceData.some(c => c.gradeDistribution && Object.values(c.gradeDistribution).some(v => v > 0)) && (
                   <Grid item xs={12}>
                     <Card sx={{ borderRadius: 3 }}>
@@ -1450,12 +1461,50 @@ const Dashboard = () => {
       {/* Contenido principal - Solo para estudiantes */}
       {!isTeacher && (
         <Grid container spacing={{ xs: 2, sm: 4 }} sx={{ mt: { xs: 2, sm: 2 } }}>
-          {/* Cursos recientes */}
-          <Grid item xs={12} lg={8}>
+          {/* Tareas pendientes */}
+          <Grid item xs={12}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
+            >
+              <Typography
+                variant="h5"
+                gutterBottom
+                sx={{
+                  mb: 3,
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                }}
+              >
+                Tareas Pendientes
+              </Typography>
+              {pendingTasks.length > 0 ? (
+                pendingTasks.slice(0, 5).map((assignment) => (
+                  <PendingTask key={assignment.id} assignment={assignment} />
+                ))
+              ) : (
+                <Card sx={{ borderRadius: 3 }}>
+                  <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      textAlign="center"
+                      sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                    >
+                      ¡No tienes tareas pendientes! 🎉
+                    </Typography>
+                  </CardContent>
+                </Card>
+              )}
+            </motion.div>
+          </Grid>
+
+          {/* Cursos recientes */}
+          <Grid item xs={12}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.4 }}
             >
               <Typography
                 variant="h5"
@@ -1490,44 +1539,6 @@ const Dashboard = () => {
                   </Grid>
                 )}
               </Grid>
-            </motion.div>
-          </Grid>
-
-          {/* Tareas pendientes */}
-          <Grid item xs={12} lg={4}>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.4 }}
-            >
-              <Typography
-                variant="h5"
-                gutterBottom
-                sx={{
-                  mb: 3,
-                  fontSize: { xs: '1.25rem', sm: '1.5rem' }
-                }}
-              >
-                Tareas Pendientes
-              </Typography>
-              {pendingTasks.length > 0 ? (
-                pendingTasks.slice(0, 5).map((assignment) => (
-                  <PendingTask key={assignment.id} assignment={assignment} />
-                ))
-              ) : (
-                <Card sx={{ borderRadius: 3 }}>
-                  <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      textAlign="center"
-                      sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-                    >
-                      ¡No tienes tareas pendientes! 🎉
-                    </Typography>
-                  </CardContent>
-                </Card>
-              )}
             </motion.div>
           </Grid>
         </Grid>

@@ -11,6 +11,10 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Documentation files (local)
+*.md
+!README.md
+
 # Build outputs
 dist/
 build/

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -8,10 +8,10 @@ import {
   Divider,
   IconButton,
   InputAdornment,
-  Alert,
   useTheme,
   Avatar,
   Link,
+  CircularProgress,
 } from '@mui/material';
 import {
   Visibility,
@@ -20,72 +20,303 @@ import {
   Email,
   Lock,
   School,
+  LockReset,
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import toast, { Toaster } from 'react-hot-toast';
+
+// ============================================================================
+// TOAST STYLES - Apple/iOS Inspired Glassmorphic Design
+// ============================================================================
+
+const toastStyles = {
+  error: {
+    background: 'rgba(255, 59, 48, 0.1)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)', // Safari support
+    color: '#FF3B30',
+    border: 'none',
+    borderRadius: '16px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+    padding: '18px 24px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif',
+    fontSize: '15px',
+    fontWeight: 500,
+    lineHeight: '1.4',
+  },
+  warning: {
+    background: 'rgba(255, 149, 0, 0.1)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    color: '#FF9500',
+    border: 'none',
+    borderRadius: '16px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+    padding: '18px 24px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif',
+    fontSize: '15px',
+    fontWeight: 500,
+    lineHeight: '1.4',
+  },
+  success: {
+    background: 'rgba(52, 199, 89, 0.1)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    color: '#34C759',
+    border: 'none',
+    borderRadius: '16px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+    padding: '18px 24px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif',
+    fontSize: '15px',
+    fontWeight: 500,
+    lineHeight: '1.4',
+  },
+};
 
 export default function Login() {
   const theme = useTheme();
   const navigate = useNavigate();
   const { login } = useAuth();
-  
+
+  // ============================================================================
+  // STATES
+  // ============================================================================
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [failedAttempts, setFailedAttempts] = useState(0);
+
+  // ============================================================================
+  // EFFECT: Load failed attempts from localStorage on mount
+  // ============================================================================
+
+  useEffect(() => {
+    const email = formData.email;
+    if (!email) return;
+
+    try {
+      const storageKey = `login_attempts_${email}`;
+      const stored = localStorage.getItem(storageKey);
+
+      if (stored) {
+        const data = JSON.parse(stored);
+        const now = Date.now();
+        const thirtyMinutes = 30 * 60 * 1000;
+
+        console.log('📦 Loading attempts from localStorage:', data);
+
+        // Check if expired (30 minutes)
+        if (now - data.timestamp < thirtyMinutes) {
+          setFailedAttempts(data.count);
+          console.log(`✅ Restored ${data.count} failed attempts for ${email}`);
+        } else {
+          // Expired, clear storage
+          localStorage.removeItem(storageKey);
+          setFailedAttempts(0);
+          console.log('⏰ Attempts expired, cleared localStorage');
+        }
+      }
+    } catch (err) {
+      console.error('❌ Error loading attempts from localStorage:', err);
+    }
+  }, [formData.email]);
+
+  // ============================================================================
+  // HANDLER: Input change
+  // ============================================================================
 
   const handleInputChange = (field, value) => {
+    console.log(`📝 Input changed: ${field}`);
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (error) setError('');
   };
+
+  // ============================================================================
+  // HANDLER: Form submit
+  // ============================================================================
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+    e.stopPropagation();
+
+    console.log('🚀 ========== FORM SUBMITTED ==========');
+    console.log('📧 Email:', formData.email);
+    console.log('🔢 Current failed attempts:', failedAttempts);
+
+    // -------------------------------------------------------------------------
+    // VALIDATION: Empty fields
+    // -------------------------------------------------------------------------
+
     if (!formData.email || !formData.password) {
-      setError('Por favor completa todos los campos');
+      console.log('⚠️ Empty fields detected');
+      toast.error('Por favor completa todos los campos', {
+        duration: 3000,
+        position: 'top-center',
+        style: toastStyles.error,
+        icon: '⚠️',
+      });
       return;
     }
 
+    // -------------------------------------------------------------------------
+    // VALIDATION: Too many attempts
+    // -------------------------------------------------------------------------
+
+    if (failedAttempts >= 5) {
+      console.log('🚫 Too many failed attempts');
+      toast.error('Demasiados intentos fallidos. Por favor, recupera tu contraseña.', {
+        duration: 6000,
+        position: 'top-center',
+        style: toastStyles.warning,
+        icon: '🔒',
+      });
+      return;
+    }
+
+    // -------------------------------------------------------------------------
+    // START: Login attempt
+    // -------------------------------------------------------------------------
+
     setLoading(true);
-    setError('');
 
     try {
+      console.log('🔐 Attempting login...');
+
       await login(formData.email, formData.password);
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Login error:', error);
-      
-      // Manejar errores del backend
-      if (error.message) {
-        if (error.message.includes('Este usuario solo puede iniciar sesión con Google')) {
-          setError('Este usuario solo puede iniciar sesión con Google. Usa el botón "Continuar con Google"');
-        } else if (error.message.includes('Invalid credentials')) {
-          setError('Credenciales inválidas. Verifica tu email y contraseña');
-        } else if (error.message.includes('Account is deactivated')) {
-          setError('Tu cuenta está desactivada. Contacta al administrador');
-        } else {
-          setError(error.message);
-        }
-      } else {
-        // Fallback para errores sin mensaje específico
-        setError('Error al iniciar sesión. Intenta de nuevo');
-      }
-    } finally {
+
+      console.log('✅ ========== LOGIN SUCCESSFUL ==========');
+
+      // Clear failed attempts from localStorage
+      const storageKey = `login_attempts_${formData.email}`;
+      localStorage.removeItem(storageKey);
+      setFailedAttempts(0);
+
+      console.log('🧹 Cleared failed attempts from localStorage');
+
+      // Show success toast
+      toast.success('¡Bienvenido!', {
+        duration: 2000,
+        position: 'top-center',
+        style: toastStyles.success,
+        icon: '✅',
+      });
+
+      // AuthContext will handle navigation
+
+    } catch (err) {
+      console.error('❌ ========== LOGIN FAILED ==========');
+      console.error('Error details:', err);
+
+      // Stop loading IMMEDIATELY
       setLoading(false);
+
+      // -----------------------------------------------------------------------
+      // INCREMENT: Failed attempts counter
+      // -----------------------------------------------------------------------
+
+      const newAttempts = failedAttempts + 1;
+      console.log(`📊 Failed attempts: ${failedAttempts} → ${newAttempts}`);
+
+      setFailedAttempts(newAttempts);
+
+      // Save to localStorage with timestamp
+      const storageKey = `login_attempts_${formData.email}`;
+      const attemptData = {
+        count: newAttempts,
+        timestamp: Date.now()
+      };
+
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(attemptData));
+        console.log('💾 Saved attempts to localStorage:', attemptData);
+      } catch (storageErr) {
+        console.error('❌ Failed to save to localStorage:', storageErr);
+      }
+
+      // -----------------------------------------------------------------------
+      // CLEAR: Password field
+      // -----------------------------------------------------------------------
+
+      setFormData(prev => ({
+        ...prev,
+        password: '' // Clear password but keep email
+      }));
+      console.log('🔑 Password field cleared');
+
+      // -----------------------------------------------------------------------
+      // SHOW: Error toast
+      // -----------------------------------------------------------------------
+
+      const attemptsLeft = 5 - newAttempts;
+      let errorMessage;
+      let toastStyle = toastStyles.error;
+      let toastDuration = 4000;
+      let toastIcon = '❌';
+
+      // Check for specific error types
+      if (err.message && err.message.includes('Este usuario solo puede iniciar sesión con Google')) {
+        errorMessage = 'Este usuario solo puede iniciar sesión con Google. Usa el botón "Continuar con Google"';
+        toastDuration = 5000;
+        toastIcon = '🔐';
+      } else if (err.message && err.message.includes('Account is deactivated')) {
+        errorMessage = 'Tu cuenta está desactivada. Contacta al administrador';
+        toastDuration = 5000;
+        toastIcon = '⚠️';
+      } else if (newAttempts >= 5) {
+        errorMessage = 'Demasiados intentos fallidos. Por favor, recupera tu contraseña.';
+        toastStyle = toastStyles.warning;
+        toastDuration = 6000;
+        toastIcon = '🔒';
+      } else {
+        errorMessage = `Contraseña incorrecta. Te quedan ${attemptsLeft} intento${attemptsLeft !== 1 ? 's' : ''}`;
+        toastIcon = '🔴';
+      }
+
+      console.log('🔴 Showing error toast:', errorMessage);
+
+      // CRITICAL: Show toast - This persists even during re-renders
+      toast.error(errorMessage, {
+        duration: toastDuration,
+        position: 'top-center',
+        style: toastStyle,
+        icon: toastIcon,
+      });
+
+      console.log('🔴 ========== ERROR TOAST SHOWN ==========');
+
+      // Early return to avoid executing finally block
+      return;
     }
+
+    // Only executed if login was successful
+    setLoading(false);
   };
 
+  // ============================================================================
+  // HANDLER: Google login
+  // ============================================================================
+
   const handleGoogleLogin = () => {
-    // Redirección directa al backend (sin popup)
     const backendUrl = 'http://localhost:3001';
     window.location.href = `${backendUrl}/api/auth/google?flow=redirect`;
   };
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
+  console.log('🎨 RENDERING Login component', {
+    failedAttempts,
+    hasEmail: !!formData.email,
+    hasPassword: !!formData.password,
+  });
 
   return (
     <Box
@@ -98,6 +329,21 @@ export default function Login() {
         p: 2,
       }}
     >
+      {/* Toast Container - Renders toasts in a Portal */}
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        gutter={8}
+        toastOptions={{
+          // Default options
+          duration: 4000,
+          style: {
+            borderRadius: '10px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          },
+        }}
+      />
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -114,7 +360,10 @@ export default function Login() {
             border: '1px solid rgba(255, 255, 255, 0.2)',
           }}
         >
-          {/* Header */}
+          {/* ================================================================ */}
+          {/* HEADER */}
+          {/* ================================================================ */}
+
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <motion.div
               initial={{ scale: 0.8 }}
@@ -133,7 +382,7 @@ export default function Login() {
                 <School sx={{ fontSize: 40 }} />
               </Avatar>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -159,18 +408,19 @@ export default function Login() {
             </motion.div>
           </Box>
 
-          {/* Formulario */}
+          {/* ================================================================ */}
+          {/* FORM */}
+          {/* ================================================================ */}
+
           <motion.form
             onSubmit={handleSubmit}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.6 }}
           >
-            {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
-                {error}
-              </Alert>
-            )}
+            {/* ============================================================== */}
+            {/* EMAIL FIELD */}
+            {/* ============================================================== */}
 
             <TextField
               fullWidth
@@ -180,6 +430,7 @@ export default function Login() {
               onChange={(e) => handleInputChange('email', e.target.value)}
               variant="outlined"
               sx={{ mb: 3 }}
+              disabled={loading}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -189,6 +440,10 @@ export default function Login() {
               }}
             />
 
+            {/* ============================================================== */}
+            {/* PASSWORD FIELD */}
+            {/* ============================================================== */}
+
             <TextField
               fullWidth
               label="Contraseña"
@@ -197,6 +452,7 @@ export default function Login() {
               onChange={(e) => handleInputChange('password', e.target.value)}
               variant="outlined"
               sx={{ mb: 3 }}
+              disabled={loading}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -208,6 +464,7 @@ export default function Login() {
                     <IconButton
                       onClick={() => setShowPassword(!showPassword)}
                       edge="end"
+                      disabled={loading}
                     >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
@@ -216,31 +473,66 @@ export default function Login() {
               }}
             />
 
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={loading}
-              sx={{
-                py: 1.5,
-                mb: 3,
-                borderRadius: 2,
-                fontSize: '1.1rem',
-                fontWeight: 600,
-                background: 'linear-gradient(135deg, #007AFF 0%, #0056CC 100%)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #0056CC 0%, #004499 100%)',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0px 8px 25px rgba(0, 122, 255, 0.3)',
-                },
-                transition: 'all 0.3s ease',
-              }}
-            >
-              {loading ? 'Iniciando Sesión...' : 'Iniciar Sesión'}
-            </Button>
+            {/* ============================================================== */}
+            {/* CONDITIONAL BUTTON: Login or Forgot Password */}
+            {/* ============================================================== */}
+
+            {failedAttempts >= 5 ? (
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => navigate(`/forgot-password?email=${encodeURIComponent(formData.email)}`)}
+                startIcon={<LockReset />}
+                sx={{
+                  py: 1.5,
+                  mb: 3,
+                  borderRadius: 2,
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  background: 'linear-gradient(135deg, #FF9500 0%, #FF6B00 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #FF6B00 0%, #FF4500 100%)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0px 8px 25px rgba(255, 149, 0, 0.3)',
+                  },
+                  transition: 'all 0.3s ease',
+                }}
+              >
+                ¿Olvidaste tu contraseña?
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={loading}
+                sx={{
+                  py: 1.5,
+                  mb: 3,
+                  borderRadius: 2,
+                  fontSize: '1.1rem',
+                  fontWeight: 600,
+                  background: 'linear-gradient(135deg, #007AFF 0%, #0056CC 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #0056CC 0%, #004499 100%)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0px 8px 25px rgba(0, 122, 255, 0.3)',
+                  },
+                  '&:disabled': {
+                    background: 'rgba(0, 122, 255, 0.3)',
+                  },
+                  transition: 'all 0.3s ease',
+                }}
+              >
+                {loading ? <CircularProgress size={24} color="inherit" /> : 'Iniciar Sesión'}
+              </Button>
+            )}
           </motion.form>
 
-          {/* Divider */}
+          {/* ================================================================ */}
+          {/* DIVIDER */}
+          {/* ================================================================ */}
+
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
             <Divider sx={{ flex: 1 }} />
             <Typography variant="body2" color="text.secondary" sx={{ px: 2 }}>
@@ -249,7 +541,10 @@ export default function Login() {
             <Divider sx={{ flex: 1 }} />
           </Box>
 
-          {/* Google Login */}
+          {/* ================================================================ */}
+          {/* GOOGLE LOGIN */}
+          {/* ================================================================ */}
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -259,70 +554,63 @@ export default function Login() {
               fullWidth
               variant="outlined"
               onClick={handleGoogleLogin}
-              disabled={loading}
               startIcon={<Google />}
+              disabled={loading}
               sx={{
                 py: 1.5,
-                mb: 3,
                 borderRadius: 2,
-                borderWidth: 2,
-                fontSize: '1rem',
-                fontWeight: 600,
+                borderColor: 'rgba(0, 0, 0, 0.23)',
+                color: 'text.primary',
                 '&:hover': {
-                  borderWidth: 2,
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0px 8px 25px rgba(0, 0, 0, 0.1)',
+                  borderColor: 'primary.main',
+                  backgroundColor: 'rgba(0, 122, 255, 0.04)',
                 },
-                transition: 'all 0.3s ease',
               }}
             >
               Continuar con Google
             </Button>
           </motion.div>
 
-          {/* Links */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 1 }}
-          >
-            <Box sx={{ textAlign: 'center' }}>
+          {/* ================================================================ */}
+          {/* FOOTER LINKS */}
+          {/* ================================================================ */}
+
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              ¿Olvidaste tu contraseña?{' '}
               <Link
-                component={RouterLink}
-                to="/forgot-password"
-                variant="body2"
+                component="button"
+                onClick={() => navigate(`/forgot-password?email=${encodeURIComponent(formData.email)}`)}
                 sx={{
-                  color: theme.palette.primary.main,
+                  color: 'primary.main',
                   textDecoration: 'none',
+                  fontWeight: 600,
                   '&:hover': {
                     textDecoration: 'underline',
                   },
                 }}
               >
-                ¿Olvidaste tu contraseña?
+                Recupérala aquí
               </Link>
-            </Box>
-            
-            <Box sx={{ textAlign: 'center', mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                ¿No tienes una cuenta?{' '}
-                <Link
-                  component={RouterLink}
-                  to="/signup"
-                  sx={{
-                    color: theme.palette.primary.main,
-                    textDecoration: 'none',
-                    fontWeight: 600,
-                    '&:hover': {
-                      textDecoration: 'underline',
-                    },
-                  }}
-                >
-                  Regístrate aquí
-                </Link>
-              </Typography>
-            </Box>
-          </motion.div>
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              ¿No tienes una cuenta?{' '}
+              <Link
+                component={RouterLink}
+                to="/signup"
+                sx={{
+                  color: 'primary.main',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  '&:hover': {
+                    textDecoration: 'underline',
+                  },
+                }}
+              >
+                Regístrate
+              </Link>
+            </Typography>
+          </Box>
         </Paper>
       </motion.div>
     </Box>

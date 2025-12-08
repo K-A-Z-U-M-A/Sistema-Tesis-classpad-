@@ -34,7 +34,7 @@ export default function Signup() {
   const theme = useTheme();
   const navigate = useNavigate();
   const { register, loginWithGoogle } = useAuth();
-  
+
   const [formData, setFormData] = useState({
     displayName: '',
     email: '',
@@ -42,7 +42,7 @@ export default function Signup() {
     confirmPassword: '',
     role: 'student',
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -55,7 +55,7 @@ export default function Signup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.displayName || !formData.email || !formData.password || !formData.confirmPassword) {
       setError('Por favor completa todos los campos');
       return;
@@ -84,7 +84,7 @@ export default function Signup() {
       navigate('/profile/complete');
     } catch (error) {
       console.error('Signup error:', error);
-      
+
       // Manejar errores del backend
       if (error.message) {
         if (error.message.includes('User with this email already exists')) {
@@ -166,7 +166,7 @@ export default function Signup() {
                 <School sx={{ fontSize: 40 }} />
               </Avatar>
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

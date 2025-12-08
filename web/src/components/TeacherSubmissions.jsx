@@ -19,7 +19,10 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
 import {
   Person,
@@ -29,7 +32,8 @@ import {
   Schedule,
   CheckCircle,
   Pending,
-  Edit
+  Edit,
+  ExpandMore
 } from '@mui/icons-material';
 import TextField from '@mui/material/TextField';
 import toast from 'react-hot-toast';
@@ -44,6 +48,7 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
   const [gradingData, setGradingData] = useState({ grade: '', feedback: '' });
   const [gradingLoading, setGradingLoading] = useState(false);
   const [assignment, setAssignment] = useState(null);
+  const [expandedSubmission, setExpandedSubmission] = useState(null);
 
   useEffect(() => {
     loadSubmissions();
@@ -65,7 +70,7 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
     try {
       setLoading(true);
       const response = await api.request(`/submissions/assignment/${assignmentId}`);
-      
+
       if (response.success) {
         setSubmissions(response.data);
         console.log('🔍 Teacher submissions loaded:', response.data);
@@ -81,7 +86,7 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
   const handleDownloadFile = async (file) => {
     try {
       console.log('🔍 Downloading file:', file);
-      
+
       const response = await fetch(file.url, {
         method: 'GET',
         headers: {
@@ -89,17 +94,17 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
         },
         mode: 'cors'
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const blob = await response.blob();
-      
+
       if (blob.size === 0) {
         throw new Error('El archivo descargado está vacío');
       }
-      
+
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = blobUrl;
@@ -107,12 +112,12 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
       link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
-      
+
       setTimeout(() => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(blobUrl);
       }, 100);
-      
+
     } catch (error) {
       console.error('Error downloading file:', error);
       setError('Error al descargar el archivo: ' + error.message);
@@ -198,6 +203,10 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
     }
   };
 
+  const handleAccordionChange = (submissionId) => (event, isExpanded) => {
+    setExpandedSubmission(isExpanded ? submissionId : null);
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" py={4}>
@@ -237,23 +246,54 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
       <Typography variant="h6" gutterBottom>
         Entregas de Estudiantes ({submissions.length})
       </Typography>
-      
-      {submissions.map((submission, index) => {
+
+      {submissions.map((submission) => {
         const statusInfo = getStatusInfo(submission.status);
-        
+
         return (
-          <Card key={submission.id} sx={{ mb: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+          <Accordion
+            key={submission.id}
+            expanded={expandedSubmission === submission.id}
+            onChange={handleAccordionChange(submission.id)}
+            sx={{
+              mb: 2,
+              borderRadius: '12px !important',
+              overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              border: '1px solid',
+              borderColor: 'divider',
+              '&:before': { display: 'none' },
+              '&.Mui-expanded': {
+                margin: '0 0 16px 0 !important',
+                boxShadow: '0 4px 16px rgba(102, 126, 234, 0.15)'
+              }
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMore sx={{ color: '#667eea' }} />}
+              sx={{
+                minHeight: 72,
+                '&.Mui-expanded': {
+                  minHeight: 72,
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                },
+                '& .MuiAccordionSummary-content': {
+                  my: 2,
+                  alignItems: 'center'
+                }
+              }}
+            >
+              <Box display="flex" alignItems="center" justifyContent="space-between" width="100%" pr={2}>
                 <Box display="flex" alignItems="center" gap={2}>
-                  <Avatar>
+                  <Avatar sx={{ bgcolor: '#667eea' }}>
                     <Person />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6">
+                    <Typography variant="h6" sx={{ fontSize: '1.1rem', fontWeight: 600 }}>
                       {submission.student_name || 'Estudiante'}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary">
                       {submission.student_email}
                     </Typography>
                   </Box>
@@ -263,9 +303,12 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
                   label={statusInfo.label}
                   color={statusInfo.color}
                   variant="filled"
+                  size="small"
                 />
               </Box>
+            </AccordionSummary>
 
+            <AccordionDetails sx={{ p: 3, pt: 2 }}>
               {submission.submitted_at && (
                 <Box mb={2}>
                   <Typography variant="body2" color="text.secondary">
@@ -289,7 +332,7 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
               )}
 
               {submission.files && submission.files.length > 0 && (
-                <Box>
+                <Box mb={2}>
                   <Typography variant="subtitle2" gutterBottom>
                     Archivos adjuntos ({submission.files.length}):
                   </Typography>
@@ -347,9 +390,9 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
                         startIcon={<Edit />}
                         onClick={() => {
                           setSelectedSubmission(submission);
-                          setGradingData({ 
-                            grade: submission.grade || '', 
-                            feedback: submission.feedback || '' 
+                          setGradingData({
+                            grade: submission.grade || '',
+                            feedback: submission.feedback || ''
                           });
                           setDialogOpen(true);
                         }}
@@ -372,21 +415,25 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
                       setDialogOpen(true);
                     }}
                     fullWidth
+                    sx={{
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #5568d3 0%, #653a8b 100%)'
+                      }
+                    }}
                   >
                     Calificar Tarea
                   </Button>
                 </Box>
               )}
-
-              {index < submissions.length - 1 && <Divider sx={{ mt: 2 }} />}
-            </CardContent>
-          </Card>
+            </AccordionDetails>
+          </Accordion>
         );
       })}
 
       {/* Dialog de calificación */}
-      <Dialog 
-        open={dialogOpen} 
+      <Dialog
+        open={dialogOpen}
         onClose={() => {
           setDialogOpen(false);
           setSelectedSubmission(null);
@@ -417,8 +464,8 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
               onChange={(e) => setGradingData(prev => ({ ...prev, grade: e.target.value }))}
               fullWidth
               required
-              inputProps={{ 
-                min: 0, 
+              inputProps={{
+                min: 0,
                 max: assignment?.max_points || 100,
                 step: 0.1
               }}
@@ -436,7 +483,7 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => {
               setDialogOpen(false);
               setSelectedSubmission(null);
