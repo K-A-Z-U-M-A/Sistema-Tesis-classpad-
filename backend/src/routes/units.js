@@ -3,6 +3,7 @@ import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { createNotification } from './notifications.js';
 import { upload, getFileInfo, validateFileSize, getMaterialTypeFromMime, isValidMaterialType } from '../services/storage.js';
+import { logAction } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
@@ -61,7 +62,7 @@ async function hasCourseAccess(userId, courseId) {
 router.get('/:courseId', authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.courseId;
-    
+
     if (!(isIntegerString(courseId) || isUuid(courseId))) {
       return res.status(400).json({ error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' } });
     }
@@ -80,7 +81,7 @@ router.get('/:courseId', authMiddleware, async (req, res) => {
     // Get units with materials - different query based on user role
     const cast = isUuid(courseId) ? '::uuid' : '';
     let unitsQuery;
-    
+
     if (req.user.role === 'teacher') {
       // Teachers see all units
       unitsQuery = `
@@ -104,7 +105,7 @@ router.get('/:courseId', authMiddleware, async (req, res) => {
         ORDER BY u.order_index, u.created_at
       `;
     }
-    
+
     const unitsResult = await pool.query(unitsQuery, [courseId]);
 
     // Get materials for each unit
@@ -150,7 +151,7 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
 
     // Ensure the requester has access to the course that owns the unit
     const cast = isUuid(unitId) ? '::uuid' : '';
-    const unitRes = await pool.query(`SELECT course_id FROM units WHERE id = $1${cast}`,[unitId]);
+    const unitRes = await pool.query(`SELECT course_id FROM units WHERE id = $1${cast}`, [unitId]);
     if (unitRes.rows.length === 0) {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
     }
@@ -203,7 +204,7 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
     // Different query based on user role
     let query;
     let params;
-    
+
     if (req.user.role === 'teacher') {
       // Teachers see all assignments
       query = `
@@ -237,7 +238,7 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
       `;
       params = [unitId, req.user.id];
     }
-    
+
     const result = await pool.query(query, params);
 
     // Map is_published to status for frontend compatibility
@@ -259,7 +260,7 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
     console.log('🔍 Creating assignment - Request body:', JSON.stringify(req.body, null, 2));
     const unitId = req.params.id;
     console.log('🔍 Unit ID:', unitId, 'isUuid:', isUuid(unitId), 'isIntegerString:', isIntegerString(unitId));
-    
+
     if (!(isIntegerString(unitId) || isUuid(unitId))) {
       return res.status(400).json({
         error: { message: 'ID de unidad inválido', code: 'INVALID_UNIT_ID' }
@@ -299,7 +300,7 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
 
     // Convert status to is_published boolean
     const is_published = status === 'published' || status === true;
-    
+
     // Normalize due_date: convert empty string to null
     const normalizedDueDate = due_date && due_date.trim() !== '' ? due_date : null;
 
@@ -368,7 +369,7 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
             // Determine if we're using UUIDs or INTEGERs
             const assignmentIdIsUuid = isUuid(assignment.id);
             const firstStudentIdIsUuid = isUuid(target_student_ids[0]);
-            
+
             // Create table with appropriate types
             if (assignmentIdIsUuid || firstStudentIdIsUuid) {
               // Using UUIDs
@@ -398,7 +399,7 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
               `);
             }
             console.log('✅ assignment_students table created successfully');
-            
+
             // Retry the insert
             const assignmentStudentPromises = target_student_ids.map(studentId => {
               const studentCast = isUuid(studentId) ? '::uuid' : '';
@@ -426,7 +427,7 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
 
     // Get course information for notification (only if we have students to notify)
     const courseCast = isUuid(courseId) ? '::uuid' : '';
-    
+
     // Get students to notify (all or specific)
     let studentsResult;
     try {
@@ -435,7 +436,7 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
         // Determine if student IDs are UUIDs or integers
         const firstStudentId = target_student_ids[0];
         const studentIdCast = isUuid(firstStudentId) ? '::uuid[]' : '::integer[]';
-        
+
         studentsResult = await pool.query(
           `SELECT DISTINCT student_id as user_id 
            FROM enrollments 
@@ -477,7 +478,7 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
         const notificationPromises = studentsResult.rows.map(student => {
           const notificationTitle = 'Nueva tarea asignada';
           const messageText = `Se ha creado una nueva tarea "${title}" en ${course.name}. Fecha límite: ${normalizedDueDate ? new Date(normalizedDueDate).toLocaleDateString() : 'Sin fecha límite'}`;
-          
+
           return createNotification(
             student.user_id,
             'assignment',
@@ -497,8 +498,19 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
       }
     }
 
-    res.status(201).json({ 
-      success: true, 
+
+    // Audit log
+    await logAction({
+      userId: req.user.id,
+      action: 'CREATE_ASSIGNMENT',
+      entity: 'Assignment',
+      entityId: assignment.id,
+      details: { title: assignment.title, unit_id: unitId, course_id: courseId },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
+    res.status(201).json({
+      success: true,
       data: {
         ...assignment,
         status: assignment.is_published ? 'published' : 'draft'
@@ -513,12 +525,12 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
       detail: error.detail,
       hint: error.hint
     });
-    res.status(500).json({ 
-      error: { 
-        message: 'Error interno del servidor', 
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
         code: 'CREATE_UNIT_ASSIGNMENT_FAILED',
         detail: process.env.NODE_ENV === 'development' ? error.message : undefined
-      } 
+      }
     });
   }
 });
@@ -527,7 +539,7 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
-    
+
     if (role !== 'teacher') {
       return res.status(403).json({
         error: {
@@ -581,6 +593,16 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const unit = result.rows[0];
 
+    // Audit log
+    await logAction({
+      userId: req.user.id,
+      action: 'CREATE_UNIT',
+      entity: 'Unit',
+      entityId: unit.id,
+      details: { title: unit.title, course_id: course_id },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     // Get course information for notification
     const courseResult = await pool.query(
       'SELECT name, owner_id FROM courses WHERE id = $1',
@@ -600,7 +622,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const notificationPromises = studentsResult.rows.map(student => {
       const title = 'Nueva unidad disponible';
       const messageText = `Se ha creado una nueva unidad "${unit.title}" en ${course.name}. ${description ? `Descripción: ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}` : ''}`;
-      
+
       return createNotification(
         student.user_id,
         'announcement',
@@ -637,7 +659,7 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const unitId = req.params.id;
-    
+
     if (!(isIntegerString(unitId) || isUuid(unitId))) {
       return res.status(400).json({
         error: {
@@ -690,9 +712,21 @@ router.put('/:id', authMiddleware, async (req, res) => {
       [title, description, order_index, is_published, unitId]
     );
 
+    const updatedUnit = result.rows[0];
+
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'UPDATE_UNIT',
+      entity: 'Unit',
+      entityId: updatedUnit.id,
+      details: { updated_fields: Object.keys(req.body) },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.json({
       success: true,
-      data: result.rows[0]
+      data: updatedUnit
     });
   } catch (error) {
     console.error('Error updating unit:', error);
@@ -709,7 +743,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const unitId = req.params.id;
-    
+
     if (!(isIntegerString(unitId) || isUuid(unitId))) {
       return res.status(400).json({
         error: {
@@ -751,6 +785,16 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     // Delete unit (cascade will handle materials)
     await pool.query(`DELETE FROM units WHERE id = $1`, [unitId]);
 
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'DELETE_UNIT',
+      entity: 'Unit',
+      entityId: unitId,
+      details: { deleted_by: req.user.email, course_id: courseId },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.json({
       success: true,
       data: {
@@ -772,7 +816,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 router.post('/:id/materials', authMiddleware, async (req, res) => {
   try {
     const unitId = req.params.id;
-    
+
     if (!(isIntegerString(unitId) || isUuid(unitId))) {
       return res.status(400).json({
         error: {
@@ -852,9 +896,21 @@ router.post('/:id/materials', authMiddleware, async (req, res) => {
       [unitId, title, description, type, url, file_name, file_size, mime_type, finalOrderIndex, req.user.id]
     );
 
+    const material = result.rows[0];
+
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'UPLOAD_MATERIAL',
+      entity: 'Material',
+      entityId: material.id,
+      details: { title: material.title, type: material.type, unit_id: unitId },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.status(201).json({
       success: true,
-      data: result.rows[0]
+      data: material
     });
   } catch (error) {
     console.error('Error creating material:', error);
@@ -871,7 +927,7 @@ router.post('/:id/materials', authMiddleware, async (req, res) => {
 router.put('/materials/:materialId', authMiddleware, async (req, res) => {
   try {
     const materialId = req.params.materialId;
-    
+
     if (isNaN(materialId)) {
       return res.status(400).json({
         error: {
@@ -942,7 +998,7 @@ router.put('/materials/:materialId', authMiddleware, async (req, res) => {
 router.delete('/materials/:materialId', authMiddleware, async (req, res) => {
   try {
     const materialId = req.params.materialId;
-    
+
     if (!(isIntegerString(materialId) || isUuid(materialId))) {
       return res.status(400).json({
         error: {
@@ -1085,7 +1141,7 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
 
     // Determine material type from MIME type
     const materialType = getMaterialTypeFromMime(file.mimetype);
-    
+
     // Validate material type
     if (!isValidMaterialType(materialType)) {
       return res.status(400).json({

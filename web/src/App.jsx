@@ -38,6 +38,21 @@ import Settings from './pages/Settings/Settings';
 import ArchivedCourses from './pages/Manage/ArchivedCourses';
 import CourseGradesManage from './pages/Manage/CourseGradesManage';
 import StudentProgress from './pages/StudentProgress/StudentProgress';
+import Users from './pages/Admin/Users';
+import AdminDashboard from './pages/Admin/AdminDashboard';
+import Audit from './pages/Admin/Audit';
+import Reports from './pages/Admin/Reports';
+
+// Component to route dashboard based on role
+const DashboardRouter = () => {
+  const { currentUser } = useAuth();
+
+  if (currentUser?.role === 'admin') {
+    return <AdminDashboard />;
+  }
+
+  return <Dashboard />;
+};
 
 // Componente de ruta protegida
 const ProtectedRoute = ({ children, requiredRole = null, requireProfileComplete = false }) => {
@@ -131,7 +146,7 @@ function AppRoutes() {
       <Route path="/dashboard" element={
         <ProtectedRoute requireProfileComplete={true}>
           <AppLayout>
-            <Dashboard />
+            <DashboardRouter />
           </AppLayout>
         </ProtectedRoute>
       } />
@@ -274,6 +289,30 @@ function AppRoutes() {
         <ProtectedRoute requiredRole="student">
           <AppLayout>
             <StudentProgress />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/users" element={
+        <ProtectedRoute requiredRole="admin">
+          <AppLayout>
+            <Users />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/audit" element={
+        <ProtectedRoute requiredRole="admin">
+          <AppLayout>
+            <Audit />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/admin/reports" element={
+        <ProtectedRoute requiredRole="admin">
+          <AppLayout>
+            <Reports />
           </AppLayout>
         </ProtectedRoute>
       } />

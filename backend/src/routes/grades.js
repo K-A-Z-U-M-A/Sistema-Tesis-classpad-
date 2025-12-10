@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { logAction } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
         const { role, id: userId } = req.user;
 
         // Check if user is teacher
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden ver todas las calificaciones',
@@ -32,7 +33,7 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
         }
 
         const isTeacher = await isCourseTeacher(userId, courseId);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',
@@ -171,7 +172,7 @@ router.put('/:gradeId', authMiddleware, async (req, res) => {
         const { role, id: userId } = req.user;
         const { parcial_1, parcial_2, trabajos_practicos, examen_final, is_published } = req.body;
 
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden actualizar calificaciones',
@@ -196,7 +197,7 @@ router.put('/:gradeId', authMiddleware, async (req, res) => {
         }
 
         const isTeacher = await isCourseTeacher(userId, gradeCheck.rows[0].course_id);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',
@@ -218,9 +219,21 @@ router.put('/:gradeId', authMiddleware, async (req, res) => {
             [parcial_1, parcial_2, trabajos_practicos, examen_final, is_published, gradeId]
         );
 
+        const gradeUpdate = result.rows[0];
+
+        // Audit Log
+        await logAction({
+            userId: req.user.id,
+            action: 'UPDATE_GRADE',
+            entity: 'Grade',
+            entityId: gradeId,
+            details: { updated_fields: Object.keys(req.body) },
+            ipAddress: req.ip || req.connection.remoteAddress
+        });
+
         res.json({
             success: true,
-            data: result.rows[0]
+            data: gradeUpdate
         });
     } catch (error) {
         console.error('Error updating grade:', error);
@@ -240,7 +253,7 @@ router.put('/course/:courseId/bulk', authMiddleware, async (req, res) => {
         const { role, id: userId } = req.user;
         const { grades } = req.body; // Array of { student_id, parcial_1, parcial_2, trabajos_practicos, examen_final }
 
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden actualizar calificaciones',
@@ -250,7 +263,7 @@ router.put('/course/:courseId/bulk', authMiddleware, async (req, res) => {
         }
 
         const isTeacher = await isCourseTeacher(userId, courseId);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',
@@ -283,6 +296,16 @@ router.put('/course/:courseId/bulk', authMiddleware, async (req, res) => {
 
             await client.query('COMMIT');
 
+            // Audit Log
+            await logAction({
+                userId: req.user.id,
+                action: 'UPDATE_GRADES_BULK',
+                entity: 'Course',
+                entityId: courseId,
+                details: { count: grades.length },
+                ipAddress: req.ip || req.connection.remoteAddress
+            });
+
             res.json({
                 success: true,
                 message: 'Calificaciones actualizadas exitosamente'
@@ -311,7 +334,7 @@ router.post('/course/:courseId/publish', authMiddleware, async (req, res) => {
         const { role, id: userId } = req.user;
         const { studentIds } = req.body; // Array of student IDs, or null/empty for all
 
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden publicar calificaciones',
@@ -321,7 +344,7 @@ router.post('/course/:courseId/publish', authMiddleware, async (req, res) => {
         }
 
         const isTeacher = await isCourseTeacher(userId, courseId);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',
@@ -349,6 +372,16 @@ router.post('/course/:courseId/publish', authMiddleware, async (req, res) => {
 
         await pool.query(query, params);
 
+        // Audit Log
+        await logAction({
+            userId: req.user.id,
+            action: 'PUBLISH_GRADES',
+            entity: 'Course',
+            entityId: courseId,
+            details: { student_ids: studentIds ? studentIds.length : 'all' },
+            ipAddress: req.ip || req.connection.remoteAddress
+        });
+
         res.json({
             success: true,
             message: 'Calificaciones publicadas exitosamente'
@@ -370,7 +403,7 @@ router.get('/course/:courseId/export/excel', authMiddleware, async (req, res) =>
         const { courseId } = req.params;
         const { role, id: userId } = req.user;
 
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden exportar calificaciones',
@@ -380,7 +413,7 @@ router.get('/course/:courseId/export/excel', authMiddleware, async (req, res) =>
         }
 
         const isTeacher = await isCourseTeacher(userId, courseId);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',
@@ -453,7 +486,7 @@ router.post('/course/:courseId/import/excel', authMiddleware, async (req, res) =
         const { courseId } = req.params;
         const { role, id: userId } = req.user;
 
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden importar calificaciones',
@@ -463,7 +496,7 @@ router.post('/course/:courseId/import/excel', authMiddleware, async (req, res) =
         }
 
         const isTeacher = await isCourseTeacher(userId, courseId);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',
@@ -522,6 +555,16 @@ router.post('/course/:courseId/import/excel', authMiddleware, async (req, res) =
 
             await client.query('COMMIT');
 
+            // Audit Log
+            await logAction({
+                userId: req.user.id,
+                action: 'IMPORT_GRADES',
+                entity: 'Course',
+                entityId: courseId,
+                details: { count: grades.length },
+                ipAddress: req.ip || req.connection.remoteAddress
+            });
+
             res.json({
                 success: true,
                 message: `${grades.length} calificaciones importadas exitosamente`
@@ -549,7 +592,7 @@ router.put('/generate-tp/:courseId', authMiddleware, async (req, res) => {
         const { courseId } = req.params;
         const { role, id: userId } = req.user;
 
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden generar TP',
@@ -559,7 +602,7 @@ router.put('/generate-tp/:courseId', authMiddleware, async (req, res) => {
         }
 
         const isTeacher = await isCourseTeacher(userId, courseId);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',
@@ -590,6 +633,16 @@ router.put('/generate-tp/:courseId', authMiddleware, async (req, res) => {
 
         console.log(`✅ TP generado para ${result.rows.length} estudiantes`);
 
+        // Audit Log
+        await logAction({
+            userId: req.user.id,
+            action: 'GENERATE_TP',
+            entity: 'Course',
+            entityId: courseId,
+            details: { affected_students: result.rows.length },
+            ipAddress: req.ip || req.connection.remoteAddress
+        });
+
         res.json({
             success: true,
             message: `Trabajos prácticos generados automáticamente para ${result.rows.length} estudiantes`,
@@ -613,7 +666,7 @@ router.put('/publish/:courseId', authMiddleware, async (req, res) => {
         const { courseId } = req.params;
         const { role, id: userId } = req.user;
 
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden publicar calificaciones',
@@ -623,7 +676,7 @@ router.put('/publish/:courseId', authMiddleware, async (req, res) => {
         }
 
         const isTeacher = await isCourseTeacher(userId, courseId);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',
@@ -644,6 +697,16 @@ router.put('/publish/:courseId', authMiddleware, async (req, res) => {
         );
 
         console.log(`✅ Calificaciones publicadas para ${result.rows.length} estudiantes`);
+
+        // Audit Log
+        await logAction({
+            userId: req.user.id,
+            action: 'PUBLISH_ALL_GRADES',
+            entity: 'Course',
+            entityId: courseId,
+            details: { affected_students: result.rows.length },
+            ipAddress: req.ip || req.connection.remoteAddress
+        });
 
         res.json({
             success: true,

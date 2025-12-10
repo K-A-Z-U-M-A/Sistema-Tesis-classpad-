@@ -4,13 +4,17 @@ import pool from '../config/database.js';
 import { signToken } from '../utils/jwt.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import passport from '../config/passport.js';
+import { logAction } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
 // Register endpoint
 router.post('/register', async (req, res) => {
   try {
-    const { email, displayName, password, role = 'estudiante' } = req.body;
+    const { email, displayName, password } = req.body;
+    // Force role to be student for public registration. 
+    // Teachers and Admins must be created by an existing Admin.
+    const role = 'student';
 
     // Validation
     if (!email || !displayName || !password) {
@@ -61,6 +65,16 @@ router.post('/register', async (req, res) => {
     );
 
     const user = result.rows[0];
+
+    // Log registration
+    await logAction({
+      userId: user.id,
+      action: 'REGISTER',
+      entity: 'User',
+      entityId: user.id.toString(),
+      details: { email: user.email, role: user.role },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
 
     // Generate JWT token
     const token = signToken({
@@ -179,6 +193,16 @@ router.post('/login', async (req, res) => {
       'UPDATE users SET last_login = NOW() WHERE id = $1',
       [user.id]
     );
+
+    // Log successful login
+    await logAction({
+      userId: user.id,
+      action: 'LOGIN',
+      entity: 'User',
+      entityId: user.id.toString(),
+      details: { email: user.email, role: user.role },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
 
     // Generate JWT token
     const token = signToken({
@@ -379,6 +403,27 @@ router.put('/update-recovery-email', authMiddleware, async (req, res) => {
         code: 'INTERNAL_ERROR'
       }
     });
+  }
+});
+
+// POST /api/auth/logout - Logout (audit purpose)
+router.post('/logout', authMiddleware, async (req, res) => {
+  try {
+    // Audit log for logout
+    await logAction({
+      userId: req.user.id,
+      action: 'LOGOUT',
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
+    res.json({
+      success: true,
+      message: 'Sesión cerrada exitosamente'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Even if logging fails, return success to user
+    res.json({ success: true });
   }
 });
 

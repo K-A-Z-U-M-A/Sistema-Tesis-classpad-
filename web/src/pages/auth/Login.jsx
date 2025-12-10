@@ -12,7 +12,12 @@ import {
   Avatar,
   Link,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogActions,
 } from '@mui/material';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   Visibility,
   VisibilityOff,
@@ -21,10 +26,13 @@ import {
   Lock,
   School,
   LockReset,
+  QrCode as QrCodeIcon,
+  Devices as DevicesIcon
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import api from '../../services/api';
 import toast, { Toaster } from 'react-hot-toast';
 
 // ============================================================================
@@ -93,6 +101,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
+  const [showQR, setShowQR] = useState(false);
+  const [qrHost, setQrHost] = useState(window.location.hostname);
 
   // ============================================================================
   // EFFECT: Load failed attempts from localStorage on mount
@@ -128,6 +138,23 @@ export default function Login() {
       console.error('❌ Error loading attempts from localStorage:', err);
     }
   }, [formData.email]);
+
+  // Load Network Config for Bonjour
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const config = await api.get('/config');
+        if (config && config.bonjurHostname) {
+          setQrHost(config.bonjurHostname);
+          console.log('📡 Bonjour Hostname detected:', config.bonjurHostname);
+        }
+      } catch (e) {
+        console.log('⚠️ Could not auto-detect network config:', e);
+        // Fallback is already window.location.hostname
+      }
+    };
+    fetchConfig();
+  }, []);
 
   // ============================================================================
   // HANDLER: Input change
@@ -431,12 +458,19 @@ export default function Login() {
               variant="outlined"
               sx={{ mb: 3 }}
               disabled={loading}
+              autoComplete="username"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <Email color="action" />
                   </InputAdornment>
                 ),
+              }}
+              InputLabelProps={{
+                sx: { fontSize: { xs: '1rem', sm: '1rem' } }
+              }}
+              inputProps={{
+                sx: { fontSize: { xs: '1rem', sm: '1rem' }, padding: { xs: '14px', sm: '16.5px 14px' } }
               }}
             />
 
@@ -451,6 +485,7 @@ export default function Login() {
               value={formData.password}
               onChange={(e) => handleInputChange('password', e.target.value)}
               variant="outlined"
+              autoComplete="current-password"
               sx={{ mb: 3 }}
               disabled={loading}
               InputProps={{
@@ -470,6 +505,12 @@ export default function Login() {
                     </IconButton>
                   </InputAdornment>
                 ),
+              }}
+              InputLabelProps={{
+                sx: { fontSize: { xs: '1rem', sm: '1rem' } }
+              }}
+              inputProps={{
+                sx: { fontSize: { xs: '1rem', sm: '1rem' }, padding: { xs: '14px', sm: '16.5px 14px' } }
               }}
             />
 
@@ -507,10 +548,10 @@ export default function Login() {
                 variant="contained"
                 disabled={loading}
                 sx={{
-                  py: 1.5,
+                  py: { xs: 2, sm: 1.5 },
                   mb: 3,
                   borderRadius: 2,
-                  fontSize: '1.1rem',
+                  fontSize: { xs: '1.1rem', sm: '1.1rem' },
                   fontWeight: 600,
                   background: 'linear-gradient(135deg, #007AFF 0%, #0056CC 100%)',
                   '&:hover': {
@@ -611,8 +652,73 @@ export default function Login() {
               </Link>
             </Typography>
           </Box>
+
+          {/* ================================================================ */}
+          {/* MOBILE ACCESS BUTTON */}
+          {/* ================================================================ */}
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Button
+              startIcon={<QrCodeIcon />}
+              onClick={() => {
+                // If on localhost, try to be helpful (though we can't guess IP easily)
+                // But if they have Bonjour "hostname.local" is a good default guess if they know it
+                setShowQR(true);
+              }}
+              size="small"
+              sx={{ textTransform: 'none', color: 'text.secondary', borderRadius: 20 }}
+            >
+              Acceder desde celular (Generar QR)
+            </Button>
+          </Box>
         </Paper>
       </motion.div>
+
+      {/* QR Code Modal for Mobile Access */}
+      <Dialog
+        open={showQR}
+        onClose={() => setShowQR(false)}
+        PaperProps={{
+          sx: { borderRadius: 3, maxWidth: 350 }
+        }}
+      >
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+            <DevicesIcon color="primary" /> Acceso Móvil
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
+            Escanea este código QR para acceder a ClassPad desde tu celular o tablet en la misma red Wi-Fi.
+          </Typography>
+
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+            <QRCodeSVG
+              value={`https://${qrHost}:${window.location.port || '5173'}/login`}
+              size={200}
+              level="M"
+              includeMargin={true}
+            />
+          </Box>
+
+          <TextField
+            fullWidth
+            size="small"
+            label="IP o Nombre del PC"
+            value={qrHost}
+            onChange={(e) => setQrHost(e.target.value)}
+            helperText={`URL: https://${qrHost}:${window.location.port || '5173'}`}
+            sx={{ mt: 1 }}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2, textAlign: 'center', fontStyle: 'italic' }}>
+            Asegúrate de que ambos dispositivos estén conectados a la misma red Wi-Fi.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+          <Button onClick={() => setShowQR(false)} variant="outlined" sx={{ borderRadius: 20 }}>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
