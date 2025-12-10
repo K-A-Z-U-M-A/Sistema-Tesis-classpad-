@@ -224,6 +224,228 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req, res) => 
   }
 });
 
+// ========================================================================================
+// IMPORTANT: Routes for /me MUST come BEFORE routes for /:id
+// Otherwise Express will match '/me' as '/:id' with id='me'
+// ========================================================================================
+
+// PUT /api/users/me - Actualizar perfil del usuario autenticado
+router.put('/me', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      displayName,
+      photoURL,
+      cedula,
+      location,
+      birthDate,
+      gender,
+      phone
+    } = req.body;
+
+    // Validaciones
+    if (displayName && String(displayName).trim().length === 0) {
+      return res.status(400).json({ error: { message: 'El nombre no puede estar vacío', code: 'NAME_REQUIRED' } });
+    }
+
+    if (gender && !['masculino', 'femenino'].includes(gender)) {
+      return res.status(400).json({ error: { message: 'El sexo debe ser "masculino" o "femenino"', code: 'INVALID_GENDER' } });
+    }
+
+    if (birthDate) {
+      const birthDateObj = new Date(birthDate);
+      if (isNaN(birthDateObj.getTime())) {
+        return res.status(400).json({ error: { message: 'Fecha de nacimiento inválida', code: 'INVALID_BIRTH_DATE' } });
+      }
+      // Verificar que la fecha no sea en el futuro
+      if (birthDateObj > new Date()) {
+        return res.status(400).json({ error: { message: 'La fecha de nacimiento no puede ser en el futuro', code: 'INVALID_BIRTH_DATE' } });
+      }
+    }
+
+    // Verificar qué columnas existen en la tabla
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_schema = 'public' 
+      AND table_name = 'users' 
+      AND column_name IN ('cedula', 'location', 'birth_date', 'gender', 'phone')
+    `);
+    const existingColumns = columnCheck.rows.map(row => row.column_name);
+
+    // Construir la consulta de actualización dinámicamente
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (displayName !== undefined) {
+      updates.push(`display_name = $${paramIndex++}`);
+      values.push(String(displayName).trim());
+    }
+    if (photoURL !== undefined) {
+      updates.push(`photo_url = $${paramIndex++}`);
+      values.push(photoURL || null);
+    }
+    // Solo agregar campos de perfil si las columnas existen
+    if (cedula !== undefined && existingColumns.includes('cedula')) {
+      updates.push(`cedula = $${paramIndex++}`);
+      values.push(cedula || null);
+    }
+    if (location !== undefined && existingColumns.includes('location')) {
+      updates.push(`location = $${paramIndex++}`);
+      values.push(location || null);
+    }
+    if (birthDate !== undefined && existingColumns.includes('birth_date')) {
+      updates.push(`birth_date = $${paramIndex++}`);
+      values.push(birthDate || null);
+    }
+    if (gender !== undefined && existingColumns.includes('gender')) {
+      updates.push(`gender = $${paramIndex++}`);
+      values.push(gender || null);
+    }
+    if (phone !== undefined && existingColumns.includes('phone')) {
+      updates.push(`phone = $${paramIndex++}`);
+      values.push(phone || null);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: { message: 'No hay campos para actualizar', code: 'NO_FIELDS_TO_UPDATE' } });
+    }
+
+    updates.push(`updated_at = NOW()`);
+    values.push(userId);
+
+    // Construir el SELECT de retorno dinámicamente según las columnas existentes
+    const returnColumns = [
+      'id', 'email', 'display_name', 'photo_url', 'role', 'description',
+      'created_at', 'updated_at', 'last_login', 'is_active', 'provider'
+    ];
+
+    // Agregar columnas de perfil solo si existen
+    if (existingColumns.includes('cedula')) returnColumns.push('cedula');
+    if (existingColumns.includes('location')) returnColumns.push('location');
+    if (existingColumns.includes('birth_date')) returnColumns.push('birth_date');
+    if (existingColumns.includes('age')) returnColumns.push('age');
+    if (existingColumns.includes('gender')) returnColumns.push('gender');
+    if (existingColumns.includes('phone')) returnColumns.push('phone');
+
+    const updateResult = await pool.query(
+      `UPDATE users
+       SET ${updates.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING ${returnColumns.join(', ')}`,
+      values
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'Usuario no encontrado', code: 'USER_NOT_FOUND' } });
+    }
+
+    const u = updateResult.rows[0];
+    const userResponse = {
+      id: u.id,
+      email: u.email,
+      display_name: u.display_name,
+      photo_url: u.photo_url,
+      role: normalizeRole(u.role),
+      description: u.description || '',
+      created_at: u.created_at,
+      updated_at: u.updated_at || null,
+      last_login: u.last_login,
+      is_active: u.is_active,
+      provider: u.provider,
+    };
+
+    // Agregar campos de perfil solo si existen
+    if (existingColumns.includes('cedula')) userResponse.cedula = u.cedula || null;
+    if (existingColumns.includes('location')) userResponse.location = u.location || null;
+    if (existingColumns.includes('birth_date')) userResponse.birth_date = u.birth_date || null;
+    if (existingColumns.includes('age')) userResponse.age = u.age || null;
+    if (existingColumns.includes('gender')) userResponse.gender = u.gender || null;
+    if (existingColumns.includes('phone')) userResponse.phone = u.phone || null;
+
+    return res.json({
+      success: true,
+      data: {
+        user: userResponse,
+      },
+    });
+
+  } catch (error) {
+    console.error('❌ Error en PUT /api/users/me:', error);
+    return res.status(500).json({ error: { message: 'Error interno del servidor', code: 'PROFILE_UPDATE_ERROR' } });
+  }
+});
+
+// PUT /api/users/change-password - Cambiar contraseña del usuario autenticado
+router.put('/change-password', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        error: {
+          message: 'Se requiere contraseña actual y nueva',
+          code: 'MISSING_FIELDS'
+        }
+      });
+    }
+
+    const client = await pool.connect();
+    try {
+      // Obtener hash de contraseña actual
+      const result = await client.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: { message: 'Usuario no encontrado', code: 'USER_NOT_FOUND' } });
+      }
+
+      const user = result.rows[0];
+      // Si el usuario no tiene password (login social), validPassword será false
+      // Pero para login social no deberían estar usando este endpoint en teoría
+      const validPassword = user.password_hash ? await bcrypt.compare(currentPassword, user.password_hash) : false;
+
+      if (!validPassword) {
+        return res.status(401).json({
+          error: {
+            message: 'La contraseña actual es incorrecta',
+            code: 'INVALID_PASSWORD'
+          }
+        });
+      }
+
+      // Hash de la nueva contraseña
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+      // Actualizar contraseña
+      await client.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, userId]);
+
+      // Registrar acción en auditoría
+      await logAction({
+        userId,
+        action: 'CHANGE_PASSWORD',
+        entity: 'User',
+        entityId: userId.toString(),
+        details: { method: 'user_initiated' },
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+
+      res.json({
+        success: true,
+        message: 'Contraseña actualizada exitosamente'
+      });
+
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ error: { message: 'Error al cambiar la contraseña', code: 'CHANGE_PASSWORD_FAILED' } });
+  }
+});
+
 // PUT /api/users/:id - Update any user (Admin only)
 router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
@@ -666,153 +888,6 @@ router.get('/me/profile-complete', authMiddleware, async (req, res) => {
         },
       },
     });
-  }
-});
-
-// PUT /api/users/me - Actualizar perfil del usuario autenticado
-router.put('/me', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const {
-      displayName,
-      photoURL,
-      cedula,
-      location,
-      birthDate,
-      gender,
-      phone
-    } = req.body;
-
-    // Validaciones
-    if (displayName && String(displayName).trim().length === 0) {
-      return res.status(400).json({ error: { message: 'El nombre no puede estar vacío', code: 'NAME_REQUIRED' } });
-    }
-
-    if (gender && !['masculino', 'femenino'].includes(gender)) {
-      return res.status(400).json({ error: { message: 'El sexo debe ser "masculino" o "femenino"', code: 'INVALID_GENDER' } });
-    }
-
-    if (birthDate) {
-      const birthDateObj = new Date(birthDate);
-      if (isNaN(birthDateObj.getTime())) {
-        return res.status(400).json({ error: { message: 'Fecha de nacimiento inválida', code: 'INVALID_BIRTH_DATE' } });
-      }
-      // Verificar que la fecha no sea en el futuro
-      if (birthDateObj > new Date()) {
-        return res.status(400).json({ error: { message: 'La fecha de nacimiento no puede ser en el futuro', code: 'INVALID_BIRTH_DATE' } });
-      }
-    }
-
-    // Verificar qué columnas existen en la tabla
-    const columnCheck = await pool.query(`
-      SELECT column_name 
-      FROM information_schema.columns 
-      WHERE table_schema = 'public' 
-      AND table_name = 'users' 
-      AND column_name IN ('cedula', 'location', 'birth_date', 'gender', 'phone')
-    `);
-    const existingColumns = columnCheck.rows.map(row => row.column_name);
-
-    // Construir la consulta de actualización dinámicamente
-    const updates = [];
-    const values = [];
-    let paramIndex = 1;
-
-    if (displayName !== undefined) {
-      updates.push(`display_name = $${paramIndex++}`);
-      values.push(String(displayName).trim());
-    }
-    if (photoURL !== undefined) {
-      updates.push(`photo_url = $${paramIndex++}`);
-      values.push(photoURL || null);
-    }
-    // Solo agregar campos de perfil si las columnas existen
-    if (cedula !== undefined && existingColumns.includes('cedula')) {
-      updates.push(`cedula = $${paramIndex++}`);
-      values.push(cedula || null);
-    }
-    if (location !== undefined && existingColumns.includes('location')) {
-      updates.push(`location = $${paramIndex++}`);
-      values.push(location || null);
-    }
-    if (birthDate !== undefined && existingColumns.includes('birth_date')) {
-      updates.push(`birth_date = $${paramIndex++}`);
-      values.push(birthDate || null);
-    }
-    if (gender !== undefined && existingColumns.includes('gender')) {
-      updates.push(`gender = $${paramIndex++}`);
-      values.push(gender || null);
-    }
-    if (phone !== undefined && existingColumns.includes('phone')) {
-      updates.push(`phone = $${paramIndex++}`);
-      values.push(phone || null);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({ error: { message: 'No hay campos para actualizar', code: 'NO_FIELDS_TO_UPDATE' } });
-    }
-
-    updates.push(`updated_at = NOW()`);
-    values.push(userId);
-
-    // Construir el SELECT de retorno dinámicamente según las columnas existentes
-    const returnColumns = [
-      'id', 'email', 'display_name', 'photo_url', 'role', 'description',
-      'created_at', 'updated_at', 'last_login', 'is_active', 'provider'
-    ];
-
-    // Agregar columnas de perfil solo si existen
-    if (existingColumns.includes('cedula')) returnColumns.push('cedula');
-    if (existingColumns.includes('location')) returnColumns.push('location');
-    if (existingColumns.includes('birth_date')) returnColumns.push('birth_date');
-    if (existingColumns.includes('age')) returnColumns.push('age');
-    if (existingColumns.includes('gender')) returnColumns.push('gender');
-    if (existingColumns.includes('phone')) returnColumns.push('phone');
-
-    const updateResult = await pool.query(
-      `UPDATE users
-       SET ${updates.join(', ')}
-       WHERE id = $${paramIndex}
-       RETURNING ${returnColumns.join(', ')}`,
-      values
-    );
-
-    if (updateResult.rows.length === 0) {
-      return res.status(404).json({ error: { message: 'Usuario no encontrado', code: 'USER_NOT_FOUND' } });
-    }
-
-    const u = updateResult.rows[0];
-    const userResponse = {
-      id: u.id,
-      email: u.email,
-      display_name: u.display_name,
-      photo_url: u.photo_url,
-      role: normalizeRole(u.role),
-      description: u.description || '',
-      created_at: u.created_at,
-      updated_at: u.updated_at || null,
-      last_login: u.last_login,
-      is_active: u.is_active,
-      provider: u.provider,
-    };
-
-    // Agregar campos de perfil solo si existen
-    if (existingColumns.includes('cedula')) userResponse.cedula = u.cedula || null;
-    if (existingColumns.includes('location')) userResponse.location = u.location || null;
-    if (existingColumns.includes('birth_date')) userResponse.birth_date = u.birth_date || null;
-    if (existingColumns.includes('age')) userResponse.age = u.age || null;
-    if (existingColumns.includes('gender')) userResponse.gender = u.gender || null;
-    if (existingColumns.includes('phone')) userResponse.phone = u.phone || null;
-
-    return res.json({
-      success: true,
-      data: {
-        user: userResponse,
-      },
-    });
-  } catch (error) {
-    console.error('❌ Error en PUT /api/users/me:', error);
-    return res.status(500).json({ error: { message: 'Error interno del servidor', code: 'INTERNAL_SERVER_ERROR' } });
   }
 });
 
@@ -1808,7 +1883,8 @@ router.put('/change-password', authMiddleware, async (req, res) => {
 
 /**
  * PUT /api/users/update-profile
- * Actualizar perfil de usuario (solo estudiantes)
+ * Actualizar perfil de usuario autenticado
+ * Cualquier usuario puede actualizar su propio perfil (displayName, photoURL)
  * 
  * Body:
  * - displayName: string (min 3, max 100 caracteres)
@@ -1821,16 +1897,6 @@ router.put('/update-profile', authMiddleware, async (req, res) => {
     const { displayName, photoURL } = req.body;
 
     console.log(`📝 Update profile request for user ${userId} (${userRole})`);
-
-    // Solo estudiantes pueden actualizar su perfil
-    if (userRole !== 'student') {
-      return res.status(403).json({
-        error: {
-          message: 'Solo los estudiantes pueden actualizar su perfil. Los docentes deben contactar al administrador.',
-          code: 'PERMISSION_DENIED'
-        }
-      });
-    }
 
     // Validar displayName
     if (displayName !== undefined) {

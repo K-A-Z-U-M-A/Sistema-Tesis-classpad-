@@ -13,9 +13,10 @@ import {
   Select,
   MenuItem,
   CircularProgress,
-  Alert,
+
 } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
+// @ts-ignore
 import apiService from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -98,14 +99,14 @@ const ProfileComplete: React.FC = () => {
       };
 
       await updateUserProfile(updateData as any);
-      
+
       // El updateUserProfile ya llama a checkProfileComplete internamente y actualiza el estado
       // Esperar un momento para que el estado se actualice en el contexto
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       // Verificar el estado del perfil para confirmar que está completo
       const isComplete = await checkProfileComplete();
-      
+
       if (isComplete) {
         toast.success('Perfil actualizado correctamente');
         // Redirigir al dashboard después de un breve delay para que el usuario vea el mensaje
@@ -145,7 +146,7 @@ const ProfileComplete: React.FC = () => {
       navigate('/dashboard', { replace: true });
       return;
     }
-    
+
     // Verificar el estado del perfil cuando el componente se monta o cuando cambia
     const checkAndRedirect = async () => {
       // Si profileComplete es true, redirigir inmediatamente
@@ -153,7 +154,7 @@ const ProfileComplete: React.FC = () => {
         navigate('/dashboard', { replace: true });
         return;
       }
-      
+
       // Si profileComplete es null, verificar el estado
       if (profileComplete === null && user) {
         const isComplete = await checkProfileComplete();
@@ -162,7 +163,7 @@ const ProfileComplete: React.FC = () => {
         }
       }
     };
-    
+
     checkAndRedirect();
   }, [profileComplete, user, navigate, checkProfileComplete]);
 

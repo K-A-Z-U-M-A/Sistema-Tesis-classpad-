@@ -638,7 +638,8 @@ export default function AppLayout({ children }) {
           width: { md: `calc(100% - ${drawerWidth}px)` },
           mt: { xs: '56px', sm: '64px' }, // Altura del AppBar responsive
           minHeight: 'calc(100vh - 64px)',
-          backgroundColor: theme.palette.background.default
+          backgroundColor: theme.palette.background.default,
+          overflowX: 'hidden'
         }}
       >
         {children}

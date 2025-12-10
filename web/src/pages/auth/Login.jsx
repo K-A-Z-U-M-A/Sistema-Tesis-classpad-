@@ -452,6 +452,7 @@ export default function Login() {
             <TextField
               fullWidth
               label="Correo Electrónico"
+              name="email"
               type="email"
               value={formData.email}
               onChange={(e) => handleInputChange('email', e.target.value)}
@@ -481,6 +482,7 @@ export default function Login() {
             <TextField
               fullWidth
               label="Contraseña"
+              name="password"
               type={showPassword ? 'text' : 'password'}
               value={formData.password}
               onChange={(e) => handleInputChange('password', e.target.value)}

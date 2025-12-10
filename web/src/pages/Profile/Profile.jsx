@@ -58,8 +58,8 @@ export default function Profile() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState([]);
-  const [stats, setStats] = useState({ 
-    courses_count: 0, 
+  const [stats, setStats] = useState({
+    courses_count: 0,
     assignments_count: 0,
     completed_assignments: 0,
     pending_assignments: 0,
@@ -130,16 +130,16 @@ export default function Profile() {
         // Cargar perfil del usuario
         const me = await api.getMyProfile();
         const meUser = me.data?.user || {};
-        
+
         // Guardar datos del usuario para mostrar
         setUserData(meUser);
-        
+
         setEditForm({
           displayName: meUser.display_name || '',
           photoURL: meUser.photo_url || '',
           description: meUser.description || ''
         });
-        
+
         // Cargar datos personales
         setEditPersonalForm({
           cedula: meUser.cedula || '',
@@ -202,16 +202,16 @@ export default function Profile() {
   const handleEditProfile = async () => {
     try {
       setEditLoading(true);
-      
+
       const data = await api.updateMyProfile({
         displayName: editForm.displayName,
         photoURL: editForm.photoURL,
         description: editForm.description
       });
-      
+
       // Actualizar el usuario en el contexto
       if (data.data?.user) window.location.reload();
-      
+
       setEditDialogOpen(false);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -224,7 +224,7 @@ export default function Profile() {
   const handleEditPersonalProfile = async () => {
     try {
       setEditPersonalLoading(true);
-      
+
       const data = await api.updateMyProfile({
         cedula: editPersonalForm.cedula,
         location: editPersonalForm.location,
@@ -232,10 +232,10 @@ export default function Profile() {
         gender: editPersonalForm.gender,
         phone: editPersonalForm.phone || undefined
       });
-      
+
       // Actualizar el usuario en el contexto
       if (data.data?.user) window.location.reload();
-      
+
       setEditPersonalDialogOpen(false);
     } catch (error) {
       console.error('Error updating personal profile:', error);
@@ -277,8 +277,8 @@ export default function Profile() {
     <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
       {/* Banner de notificación si el perfil no está completo - Solo para estudiantes */}
       {user.role === 'student' && profileComplete === false && (
-        <Alert 
-          severity="warning" 
+        <Alert
+          severity="warning"
           sx={{ mb: 3, cursor: 'pointer' }}
           onClick={() => navigate('/profile/complete')}
           action={
@@ -304,70 +304,74 @@ export default function Profile() {
               <Box display="flex" justifyContent={{ xs: 'center', sm: 'flex-start' }}>
                 <Avatar
                   src={user.photo_url || user.photoURL}
-                  sx={{ 
-                    width: { xs: 80, sm: 120 }, 
-                    height: { xs: 80, sm: 120 }, 
+                  sx={{
+                    width: { xs: 80, sm: 120 },
+                    height: { xs: 80, sm: 120 },
                     fontSize: { xs: '2rem', sm: '3rem' },
                     bgcolor: user.photo_url || user.photoURL ? 'transparent' : 'primary.main'
                   }}
                 >
-                  {user.display_name?.charAt(0)?.toUpperCase() || 
-                   user.displayName?.charAt(0)?.toUpperCase() || 
-                   'U'}
+                  {user.display_name?.charAt(0)?.toUpperCase() ||
+                    user.displayName?.charAt(0)?.toUpperCase() ||
+                    'U'}
                 </Avatar>
               </Box>
             </Grid>
             <Grid item xs={12} sm>
-              <Box 
-                display="flex" 
-                justifyContent={{ xs: 'center', sm: 'space-between' }} 
+              <Box
+                display="flex"
+                justifyContent={{ xs: 'center', sm: 'space-between' }}
                 alignItems={{ xs: 'center', sm: 'flex-start' }}
                 flexDirection={{ xs: 'column', sm: 'row' }}
                 textAlign={{ xs: 'center', sm: 'left' }}
                 gap={{ xs: 2, sm: 0 }}
               >
                 <Box>
-                  <Typography 
-                    variant="h3" 
-                    component="h1" 
+                  <Typography
+                    variant="h3"
+                    component="h1"
                     gutterBottom
-                    sx={{ 
-                      fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' },
-                      textAlign: { xs: 'center', sm: 'left' }
+                    sx={{
+                      fontSize: { xs: '1.5rem', sm: '2.5rem', md: '3rem' },
+                      textAlign: { xs: 'center', sm: 'left' },
+                      wordBreak: 'break-word',
+                      lineHeight: 1.2
                     }}
                   >
                     {user.display_name || 'Usuario'}
                   </Typography>
-                  <Typography 
-                    variant="h6" 
-                    color="text.secondary" 
+                  <Typography
+                    variant="h6"
+                    color="text.secondary"
                     gutterBottom
-                    sx={{ 
-                      fontSize: { xs: '1rem', sm: '1.25rem' },
+                    sx={{
+                      fontSize: { xs: '0.9rem', sm: '1.25rem' },
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: { xs: 'center', sm: 'flex-start' },
-                      gap: 1
+                      gap: 1,
+                      flexWrap: 'wrap',
+                      wordBreak: 'break-all'
                     }}
                   >
                     <EmailIcon sx={{ fontSize: { xs: 18, sm: 24 } }} />
                     {user.email}
                   </Typography>
-                  <Box 
-                    display="flex" 
-                    gap={1} 
+                  <Box
+                    display="flex"
+                    gap={1}
                     mt={2}
                     flexWrap="wrap"
                     justifyContent={{ xs: 'center', sm: 'flex-start' }}
                   >
-                    <Chip 
+                    <Chip
                       icon={<PersonIcon />}
                       label={user.role === 'teacher' ? 'Docente' : user.role}
                       color="primary"
                       variant="outlined"
                       size="small"
                     />
-                    <Chip 
+                    <Chip
                       label={user.provider === 'local' ? 'Email' : 'Google'}
                       color="secondary"
                       variant="outlined"
@@ -415,8 +419,8 @@ export default function Profile() {
             <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
               <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                  <Typography 
-                    variant="h5" 
+                  <Typography
+                    variant="h5"
                     fontWeight="bold"
                     sx={{ fontSize: { xs: '1.35rem', sm: '1.6rem' } }}
                   >
@@ -433,14 +437,14 @@ export default function Profile() {
                   </Button>
                 </Box>
                 <Divider sx={{ mb: 3 }} />
-                
+
                 <Grid container spacing={3}>
                   {(userData?.cedula || editPersonalForm.cedula) && (
                     <Grid item xs={12} sm={6} md={4}>
-                      <Box 
-                        sx={{ 
-                          p: 2, 
-                          borderRadius: 2, 
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -452,7 +456,7 @@ export default function Profile() {
                             Cédula de identidad
                           </Typography>
                         </Box>
-                        <Typography variant="body1" fontWeight="medium">
+                        <Typography variant="body1" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>
                           {userData?.cedula || editPersonalForm.cedula || 'N/A'}
                         </Typography>
                       </Box>
@@ -461,10 +465,10 @@ export default function Profile() {
 
                   {(userData?.location || editPersonalForm.location) && (
                     <Grid item xs={12} sm={6} md={4}>
-                      <Box 
-                        sx={{ 
-                          p: 2, 
-                          borderRadius: 2, 
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -476,7 +480,7 @@ export default function Profile() {
                             Ubicación
                           </Typography>
                         </Box>
-                        <Typography variant="body1" fontWeight="medium">
+                        <Typography variant="body1" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>
                           {userData?.location || editPersonalForm.location || 'N/A'}
                         </Typography>
                       </Box>
@@ -485,10 +489,10 @@ export default function Profile() {
 
                   {(userData?.birth_date || editPersonalForm.birthDate) && (
                     <Grid item xs={12} sm={6} md={4}>
-                      <Box 
-                        sx={{ 
-                          p: 2, 
-                          borderRadius: 2, 
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -500,7 +504,7 @@ export default function Profile() {
                             Fecha de nacimiento
                           </Typography>
                         </Box>
-                        <Typography variant="body1" fontWeight="medium">
+                        <Typography variant="body1" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>
                           {formatDate(userData?.birth_date || editPersonalForm.birthDate)}
                           {userData?.age && ` (${userData.age} años)`}
                         </Typography>
@@ -510,10 +514,10 @@ export default function Profile() {
 
                   {(userData?.gender || editPersonalForm.gender) && (
                     <Grid item xs={12} sm={6} md={4}>
-                      <Box 
-                        sx={{ 
-                          p: 2, 
-                          borderRadius: 2, 
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -525,7 +529,7 @@ export default function Profile() {
                             Sexo
                           </Typography>
                         </Box>
-                        <Typography variant="body1" fontWeight="medium" textTransform="capitalize">
+                        <Typography variant="body1" fontWeight="medium" textTransform="capitalize" sx={{ wordBreak: 'break-word' }}>
                           {userData?.gender || editPersonalForm.gender || 'N/A'}
                         </Typography>
                       </Box>
@@ -534,10 +538,10 @@ export default function Profile() {
 
                   {(userData?.phone || editPersonalForm.phone) && (
                     <Grid item xs={12} sm={6} md={4}>
-                      <Box 
-                        sx={{ 
-                          p: 2, 
-                          borderRadius: 2, 
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -549,7 +553,7 @@ export default function Profile() {
                             Teléfono
                           </Typography>
                         </Box>
-                        <Typography variant="body1" fontWeight="medium">
+                        <Typography variant="body1" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>
                           {userData?.phone || editPersonalForm.phone || 'N/A'}
                         </Typography>
                       </Box>
@@ -557,10 +561,10 @@ export default function Profile() {
                   )}
 
                   <Grid item xs={12} sm={6} md={4}>
-                    <Box 
-                      sx={{ 
-                        p: 2, 
-                        borderRadius: 2, 
+                    <Box
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
                         bgcolor: 'background.default',
                         border: '1px solid',
                         borderColor: 'divider'
@@ -572,7 +576,7 @@ export default function Profile() {
                           Miembro desde
                         </Typography>
                       </Box>
-                      <Typography variant="body1" fontWeight="medium">
+                      <Typography variant="body1" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>
                         {formatDate(user.created_at)}
                       </Typography>
                     </Box>
@@ -580,10 +584,10 @@ export default function Profile() {
 
                   {user.last_login && (
                     <Grid item xs={12} sm={6} md={4}>
-                      <Box 
-                        sx={{ 
-                          p: 2, 
-                          borderRadius: 2, 
+                      <Box
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -595,7 +599,7 @@ export default function Profile() {
                             Último acceso
                           </Typography>
                         </Box>
-                        <Typography variant="body1" fontWeight="medium">
+                        <Typography variant="body1" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>
                           {formatDate(user.last_login)}
                         </Typography>
                       </Box>
@@ -627,8 +631,8 @@ export default function Profile() {
           >
             <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
               <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-                <Typography 
-                  variant="h5" 
+                <Typography
+                  variant="h5"
                   fontWeight="bold"
                   gutterBottom
                   sx={{ fontSize: { xs: '1.35rem', sm: '1.6rem' }, mb: 3 }}
@@ -636,70 +640,80 @@ export default function Profile() {
                   Estadísticas
                 </Typography>
                 <Divider sx={{ mb: 3 }} />
-                
+
                 <Grid container spacing={{ xs: 2, sm: 3 }}>
                   <Grid item xs={6} sm={4} md={3}>
-                    <Box 
-                      textAlign="center" 
-                      sx={{ 
-                        p: 2.5, 
-                        borderRadius: 2, 
-                        bgcolor: 'primary.light', 
+                    <Box
+                      textAlign="center"
+                      sx={{
+                        p: { xs: 1.5, sm: 2.5 },
+                        borderRadius: 2,
+                        bgcolor: 'primary.light',
                         bgcolor: 'rgba(25, 118, 210, 0.08)',
                         border: '1px solid',
                         borderColor: 'primary.main',
-                        borderWidth: 2
+                        borderWidth: 2,
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center'
                       }}
                     >
-                      <SchoolIcon 
-                        sx={{ fontSize: { xs: 32, sm: 40 }, mb: 1.5, color: 'primary.main' }} 
+                      <SchoolIcon
+                        sx={{ fontSize: { xs: 24, sm: 40 }, mb: 1, color: 'primary.main' }}
                       />
-                      <Typography 
-                        variant="h4" 
+                      <Typography
+                        variant="h4"
                         fontWeight="bold"
                         color="primary.main"
-                        sx={{ fontSize: { xs: '1.8rem', sm: '2.125rem' }, mb: 0.5 }}
+                        sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' }, mb: 0.5 }}
                       >
                         {stats.courses_count}
                       </Typography>
-                      <Typography 
-                        variant="body2" 
+                      <Typography
+                        variant="body2"
                         color="text.secondary"
                         fontWeight="medium"
-                        sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                        sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
                       >
                         Cursos
                       </Typography>
                     </Box>
                   </Grid>
                   <Grid item xs={6} sm={4} md={3}>
-                    <Box 
-                      textAlign="center" 
-                      sx={{ 
-                        p: 2.5, 
-                        borderRadius: 2, 
+                    <Box
+                      textAlign="center"
+                      sx={{
+                        p: { xs: 1.5, sm: 2.5 },
+                        borderRadius: 2,
                         bgcolor: 'rgba(156, 39, 176, 0.08)',
                         border: '1px solid',
                         borderColor: 'secondary.main',
-                        borderWidth: 2
+                        borderWidth: 2,
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center'
                       }}
                     >
-                      <AssignmentIcon 
-                        sx={{ fontSize: { xs: 32, sm: 40 }, mb: 1.5, color: 'secondary.main' }} 
+                      <AssignmentIcon
+                        sx={{ fontSize: { xs: 24, sm: 40 }, mb: 1, color: 'secondary.main' }}
                       />
-                      <Typography 
-                        variant="h4" 
+                      <Typography
+                        variant="h4"
                         fontWeight="bold"
                         color="secondary.main"
-                        sx={{ fontSize: { xs: '1.8rem', sm: '2.125rem' }, mb: 0.5 }}
+                        sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' }, mb: 0.5 }}
                       >
                         {stats.assignments_count}
                       </Typography>
-                      <Typography 
-                        variant="body2" 
+                      <Typography
+                        variant="body2"
                         color="text.secondary"
                         fontWeight="medium"
-                        sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                        sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
                       >
                         Tareas Totales
                       </Typography>
@@ -708,72 +722,82 @@ export default function Profile() {
                   {user.role === 'student' && (
                     <>
                       <Grid item xs={6} sm={4} md={3}>
-                        <Box 
-                          textAlign="center" 
-                          sx={{ 
-                            p: 2.5, 
-                            borderRadius: 2, 
+                        <Box
+                          textAlign="center"
+                          sx={{
+                            p: { xs: 1.5, sm: 2.5 },
+                            borderRadius: 2,
                             bgcolor: 'rgba(76, 175, 80, 0.08)',
                             border: '1px solid',
                             borderColor: 'success.main',
-                            borderWidth: 2
+                            borderWidth: 2,
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center'
                           }}
                         >
-                          <CheckCircle 
-                            sx={{ fontSize: { xs: 32, sm: 40 }, mb: 1.5, color: 'success.main' }} 
+                          <CheckCircle
+                            sx={{ fontSize: { xs: 24, sm: 40 }, mb: 1, color: 'success.main' }}
                           />
-                          <Typography 
-                            variant="h4" 
+                          <Typography
+                            variant="h4"
                             fontWeight="bold"
                             color="success.main"
-                            sx={{ fontSize: { xs: '1.8rem', sm: '2.125rem' }, mb: 0.5 }}
+                            sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' }, mb: 0.5 }}
                           >
                             {stats.completed_assignments}
                           </Typography>
-                          <Typography 
-                            variant="body2" 
+                          <Typography
+                            variant="body2"
                             color="text.secondary"
                             fontWeight="medium"
-                            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                            sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
                           >
                             Completadas
                           </Typography>
                         </Box>
                       </Grid>
                       <Grid item xs={6} sm={4} md={3}>
-                        <Box 
-                          textAlign="center" 
-                          sx={{ 
-                            p: 2.5, 
-                            borderRadius: 2, 
-                            bgcolor: stats.pending_assignments > 0 
-                              ? 'rgba(255, 152, 0, 0.08)' 
+                        <Box
+                          textAlign="center"
+                          sx={{
+                            p: { xs: 1.5, sm: 2.5 },
+                            borderRadius: 2,
+                            bgcolor: stats.pending_assignments > 0
+                              ? 'rgba(255, 152, 0, 0.08)'
                               : 'rgba(158, 158, 158, 0.08)',
                             border: '1px solid',
                             borderColor: stats.pending_assignments > 0 ? 'warning.main' : 'text.disabled',
-                            borderWidth: 2
+                            borderWidth: 2,
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center'
                           }}
                         >
-                          <Warning 
-                            sx={{ 
-                              fontSize: { xs: 32, sm: 40 }, 
-                              mb: 1.5, 
+                          <Warning
+                            sx={{
+                              fontSize: { xs: 24, sm: 40 },
+                              mb: 1,
                               color: stats.pending_assignments > 0 ? 'warning.main' : 'text.disabled'
-                            }} 
+                            }}
                           />
-                          <Typography 
-                            variant="h4" 
+                          <Typography
+                            variant="h4"
                             fontWeight="bold"
                             color={stats.pending_assignments > 0 ? 'warning.main' : 'text.disabled'}
-                            sx={{ fontSize: { xs: '1.8rem', sm: '2.125rem' }, mb: 0.5 }}
+                            sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' }, mb: 0.5 }}
                           >
                             {stats.pending_assignments}
                           </Typography>
-                          <Typography 
-                            variant="body2" 
+                          <Typography
+                            variant="body2"
                             color="text.secondary"
                             fontWeight="medium"
-                            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                            sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
                           >
                             Pendientes
                           </Typography>
@@ -781,33 +805,38 @@ export default function Profile() {
                       </Grid>
                       {stats.average_grade > 0 && (
                         <Grid item xs={12} sm={6} md={3}>
-                          <Box 
-                            textAlign="center" 
-                            sx={{ 
-                              p: 2.5, 
-                              borderRadius: 2, 
+                          <Box
+                            textAlign="center"
+                            sx={{
+                              p: { xs: 1.5, sm: 2.5 },
+                              borderRadius: 2,
                               bgcolor: 'rgba(33, 150, 243, 0.08)',
                               border: '1px solid',
                               borderColor: 'info.main',
-                              borderWidth: 2
+                              borderWidth: 2,
+                              height: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'center',
+                              alignItems: 'center'
                             }}
                           >
-                            <TrendingUp 
-                              sx={{ fontSize: { xs: 32, sm: 40 }, mb: 1.5, color: 'info.main' }} 
+                            <TrendingUp
+                              sx={{ fontSize: { xs: 24, sm: 40 }, mb: 1, color: 'info.main' }}
                             />
-                            <Typography 
-                              variant="h4" 
+                            <Typography
+                              variant="h4"
                               fontWeight="bold"
                               color="info.main"
-                              sx={{ fontSize: { xs: '1.8rem', sm: '2.125rem' }, mb: 0.5 }}
+                              sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' }, mb: 0.5 }}
                             >
                               {stats.average_grade.toFixed(1)}%
                             </Typography>
-                            <Typography 
-                              variant="body2" 
+                            <Typography
+                              variant="body2"
                               color="text.secondary"
                               fontWeight="medium"
-                              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+                              sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}
                             >
                               Promedio
                             </Typography>
@@ -831,8 +860,8 @@ export default function Profile() {
           >
             <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
               <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-                <Typography 
-                  variant="h5" 
+                <Typography
+                  variant="h5"
                   fontWeight="bold"
                   gutterBottom
                   sx={{ fontSize: { xs: '1.35rem', sm: '1.6rem' }, mb: 3 }}
@@ -840,7 +869,7 @@ export default function Profile() {
                   Mis Cursos
                 </Typography>
                 <Divider sx={{ mb: 3 }} />
-                
+
                 {courses.length > 0 ? (
                   <Grid container spacing={2}>
                     {courses.map((course, index) => (
@@ -850,8 +879,8 @@ export default function Profile() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.3, delay: index * 0.1 }}
                         >
-                          <Card 
-                            sx={{ 
+                          <Card
+                            sx={{
                               height: '100%',
                               borderRadius: 2,
                               border: '1px solid',
@@ -866,39 +895,39 @@ export default function Profile() {
                           >
                             <CardContent sx={{ p: 2.5 }}>
                               <Box display="flex" alignItems="center" gap={2} mb={2}>
-                                <Avatar 
-                                  sx={{ 
-                                    bgcolor: course.color || 'primary.main', 
-                                    width: 48, 
-                                    height: 48 
+                                <Avatar
+                                  sx={{
+                                    bgcolor: course.color || 'primary.main',
+                                    width: 48,
+                                    height: 48
                                   }}
                                 >
                                   <SchoolIcon />
                                 </Avatar>
                                 <Box flex={1}>
-                                  <Typography 
-                                    variant="h6" 
+                                  <Typography
+                                    variant="h6"
                                     fontWeight="bold"
                                     sx={{ fontSize: { xs: '1rem', sm: '1.1rem' }, mb: 0.5 }}
                                   >
                                     {course.name}
                                   </Typography>
                                   {course.turn && (
-                                    <Chip 
-                                      label={course.turn} 
-                                      size="small" 
+                                    <Chip
+                                      label={course.turn}
+                                      size="small"
                                       variant="outlined"
                                       sx={{ height: 20, fontSize: '0.7rem' }}
                                     />
                                   )}
                                 </Box>
                               </Box>
-                              
+
                               {course.description && (
-                                <Typography 
-                                  variant="body2" 
-                                  color="text.secondary" 
-                                  sx={{ 
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                  sx={{
                                     mb: 2,
                                     display: '-webkit-box',
                                     WebkitLineClamp: 2,
@@ -909,19 +938,19 @@ export default function Profile() {
                                   {course.description}
                                 </Typography>
                               )}
-                              
+
                               <Box display="flex" gap={1} flexWrap="wrap">
-                                <Chip 
+                                <Chip
                                   icon={<PeopleIcon sx={{ fontSize: 16 }} />}
                                   label={`${course.student_count || course.studentCount || 0} estudiantes`}
-                                  size="small" 
+                                  size="small"
                                   variant="outlined"
                                   sx={{ fontSize: '0.75rem' }}
                                 />
-                                <Chip 
+                                <Chip
                                   icon={<AssignmentIcon sx={{ fontSize: 16 }} />}
                                   label={`${course.assignment_count || course.assignmentCount || 0} tareas`}
-                                  size="small" 
+                                  size="small"
                                   variant="outlined"
                                   sx={{ fontSize: '0.75rem' }}
                                 />
@@ -933,8 +962,8 @@ export default function Profile() {
                     ))}
                   </Grid>
                 ) : (
-                  <Box 
-                    textAlign="center" 
+                  <Box
+                    textAlign="center"
                     py={6}
                     sx={{
                       borderRadius: 2,
@@ -945,13 +974,13 @@ export default function Profile() {
                   >
                     <SchoolIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2, opacity: 0.5 }} />
                     <Typography variant="h6" color="text.secondary" gutterBottom fontWeight="medium">
-                      {user.role === 'student' 
-                        ? 'No tienes cursos inscritos' 
+                      {user.role === 'student'
+                        ? 'No tienes cursos inscritos'
                         : 'No tienes cursos creados'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {user.role === 'student' 
-                        ? 'Únete a un curso usando un código de inscripción' 
+                      {user.role === 'student'
+                        ? 'Únete a un curso usando un código de inscripción'
                         : 'Crea tu primer curso para comenzar a enseñar'}
                     </Typography>
                   </Box>
@@ -1017,7 +1046,7 @@ export default function Profile() {
               fullWidth
               label="Nombre completo"
               value={editForm.displayName}
-              onChange={(e) => setEditForm({...editForm, displayName: e.target.value})}
+              onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
               margin="normal"
               required
             />
@@ -1025,7 +1054,7 @@ export default function Profile() {
               fullWidth
               label="Descripción"
               value={editForm.description}
-              onChange={(e) => setEditForm({...editForm, description: e.target.value})}
+              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
               margin="normal"
               multiline
               rows={3}
@@ -1035,12 +1064,12 @@ export default function Profile() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
-          <Button 
+          <Button
             onClick={handleEditProfile}
             variant="contained"
             disabled={editLoading}
           >
-                  {editLoading ? <CircularProgress size={20} /> : 'Guardar'}
+            {editLoading ? <CircularProgress size={20} /> : 'Guardar'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1054,7 +1083,7 @@ export default function Profile() {
               fullWidth
               label="Cédula de identidad"
               value={editPersonalForm.cedula}
-              onChange={(e) => setEditPersonalForm({...editPersonalForm, cedula: e.target.value})}
+              onChange={(e) => setEditPersonalForm({ ...editPersonalForm, cedula: e.target.value })}
               margin="normal"
               inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
             />
@@ -1062,7 +1091,7 @@ export default function Profile() {
               fullWidth
               label="Ubicación"
               value={editPersonalForm.location}
-              onChange={(e) => setEditPersonalForm({...editPersonalForm, location: e.target.value})}
+              onChange={(e) => setEditPersonalForm({ ...editPersonalForm, location: e.target.value })}
               margin="normal"
             />
             <TextField
@@ -1070,7 +1099,7 @@ export default function Profile() {
               label="Fecha de nacimiento"
               type="date"
               value={editPersonalForm.birthDate}
-              onChange={(e) => setEditPersonalForm({...editPersonalForm, birthDate: e.target.value})}
+              onChange={(e) => setEditPersonalForm({ ...editPersonalForm, birthDate: e.target.value })}
               margin="normal"
               InputLabelProps={{
                 shrink: true,
@@ -1084,7 +1113,7 @@ export default function Profile() {
               <Select
                 value={editPersonalForm.gender}
                 label="Sexo"
-                onChange={(e) => setEditPersonalForm({...editPersonalForm, gender: e.target.value})}
+                onChange={(e) => setEditPersonalForm({ ...editPersonalForm, gender: e.target.value })}
               >
                 <MenuItem value="masculino">Masculino</MenuItem>
                 <MenuItem value="femenino">Femenino</MenuItem>
@@ -1094,7 +1123,7 @@ export default function Profile() {
               fullWidth
               label="Teléfono (opcional)"
               value={editPersonalForm.phone}
-              onChange={(e) => setEditPersonalForm({...editPersonalForm, phone: e.target.value})}
+              onChange={(e) => setEditPersonalForm({ ...editPersonalForm, phone: e.target.value })}
               margin="normal"
               inputProps={{ inputMode: 'tel' }}
             />
@@ -1102,7 +1131,7 @@ export default function Profile() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditPersonalDialogOpen(false)}>Cancelar</Button>
-          <Button 
+          <Button
             onClick={handleEditPersonalProfile}
             variant="contained"
             disabled={editPersonalLoading}
