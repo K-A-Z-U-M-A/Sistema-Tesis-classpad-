@@ -36,7 +36,10 @@ import {
   ErrorOutline,
   CheckCircleOutline,
   AttachMoney,
-  CalendarToday
+  CalendarToday,
+  FactCheck,
+  AssignmentTurnedIn,
+  Bolt
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -58,123 +61,53 @@ import {
   ResponsiveContainer
 } from 'recharts';
 
-// Componente de tarjeta de estadística mejorado
+// Componente de tarjeta de estadística mejorado (Pill Layout Mobile)
 const StatCard = ({ title, value, icon, color, subtitle, onClick }) => {
-  // Formatear el valor para mostrar
   const formatValue = (val) => {
-    // Si el valor ya es un string, devolverlo tal cual (puede incluir % u otros formatos)
     if (typeof val === 'string') return val;
-
-    // Si es null o undefined, devolver N/A
     if (val === null || val === undefined) return 'N/A';
-
-    // Si es un número
     if (typeof val === 'number') {
-      // Si es un número entero, devolverlo formateado
       if (Number.isInteger(val)) return val.toLocaleString('es-ES');
-      // Si es un número decimal, formatearlo con 1 decimal
       return val.toFixed(1);
     }
-
-    // Para cualquier otro tipo, convertir a string
     return String(val);
   };
-
   const displayValue = formatValue(value);
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
       <Card
         sx={{
-          height: '100%',
-          minHeight: { xs: 120, sm: 140 },
+          height: { xs: 'auto', sm: '100%' },
+          minHeight: { xs: 'auto', sm: 140 },
           background: `linear-gradient(135deg, ${color}15, ${color}05)`,
           border: `1px solid ${color}30`,
-          borderRadius: 3,
+          borderRadius: { xs: 4, sm: 3 }, // Pill shape
           boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          transition: 'all 0.3s ease',
           cursor: onClick ? 'pointer' : 'default',
-          '&:hover': {
-            transform: onClick ? 'translateY(-4px)' : 'none',
-            boxShadow: onClick ? '0 4px 16px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.08)'
-          }
+          '&:hover': { transform: onClick ? 'translateY(-4px)' : 'none', boxShadow: onClick ? '0 4px 16px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.08)' }
         }}
         onClick={onClick}
       >
-        <CardContent sx={{ p: { xs: 2, sm: 3 }, height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <Box
-            display="flex"
-            alignItems="flex-start"
-            justifyContent="space-between"
-            sx={{
-              flexDirection: { xs: 'column', sm: 'row' },
-              gap: { xs: 1.5, sm: 2 },
-              flex: 1
-            }}
-          >
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography
-                variant="h4"
-                component="div"
-                sx={{
-                  color: color,
-                  fontWeight: 700,
-                  fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.5rem' },
-                  lineHeight: 1.2,
-                  mb: 0.5,
-                  wordBreak: 'break-word'
-                }}
-              >
-                {displayValue}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: 'text.secondary',
-                  fontWeight: 500,
-                  fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                  mb: subtitle ? 0.5 : 0
-                }}
-              >
-                {title}
-              </Typography>
-              {subtitle && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'text.secondary',
-                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                    display: 'block',
-                    mt: 0.5,
-                    opacity: 0.8
-                  }}
-                >
-                  {subtitle}
-                </Typography>
-              )}
+        <CardContent sx={{ p: { xs: 1.5, sm: 3 }, '&:last-child': { pb: { xs: 1.5, sm: 3 } }, height: '100%', display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, justifyContent: 'space-between', alignItems: { xs: 'center', sm: 'flex-start' } }}>
+          <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', width: '100%', gap: 2 }}>
+            <Box sx={{ p: 1, borderRadius: '50%', bgcolor: 'rgba(255, 255, 255, 0.9)', color: color, display: 'flex', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+              {React.cloneElement(icon, { sx: { fontSize: 20 } })}
             </Box>
-            <Box
-              sx={{
-                p: { xs: 1.25, sm: 1.5 },
-                borderRadius: 2,
-                backgroundColor: `${color}20`,
-                color: color,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                width: { xs: 48, sm: 56 },
-                height: { xs: 48, sm: 56 }
-              }}
-            >
-              {React.cloneElement(icon, {
-                sx: { fontSize: { xs: 24, sm: 28 } }
-              })}
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="body1" fontWeight="600" color="text.secondary" sx={{ fontSize: '0.9rem', lineHeight: 1.1 }}>{title}</Typography>
+              {subtitle && <Typography variant="caption" sx={{ color: color, fontSize: '0.75rem' }}>{subtitle}</Typography>}
             </Box>
+            <Typography variant="h4" fontWeight="bold" color="text.primary" sx={{ fontSize: '1.5rem' }}>{displayValue}</Typography>
+          </Box>
+          <Box sx={{ display: { xs: 'none', sm: 'flex' }, width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(255, 255, 255, 0.9)', color: color, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {icon}
+            </Box>
+          </Box>
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="h3" color="text.primary" fontWeight="800" sx={{ fontSize: '2.5rem', lineHeight: 1 }}>{displayValue}</Typography>
+            <Typography variant="body1" color="text.secondary" fontWeight="500" sx={{ mt: 0.5, fontSize: '1rem' }}>{title}</Typography>
+            {subtitle && <Typography variant="caption" sx={{ color: color, fontWeight: 600, mt: 0.5, display: 'block', fontSize: '0.75rem' }}>{subtitle}</Typography>}
           </Box>
         </CardContent>
       </Card>
@@ -182,128 +115,46 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick }) => {
   );
 };
 
-// Componente de tarjeta de curso
+// Componente de tarjeta de curso (Pill Layout Mobile)
 const CourseCard = ({ course }) => {
   const navigate = useNavigate();
-  // Usar datos reales del curso
   const progress = course.progress || 0;
-  // Verificar el estado activo del curso - puede venir como is_active o isActive
   const isActive = course.is_active !== undefined ? course.is_active : (course.isActive !== undefined ? course.isActive : true);
-
-  const handleClick = () => {
-    navigate(`/courses/${course.id}`);
-  };
-
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <Card sx={{
-        height: '100%',
-        cursor: 'pointer',
-        borderRadius: 3,
-        '&:hover': {
-          transform: 'translateY(-2px)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-        },
-        transition: 'all 0.3s ease'
-      }}
-        onClick={handleClick}
-      >
-        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-          <Box
-            display="flex"
-            alignItems="center"
-            justifyContent="space-between"
-            mb={2}
-            sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 0 } }}
-          >
-            <Box
-              sx={{
-                width: { xs: 35, sm: 40 },
-                height: { xs: 35, sm: 40 },
-                borderRadius: 2,
-                backgroundColor: course.color,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <School sx={{ color: 'white', fontSize: { xs: 18, sm: 20 } }} />
-            </Box>
-            <Chip
-              label={isActive ? 'Activo' : 'Inactivo'}
-              color={isActive ? 'success' : 'default'}
-              size="small"
-              sx={{
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                height: { xs: 24, sm: 28 }
-              }}
-            />
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
+      <Card sx={{ height: '100%', cursor: 'pointer', borderRadius: { xs: 4, sm: 3 }, '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }, transition: 'all 0.3s ease' }} onClick={() => navigate(`/courses/${course.id}`)}>
+        <CardContent sx={{ p: { xs: 1.5, sm: 3 }, '&:last-child': { pb: { xs: 1.5, sm: 3 } } }}>
+          <Box sx={{ display: { xs: 'flex', sm: 'none' }, flexDirection: 'column', gap: 1 }}>
+             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: course.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <School sx={{ color: 'white', fontSize: 20 }} />
+                </Box>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Typography variant="body1" fontWeight="bold" noWrap sx={{ fontSize: '1rem' }}>{course.name}</Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap display="block">{course.subject}</Typography>
+                </Box>
+                <Chip label={isActive ? 'Activo' : 'Inactivo'} color={isActive ? 'success' : 'default'} size="small" sx={{ height: 24, fontSize: '0.7rem' }} />
+             </Box>
+             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 0.5 }}>
+                <Typography variant="caption" color="text.secondary" fontWeight="500">{course.student_count || 0} alumnos</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '50%' }}>
+                  <Typography variant="caption" color="text.secondary">{Math.round(progress)}%</Typography>
+                  <LinearProgress variant="determinate" value={progress} sx={{ flexGrow: 1, height: 6, borderRadius: 3, backgroundColor: 'grey.200', '& .MuiLinearProgress-bar': { backgroundColor: course.color, borderRadius: 3 } }} />
+                </Box>
+             </Box>
           </Box>
-
-          <Typography
-            variant="h6"
-            gutterBottom
-            sx={{
-              fontSize: { xs: '1.1rem', sm: '1.25rem' },
-              lineHeight: { xs: 1.3, sm: 1.4 }
-            }}
-          >
-            {course.name}
-          </Typography>
-
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            gutterBottom
-            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-          >
-            {course.course_code || course.code} • {course.subject}
-          </Typography>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            gutterBottom
-            sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-          >
-            {course.turn || course.grade} • {course.description || 'Sin descripción'}
-          </Typography>
-
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{
-              mb: 2,
-              fontSize: { xs: '0.75rem', sm: '0.875rem' }
-            }}
-          >
-            {course.student_count || 0} estudiantes
-          </Typography>
-
-          <Box sx={{ mb: 1 }}>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
-            >
-              Progreso: {Math.round(progress)}%
-            </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={progress}
-              sx={{
-                height: { xs: 4, sm: 6 },
-                borderRadius: 3,
-                backgroundColor: 'grey.200',
-                '& .MuiLinearProgress-bar': {
-                  backgroundColor: course.color,
-                  borderRadius: 3
-                }
-              }}
-            />
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Box sx={{ width: 40, height: 40, borderRadius: 2, backgroundColor: course.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><School sx={{ color: 'white', fontSize: 20 }} /></Box>
+              <Chip label={isActive ? 'Activo' : 'Inactivo'} color={isActive ? 'success' : 'default'} size="small" sx={{ fontSize: '0.75rem', height: 28 }} />
+            </Box>
+            <Typography variant="h6" gutterBottom sx={{ fontSize: '1.25rem', lineHeight: 1.4 }}>{course.name}</Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: '0.875rem' }}>{course.course_code || course.code} • {course.subject}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: '0.875rem' }}>{course.student_count || 0} estudiantes</Typography>
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>Progreso: {Math.round(progress)}%</Typography>
+              <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3, backgroundColor: 'grey.200', '& .MuiLinearProgress-bar': { backgroundColor: course.color, borderRadius: 3 } }} />
+            </Box>
           </Box>
         </CardContent>
       </Card>
@@ -311,275 +162,67 @@ const CourseCard = ({ course }) => {
   );
 };
 
-// Componente de tarea pendiente
+// Componente de tarea pendiente (Pill Layout Mobile)
 const PendingTask = ({ assignment }) => {
   const navigate = useNavigate();
   const assignmentId = assignment.id ?? assignment.assignment_id;
   const hasDueDate = Boolean(assignment.due_date);
   const dueDate = hasDueDate ? new Date(assignment.due_date) : null;
   const now = new Date();
-  const rawDaysLeft = hasDueDate ? (dueDate - now) / (1000 * 60 * 60 * 24) : null;
-  const daysLeft = hasDueDate ? Math.ceil(rawDaysLeft) : null;
-  const isOverdue = hasDueDate ? rawDaysLeft < 0 : false;
-  const isUrgent = hasDueDate ? daysLeft <= 3 : false;
-  const isSoon = hasDueDate ? daysLeft <= 7 : false;
-
-  const statusKey = !hasDueDate
-    ? 'noDue'
-    : isOverdue
-      ? 'overdue'
-      : isUrgent
-        ? 'urgent'
-        : isSoon
-          ? 'soon'
-          : 'scheduled';
-
+  const daysLeft = hasDueDate ? Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)) : null;
+  const isOverdue = hasDueDate ? daysLeft < 0 : false;
+  const statusKey = !hasDueDate ? 'noDue' : isOverdue ? 'overdue' : daysLeft <= 3 ? 'urgent' : daysLeft <= 7 ? 'soon' : 'scheduled';
+  
   const statusVisuals = {
-    overdue: {
-      accent: 'rgba(244,67,54,0.95)',
-      background: 'linear-gradient(135deg, rgba(244,67,54,0.18), rgba(244,67,54,0.05))',
-      borderColor: 'rgba(244,67,54,0.35)',
-      chipColor: 'error'
-    },
-    urgent: {
-      accent: 'rgba(255,82,82,0.9)',
-      background: 'linear-gradient(135deg, rgba(255,82,82,0.16), rgba(255,82,82,0.05))',
-      borderColor: 'rgba(255,82,82,0.3)',
-      chipColor: 'error'
-    },
-    soon: {
-      accent: 'rgba(255,152,0,0.9)',
-      background: 'linear-gradient(135deg, rgba(255,152,0,0.16), rgba(255,152,0,0.05))',
-      borderColor: 'rgba(255,152,0,0.3)',
-      chipColor: 'warning'
-    },
-    scheduled: {
-      accent: 'rgba(76,175,80,0.9)',
-      background: 'linear-gradient(135deg, rgba(76,175,80,0.16), rgba(76,175,80,0.05))',
-      borderColor: 'rgba(76,175,80,0.28)',
-      chipColor: 'success'
-    },
-    noDue: {
-      accent: 'rgba(63,81,181,0.85)',
-      background: 'linear-gradient(135deg, rgba(63,81,181,0.16), rgba(63,81,181,0.05))',
-      borderColor: 'rgba(63,81,181,0.28)',
-      chipColor: 'default'
-    }
+    overdue: { accent: 'rgba(244,67,54,0.95)', background: 'linear-gradient(135deg, rgba(244,67,54,0.18), rgba(244,67,54,0.05))', borderColor: 'rgba(244,67,54,0.35)', chipColor: 'error', icon: <Warning fontSize="small" color="error" /> },
+    urgent: { accent: 'rgba(255,152,0,0.95)', background: 'linear-gradient(135deg, rgba(255,152,0,0.18), rgba(255,152,0,0.05))', borderColor: 'rgba(255,152,0,0.35)', chipColor: 'warning', icon: <AccessTime fontSize="small" color="warning" /> },
+    soon: { accent: 'rgba(33,150,243,0.95)', background: 'linear-gradient(135deg, rgba(33,150,243,0.18), rgba(33,150,243,0.05))', borderColor: 'rgba(33,150,243,0.35)', chipColor: 'info', icon: <Schedule fontSize="small" color="info" /> },
+    scheduled: { accent: 'rgba(76,175,80,0.95)', background: 'linear-gradient(135deg, rgba(76,175,80,0.18), rgba(76,175,80,0.05))', borderColor: 'rgba(76,175,80,0.35)', chipColor: 'success', icon: <CalendarToday fontSize="small" color="success" /> },
+    noDue: { accent: 'rgba(158,158,158,0.95)', background: 'linear-gradient(135deg, rgba(158,158,158,0.18), rgba(158,158,158,0.05))', borderColor: 'rgba(158,158,158,0.35)', chipColor: 'default', icon: <Assignment fontSize="small" color="action" /> }
   };
-
   const visuals = statusVisuals[statusKey];
-  const chipLabel = !hasDueDate
-    ? 'Sin fecha límite'
-    : isOverdue
-      ? 'Vencida'
-      : daysLeft === 0
-        ? 'Entrega hoy'
-        : daysLeft === 1
-          ? '1 día'
-          : `${daysLeft} días`;
-
-  const dueDateLabel = hasDueDate
-    ? dueDate.toLocaleString('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-    : 'Entrega flexible';
-
-  const handleNavigate = () => {
-    if (assignmentId) {
-      navigate(`/assignments/${assignmentId}`);
-    }
-  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <Card
-        sx={{
-          mb: 2,
-          borderRadius: 3,
-          position: 'relative',
-          overflow: 'hidden',
-          border: '1px solid',
-          borderColor: visuals.borderColor,
-          background: visuals.background,
-          boxShadow: '0 6px 18px rgba(0,0,0,0.08)',
-          cursor: assignmentId ? 'pointer' : 'default',
-          transition: 'transform 0.25s ease, box-shadow 0.25s ease',
-          '&:hover': {
-            transform: assignmentId ? 'translateY(-4px)' : 'none',
-            boxShadow: assignmentId ? '0 10px 28px rgba(0,0,0,0.12)' : '0 6px 18px rgba(0,0,0,0.08)'
-          },
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            bottom: 0,
-            width: '6px',
-            backgroundColor: visuals.accent
-          }
-        }}
-      >
-        <CardActionArea
-          onClick={handleNavigate}
-          disableRipple={!assignmentId}
-          sx={{
-            height: '100%',
-            alignItems: 'stretch',
-            display: 'flex'
-          }}
-        >
-          <CardContent
-            sx={{
-              width: '100%',
-              p: { xs: 2, sm: 3 },
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1.5
-            }}
-          >
-            <Box
-              display="flex"
-              alignItems="flex-start"
-              justifyContent="space-between"
-              flexDirection={{ xs: 'column', sm: 'row' }}
-              gap={{ xs: 1.5, sm: 2 }}
-              textAlign={{ xs: 'center', sm: 'left' }}
-            >
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography
-                  variant="subtitle1"
-                  fontWeight="bold"
-                  sx={{ fontSize: { xs: '0.95rem', sm: '1.05rem' }, mb: 0.5 }}
-                >
-                  {assignment.title}
-                </Typography>
-                {assignment.course?.name && (
-                  <Typography
-                    variant="caption"
-                    sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}
-                  >
-                    {assignment.course.name}
-                  </Typography>
-                )}
-                {assignment.description && (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      fontSize: { xs: '0.75rem', sm: '0.85rem' },
-                      display: '-webkit-box',
-                      WebkitLineClamp: { xs: 2, sm: 3 },
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    {assignment.description}
-                  </Typography>
-                )}
-              </Box>
-              <Box textAlign={{ xs: 'center', sm: 'right' }}>
-                <Chip
-                  label={chipLabel}
-                  color={visuals.chipColor}
-                  size="small"
-                  sx={{
-                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                    height: { xs: 24, sm: 28 },
-                    fontWeight: 600
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  display="block"
-                  color="text.secondary"
-                  sx={{
-                    mt: 1,
-                    fontSize: { xs: '0.7rem', sm: '0.75rem' }
-                  }}
-                >
-                  {assignment.max_points || assignment.maxPoints || 0} puntos
-                </Typography>
+    <Card elevation={0} sx={{ mb: { xs: 1.5, sm: 2 }, borderRadius: { xs: 4, sm: 3 }, border: `1px solid ${visuals.borderColor}`, background: visuals.background, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { transform: 'translateX(4px)', borderColor: visuals.accent } }} onClick={() => navigate(`/assignments/${assignmentId}`)}>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+         <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ p: 1, borderRadius: '50%', bgcolor: 'white', display: 'flex', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>{visuals.icon}</Box>
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+               <Typography variant="body1" fontWeight="600" noWrap sx={{ fontSize: '0.95rem' }}>{assignment.title}</Typography>
+               <Typography variant="caption" color="text.secondary" noWrap display="block">{assignment.course_name || assignment.subject_name || 'Curso'}</Typography>
+            </Box>
+            <Box sx={{ textAlign: 'right' }}>
+               {hasDueDate && <Typography variant="caption" fontWeight="bold" sx={{ color: visuals.accent, fontSize: '0.75rem', display: 'block' }}>{daysLeft === 0 ? 'Hoy' : daysLeft === 1 ? 'Mañana' : isOverdue ? 'Vencida' : `${daysLeft} días`}</Typography>}
+            </Box>
+         </Box>
+        <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+            <Box>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ fontSize: '1.1rem' }}>{assignment.title}</Typography>
+              <Box display="flex" alignItems="center" gap={1} mb={1}>
+                <Chip label={assignment.course_name || assignment.subject_name || 'Curso'} size="small" variant="outlined" sx={{ borderColor: 'rgba(0,0,0,0.12)', height: 24 }} />
               </Box>
             </Box>
-
-            <Box
-              display="flex"
-              alignItems={{ xs: 'flex-start', sm: 'center' }}
-              justifyContent="space-between"
-              flexDirection={{ xs: 'column', sm: 'row' }}
-              gap={{ xs: 1, sm: 0 }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AccessTime sx={{ fontSize: 18, color: visuals.accent }} />
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 600, color: visuals.accent, letterSpacing: 0.3 }}
-                >
-                  {dueDateLabel}
-                </Typography>
-              </Box>
-              {assignmentId && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'text.secondary',
-                    fontWeight: 500,
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.8
-                  }}
-                >
-                  Ver detalles →
-                </Typography>
-              )}
-            </Box>
-          </CardContent>
-        </CardActionArea>
-      </Card>
-    </motion.div>
+            <Chip label={!hasDueDate ? 'Sin fecha' : isOverdue ? 'Vencida' : daysLeft === 0 ? 'Para hoy' : daysLeft === 1 ? 'Para mañana' : `${daysLeft} días restantes`} color={visuals.chipColor} size="small" icon={visuals.icon} sx={{ fontWeight: 'bold' }} />
+          </Box>
+          <Box display="flex" alignItems="center" gap={2} mt={1}>
+            {hasDueDate && <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><CalendarToday sx={{ fontSize: 16 }} />{dueDate.toLocaleDateString()}</Typography>}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
   );
 };
 
-// Componente de gráfico de barras para rendimiento por curso
 const PerformanceChart = ({ data }) => {
-  if (!data || data.length === 0) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
-        <Typography variant="body2" color="text.secondary">
-          No hay datos disponibles
-        </Typography>
-      </Box>
-    );
-  }
-
+  if (!data || data.length === 0) return <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}><Typography variant="body2" color="text.secondary">No hay datos disponibles</Typography></Box>;
   return (
     <ResponsiveContainer width="100%" height={300}>
       <RechartsBarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis
-          dataKey="name"
-          angle={-45}
-          textAnchor="end"
-          height={100}
-          tick={{ fontSize: 11 }}
-          interval={0}
-        />
+        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} interval={0} />
         <YAxis domain={[0, 100]} />
-        <Tooltip
-          formatter={(value, name) => {
-            if (name === 'Promedio (%)' || name === 'Asistencia (%)' || name === 'Participación (%)') {
-              return [`${value.toFixed(1)}%`, name];
-            }
-            return [value, name];
-          }}
-          labelStyle={{ color: '#000', fontWeight: 'bold' }}
-        />
+        <Tooltip formatter={(value, name) => [name === 'Promedio (%)' || name.includes('Asistencia') || name.includes('Participación') ? `${value.toFixed(1)}%` : value, name]} labelStyle={{ color: '#000', fontWeight: 'bold' }} />
         <Legend />
         <Bar dataKey="averageGrade" fill="#8884d8" name="Promedio (%)" radius={[8, 8, 0, 0]} />
         <Bar dataKey="attendanceRate" fill="#82ca9d" name="Asistencia (%)" radius={[8, 8, 0, 0]} />
@@ -589,25 +232,14 @@ const PerformanceChart = ({ data }) => {
   );
 };
 
-// Componente de gráfico de distribución de calificaciones
 const GradeDistributionChart = ({ gradeDistribution }) => {
-  if (!gradeDistribution || Object.values(gradeDistribution).every(v => v === 0)) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}>
-        <Typography variant="body2" color="text.secondary">
-          No hay calificaciones
-        </Typography>
-      </Box>
-    );
-  }
-
+  if (!gradeDistribution || Object.values(gradeDistribution).every(v => v === 0)) return <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}><Typography variant="body2" color="text.secondary">No hay calificaciones</Typography></Box>;
   const data = [
-    { name: 'Excelente (≥90)', value: gradeDistribution.excellent || 0, color: '#4CAF50' },
-    { name: 'Bueno (70-89)', value: gradeDistribution.good || 0, color: '#8BC34A' },
-    { name: 'Regular (60-69)', value: gradeDistribution.average || 0, color: '#FFC107' },
-    { name: 'Bajo (<60)', value: gradeDistribution.poor || 0, color: '#F44336' }
+    { name: 'Excelente', value: gradeDistribution.excellent || 0, color: '#4CAF50' },
+    { name: 'Bueno', value: gradeDistribution.good || 0, color: '#8BC34A' },
+    { name: 'Regular', value: gradeDistribution.average || 0, color: '#FFC107' },
+    { name: 'Bajo', value: gradeDistribution.poor || 0, color: '#F44336' }
   ].filter(item => item.value > 0);
-
   return (
     <ResponsiveContainer width="100%" height={200}>
       <RechartsBarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
@@ -615,18 +247,13 @@ const GradeDistributionChart = ({ gradeDistribution }) => {
         <XAxis type="number" />
         <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11 }} />
         <Tooltip />
-        <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-          {data.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={entry.color} />
-          ))}
-        </Bar>
+        <Bar dataKey="value" radius={[0, 8, 8, 0]}><Cell fill="#8884d8"/></Bar>
       </RechartsBarChart>
     </ResponsiveContainer>
   );
 };
 
 const Dashboard = () => {
-  // Todos los hooks deben estar al inicio del componente
   const { userProfile, profileComplete } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -636,10 +263,11 @@ const Dashboard = () => {
   const isTeacher = userProfile?.role === 'teacher';
 
   useEffect(() => {
-    loadDashboardData();
+    if (userProfile) loadDashboardData();
   }, [userProfile]);
 
-  const loadDashboardData = async () => {
+
+const loadDashboardData = async () => {
     try {
       setLoading(true);
 
@@ -825,7 +453,7 @@ const Dashboard = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 1.5, sm: 4 }, px: { xs: 1.5, sm: 3 } }}>
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -835,7 +463,7 @@ const Dashboard = () => {
           variant="h3"
           gutterBottom
           fontWeight="bold"
-          sx={{ fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' } }}
+          sx={{ fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' } }}
         >
           ¡Hola {userProfile?.displayName || userProfile?.display_name || 'Ingeniero'}! 👋
         </Typography>
@@ -1147,9 +775,10 @@ const Dashboard = () => {
                               key={index}
                               variant="outlined"
                               sx={{
-                                p: 2,
-                                minWidth: '280px',
-                                maxWidth: '320px',
+                                p: { xs: 1.5, sm: 2 },
+                                width: '100%',
+                                minWidth: { xs: 'unset', sm: '280px' },
+                                maxWidth: { xs: '100%', sm: '320px' },
                                 borderLeft: `4px solid ${coursesWithStats[index]?.color || '#1976d2'}`,
                                 '&:hover': {
                                   boxShadow: 3,
@@ -1173,34 +802,46 @@ const Dashboard = () => {
                               </Typography>
                               <Grid container spacing={1.5}>
                                 <Grid item xs={6}>
-                                  <Typography variant="caption" color="text.secondary" display="block">
-                                    Estudiantes:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                                    <People sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                    <Typography variant="caption" color="text.secondary">
+                                      Estudiantes:
+                                    </Typography>
+                                  </Box>
+                                  <Typography variant="body2" fontWeight="bold">
                                     {course.studentCount || 0}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
-                                  <Typography variant="caption" color="text.secondary" display="block">
-                                    Activos:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="bold" color="success.main" sx={{ mt: 0.5 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                                    <Bolt sx={{ fontSize: 16, color: 'success.main' }} />
+                                    <Typography variant="caption" color="text.secondary">
+                                      Activos:
+                                    </Typography>
+                                  </Box>
+                                  <Typography variant="body2" fontWeight="bold" color="success.main">
                                     {course.activeStudentsCount || 0}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
-                                  <Typography variant="caption" color="text.secondary" display="block">
-                                    Tareas:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                                    <Assignment sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                    <Typography variant="caption" color="text.secondary">
+                                      Tareas:
+                                    </Typography>
+                                  </Box>
+                                  <Typography variant="body2" fontWeight="bold">
                                     {course.assignmentCount || 0}
                                   </Typography>
                                 </Grid>
                                 <Grid item xs={6}>
-                                  <Typography variant="caption" color="text.secondary" display="block">
-                                    Entregas:
-                                  </Typography>
-                                  <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                                    <AssignmentTurnedIn sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                    <Typography variant="caption" color="text.secondary">
+                                      Entregas:
+                                    </Typography>
+                                  </Box>
+                                  <Typography variant="body2" fontWeight="bold">
                                     {course.submissionCount || 0}
                                   </Typography>
                                 </Grid>
@@ -1285,97 +926,95 @@ const Dashboard = () => {
                               }
                             }}
                           >
-                            <CardContent>
-                              <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+                            <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+                              <Typography variant="body1" fontWeight="bold" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1rem' } }}>
                                 {course.courseName}
                               </Typography>
-                              <Typography variant="body2" color="text.secondary" gutterBottom>
+                              <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: { xs: '0.9rem', sm: '0.875rem' } }}>
                                 {course.turn || 'Sin turno'}
                               </Typography>
-                              <Divider sx={{ my: 1.5 }} />
-                              <Grid container spacing={1} sx={{ mt: 1 }}>
+                              <Divider sx={{ my: 1 }} />
+                              <Grid container spacing={1} sx={{ mt: 0.5 }}>
                                 <Grid item xs={6}>
-                                  <Typography variant="caption" color="text.secondary">Estudiantes:</Typography>
-                                  <Typography variant="body2" fontWeight="bold">
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <People sx={{ fontSize: 18, color: 'text.secondary' }} />
+                                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.9rem', sm: '0.75rem' } }}>Estudiantes:</Typography>
+                                  </Box>
+                                  <Typography variant="subtitle2" fontWeight="bold" sx={{ fontSize: { xs: '1.1rem', sm: '0.875rem' }, color: 'text.primary' }}>
                                     {course.studentCount || 0}
+                                    {course.activeStudentsCount > 0 && (
+                                      <span style={{ fontSize: '0.8rem', color: '#2e7d32', marginLeft: '6px', fontWeight: 'normal' }}>
+                                        ({course.activeStudentsCount} act)
+                                      </span>
+                                    )}
                                   </Typography>
-                                  {course.activeStudentsCount > 0 && (
-                                    <Typography variant="caption" color="success.main">
-                                      {course.activeStudentsCount} activos
-                                    </Typography>
-                                  )}
                                 </Grid>
                                 <Grid item xs={6}>
-                                  <Typography variant="caption" color="text.secondary">Tareas:</Typography>
-                                  <Typography variant="body2" fontWeight="bold">
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Assignment sx={{ fontSize: 18, color: 'text.secondary' }} />
+                                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.9rem', sm: '0.75rem' } }}>Tareas:</Typography>
+                                  </Box>
+                                  <Typography variant="subtitle2" fontWeight="bold" sx={{ fontSize: { xs: '1.1rem', sm: '0.875rem' } }}>
                                     {course.assignmentCount || 0}
+                                    {course.publishedAssignments > 0 && (
+                                      <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '6px', fontWeight: 'normal' }}>
+                                        ({course.publishedAssignments} pub)
+                                      </span>
+                                    )}
                                   </Typography>
-                                  {course.publishedAssignments > 0 && (
-                                    <Typography variant="caption" color="text.secondary">
-                                      {course.publishedAssignments} publicadas
-                                    </Typography>
-                                  )}
                                 </Grid>
                                 {course.participationRate > 0 && (
                                   <Grid item xs={12}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                                      <Typography variant="caption" color="text.secondary">Participación:</Typography>
-                                      <Typography variant="caption" fontWeight="bold" color={course.participationRate >= 70 ? 'success.main' : course.participationRate >= 50 ? 'warning.main' : 'error.main'}>
+                                      <Typography variant="body2" color="text.secondary">Participación:</Typography>
+                                      <Typography variant="body2" fontWeight="bold" color={course.participationRate >= 70 ? 'success.main' : course.participationRate >= 50 ? 'warning.main' : 'error.main'}>
                                         {course.participationRate.toFixed(1)}%
                                       </Typography>
                                     </Box>
                                     <LinearProgress
                                       variant="determinate"
                                       value={course.participationRate}
-                                      sx={{ height: 6, borderRadius: 3 }}
+                                      sx={{ height: 8, borderRadius: 4 }}
                                       color={course.participationRate >= 70 ? 'success' : course.participationRate >= 50 ? 'warning' : 'error'}
                                     />
                                   </Grid>
                                 )}
-                                {course.submissionCount > 0 && (
+                                {course.attendanceRate > 0 && (
                                   <Grid item xs={12}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <Typography variant="caption" color="text.secondary">Entregas:</Typography>
-                                      <Typography variant="caption" fontWeight="bold">
-                                        {course.submissionCount} / {course.publishedAssignments * (course.studentCount || 1)}
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <Typography variant="body2" color="text.secondary">Asistencia:</Typography>
+                                      <Typography variant="body2" fontWeight="bold" color={course.attendanceRate >= 80 ? 'success.main' : course.attendanceRate >= 70 ? 'warning.main' : 'error.main'}>
+                                        {course.attendanceRate.toFixed(1)}%
                                       </Typography>
                                     </Box>
-                                  </Grid>
-                                )}
-                                {course.averageGrade > 0 && (
-                                  <Grid item xs={6}>
-                                    <Typography variant="caption" color="text.secondary">Promedio:</Typography>
-                                    <Typography variant="body2" fontWeight="bold" color={course.averageGrade >= 70 ? 'success.main' : course.averageGrade >= 60 ? 'warning.main' : 'error.main'}>
-                                      {course.averageGrade.toFixed(1)}%
-                                    </Typography>
-                                  </Grid>
-                                )}
-                                {course.attendanceRate > 0 && (
-                                  <Grid item xs={6}>
-                                    <Typography variant="caption" color="text.secondary">Asistencia:</Typography>
-                                    <Typography variant="body2" fontWeight="bold" color={course.attendanceRate >= 80 ? 'success.main' : course.attendanceRate >= 70 ? 'warning.main' : 'error.main'}>
-                                      {course.attendanceRate.toFixed(1)}%
-                                    </Typography>
-                                  </Grid>
-                                )}
-                                {course.pendingReviewCount > 0 && (
-                                  <Grid item xs={12}>
-                                    <Chip
-                                      label={`${course.pendingReviewCount} pendientes revisión`}
-                                      size="small"
-                                      color="warning"
-                                      icon={<Warning />}
+                                    <LinearProgress
+                                      variant="determinate"
+                                      value={course.attendanceRate}
+                                      sx={{ height: 8, borderRadius: 4, mt: 0.5 }}
+                                      color={course.attendanceRate >= 80 ? 'success' : course.attendanceRate >= 70 ? 'warning' : 'error'}
                                     />
                                   </Grid>
                                 )}
-                                {course.upcomingAssignmentsCount > 0 && (
-                                  <Grid item xs={12}>
-                                    <Chip
-                                      label={`${course.upcomingAssignmentsCount} próximas a vencer`}
-                                      size="small"
-                                      color="info"
-                                      icon={<Schedule />}
-                                    />
+                                {(course.pendingReviewCount > 0 || course.upcomingAssignmentsCount > 0) && (
+                                  <Grid item xs={12} sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                    {course.pendingReviewCount > 0 && (
+                                      <Chip
+                                        label={`${course.pendingReviewCount} rev`}
+                                        size="small"
+                                        color="warning"
+                                        icon={<Warning sx={{ fontSize: '1rem !important' }} />}
+                                        sx={{ fontSize: '0.8rem' }}
+                                      />
+                                    )}
+                                    {course.upcomingAssignmentsCount > 0 && (
+                                      <Chip
+                                        label={`${course.upcomingAssignmentsCount} prox`}
+                                        size="small"
+                                        color="info"
+                                        icon={<Schedule sx={{ fontSize: '1rem !important' }} />}
+                                        sx={{ fontSize: '0.8rem' }}
+                                      />
+                                    )}
                                   </Grid>
                                 )}
                               </Grid>

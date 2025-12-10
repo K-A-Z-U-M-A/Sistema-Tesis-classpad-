@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 import createSessionManager from './sessionManager';
 
 // Crear instancia única del sessionManager para este módulo
@@ -56,7 +56,8 @@ class ApiService {
         error.status = response.status;
 
         // Si el token es inválido, limpiar el localStorage y redirigir al login
-        if (response.status === 401 && (error.code === 'INVALID_TOKEN' || error.message.includes('Invalid token'))) {
+        // Evitar bucle infinito si la falla ocurre justo en el logout
+        if (endpoint !== '/auth/logout' && response.status === 401 && (error.code === 'INVALID_TOKEN' || error.message.includes('Invalid token'))) {
           console.log('🔍 Token inválido detectado, limpiando localStorage');
           this.logout();
           // Redirigir al login si estamos en el navegador
@@ -98,9 +99,18 @@ class ApiService {
   }
 
   async logout() {
-    // Limpiar datos de esta sesión
-    this.sessionManager.removeItem('authToken');
-    this.sessionManager.removeItem('user');
+    try {
+      // Intentar notificar al backend
+      if (this.getToken()) {
+        await this.request('/auth/logout', { method: 'POST' });
+      }
+    } catch (error) {
+      console.warn('Error notifying backend of logout:', error);
+    } finally {
+      // Limpiar datos de esta sesión en cualquier caso
+      this.sessionManager.removeItem('authToken');
+      this.sessionManager.removeItem('user');
+    }
   }
 
   // Google OAuth
@@ -137,6 +147,38 @@ class ApiService {
     return this.request(`/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify({ displayName, photoURL, description }),
+    });
+  }
+
+  // Admin User Management
+  async getUsers(role = null) {
+    const query = role ? `?role=${role}` : '';
+    return this.request(`/users${query}`);
+  }
+
+  async createUser(data) {
+    // Currently only create-teacher is supported explicitly for admin specific creation endpoint
+    // If creating a teacher, use the specific endpoint
+    if (data.role === 'teacher') {
+      return this.request('/users/create-teacher', {
+        method: 'POST',
+        body: JSON.stringify(data)
+      });
+    }
+    // Generic create? We don't have one yet, assume teacher for now or register
+    return this.register(data);
+  }
+
+  async updateUser(userId, data) {
+    return this.request(`/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async deleteUser(userId) {
+    return this.request(`/users/${userId}`, {
+      method: 'DELETE'
     });
   }
 
@@ -560,6 +602,37 @@ class ApiService {
   // Get student progress in a course
   async getStudentProgress(studentId, courseId) {
     return this.request(`/users/students/${studentId}/progress/${courseId}`);
+  }
+
+  // Admin Dashboard Methods
+  async getAdminStats() {
+    return this.request('/admin/stats');
+  }
+
+  async getUsersReport() {
+    return this.request('/admin/reports/users');
+  }
+
+  async getCoursesReport() {
+    return this.request('/admin/reports/courses');
+  }
+
+  async getActivityReport(days = 7) {
+    return this.request(`/admin/reports/activity?days=${days}`);
+  }
+
+  // Audit Methods
+  async getAuditLogs(page = 1, limit = 50, filters = {}) {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      ...filters
+    });
+    return this.request(`/audit?${params}`);
+  }
+
+  async getAuditStats() {
+    return this.request('/audit/stats');
   }
 }
 

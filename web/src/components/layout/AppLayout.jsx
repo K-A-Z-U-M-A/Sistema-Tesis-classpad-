@@ -36,6 +36,7 @@ import {
   Logout,
   Add,
   Dashboard,
+  AdminPanelSettings,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -146,7 +147,7 @@ export default function AppLayout({ children }) {
             textAlign: 'center',
             color: theme.palette.text.secondary,
             mt: 1,
-            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+            fontSize: { xs: '0.9rem', sm: '0.875rem' }
           }}
         >
           Plataforma Educativa
@@ -155,26 +156,21 @@ export default function AppLayout({ children }) {
 
       {/* Menú principal */}
       <List sx={{ flex: 1, px: { xs: 1, sm: 2 }, py: 1 }}>
-        {menuItems.filter(item => {
-          // Ocultar "Alumnos" para estudiantes
-          if (item.text === 'Alumnos' && userProfile?.role === 'student') {
-            return false;
-          }
-          return true;
-        }).map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
+        {/* Show only Dashboard for admin */}
+        {userProfile?.role === 'admin' ? (
+          <ListItem disablePadding sx={{ mb: 1 }}>
             <ListItemButton
-              onClick={() => handleNavigation(item.path)}
+              onClick={() => handleNavigation('/dashboard')}
               sx={{
                 borderRadius: 2,
-                backgroundColor: isActive(item.path)
+                backgroundColor: isActive('/dashboard')
                   ? theme.palette.primary.main
                   : 'transparent',
-                color: isActive(item.path)
+                color: isActive('/dashboard')
                   ? theme.palette.primary.contrastText
                   : theme.palette.text.primary,
                 '&:hover': {
-                  backgroundColor: isActive(item.path)
+                  backgroundColor: isActive('/dashboard')
                     ? theme.palette.primary.dark
                     : theme.palette.action.hover,
                 },
@@ -184,32 +180,83 @@ export default function AppLayout({ children }) {
             >
               <ListItemIcon
                 sx={{
-                  color: isActive(item.path)
+                  color: isActive('/dashboard')
                     ? theme.palette.primary.contrastText
                     : theme.palette.text.secondary,
-                  minWidth: { xs: 40, sm: 56 }
+                  minWidth: { xs: 48, sm: 56 }
                 }}
               >
-                {item.hasBadge && pendingAssignmentsCount > 0 ? (
-                  <Badge badgeContent={pendingAssignmentsCount} color="error">
-                    {item.icon}
-                  </Badge>
-                ) : (
-                  item.icon
-                )}
+                <Home />
               </ListItemIcon>
               <ListItemText
-                primary={item.text}
+                primary="Dashboard"
                 sx={{
                   '& .MuiListItemText-primary': {
-                    fontWeight: isActive(item.path) ? 600 : 400,
-                    fontSize: { xs: '0.875rem', sm: '1rem' }
+                    fontWeight: isActive('/dashboard') ? 600 : 400,
+                    fontSize: { xs: '1rem', sm: '1rem' }
                   },
                 }}
               />
             </ListItemButton>
           </ListItem>
-        ))}
+        ) : (
+          /* Show regular menu for non-admin users */
+          menuItems.filter(item => {
+            // Ocultar "Alumnos" para estudiantes
+            if (item.text === 'Alumnos' && userProfile?.role === 'student') {
+              return false;
+            }
+            return true;
+          }).map((item) => (
+            <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
+              <ListItemButton
+                onClick={() => handleNavigation(item.path)}
+                sx={{
+                  borderRadius: 2,
+                  backgroundColor: isActive(item.path)
+                    ? theme.palette.primary.main
+                    : 'transparent',
+                  color: isActive(item.path)
+                    ? theme.palette.primary.contrastText
+                    : theme.palette.text.primary,
+                  '&:hover': {
+                    backgroundColor: isActive(item.path)
+                      ? theme.palette.primary.dark
+                      : theme.palette.action.hover,
+                  },
+                  py: { xs: 1.5, sm: 2 },
+                  px: { xs: 1.5, sm: 2 }
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    color: isActive(item.path)
+                      ? theme.palette.primary.contrastText
+                      : theme.palette.text.secondary,
+                    minWidth: { xs: 40, sm: 56 }
+                  }}
+                >
+                  {item.hasBadge && pendingAssignmentsCount > 0 ? (
+                    <Badge badgeContent={pendingAssignmentsCount} color="error">
+                      {item.icon}
+                    </Badge>
+                  ) : (
+                    item.icon
+                  )}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  sx={{
+                    '& .MuiListItemText-primary': {
+                      fontWeight: isActive(item.path) ? 600 : 400,
+                      fontSize: { xs: '1.1rem', sm: '1rem' }
+                    },
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))
+        )}
 
         {/* Separador para opciones de docente */}
         {userProfile?.role === 'teacher' && (
@@ -253,10 +300,145 @@ export default function AppLayout({ children }) {
                   >
                     {item.icon}
                   </ListItemIcon>
-                  <ListItemText primary={item.text} />
+                  <ListItemText
+                    primary={item.text}
+                    sx={{
+                      '& .MuiListItemText-primary': {
+                        fontSize: { xs: '1.1rem', sm: '1rem' }
+                      }
+                    }}
+                  />
                 </ListItemButton>
               </ListItem>
             ))}
+          </>
+        )}
+
+        {/* Separador para opciones de administrador */}
+        {userProfile?.role === 'admin' && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Typography
+              variant="overline"
+              sx={{
+                px: 2,
+                color: theme.palette.text.secondary,
+                fontWeight: 600,
+              }}
+            >
+              Administrador
+            </Typography>
+            <ListItem disablePadding sx={{ mb: 1 }}>
+              <ListItemButton
+                onClick={() => handleNavigation('/admin/users')}
+                sx={{
+                  borderRadius: 2,
+                  backgroundColor: isActive('/admin/users')
+                    ? theme.palette.error.main
+                    : 'transparent',
+                  color: isActive('/admin/users')
+                    ? theme.palette.error.contrastText
+                    : theme.palette.text.primary,
+                  '&:hover': {
+                    backgroundColor: isActive('/admin/users')
+                      ? theme.palette.error.dark
+                      : theme.palette.action.hover,
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    color: isActive('/admin/users')
+                      ? theme.palette.error.contrastText
+                      : theme.palette.text.secondary,
+                  }}
+                >
+                  <AdminPanelSettings />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Usuarios"
+                  sx={{
+                    '& .MuiListItemText-primary': {
+                      fontSize: { xs: '1.1rem', sm: '1rem' }
+                    }
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding sx={{ mb: 1 }}>
+              <ListItemButton
+                onClick={() => handleNavigation('/admin/audit')}
+                sx={{
+                  borderRadius: 2,
+                  backgroundColor: isActive('/admin/audit')
+                    ? theme.palette.error.main
+                    : 'transparent',
+                  color: isActive('/admin/audit')
+                    ? theme.palette.error.contrastText
+                    : theme.palette.text.primary,
+                  '&:hover': {
+                    backgroundColor: isActive('/admin/audit')
+                      ? theme.palette.error.dark
+                      : theme.palette.action.hover,
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    color: isActive('/admin/audit')
+                      ? theme.palette.error.contrastText
+                      : theme.palette.text.secondary,
+                  }}
+                >
+                  <Assessment />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Auditoría"
+                  sx={{
+                    '& .MuiListItemText-primary': {
+                      fontSize: { xs: '1.1rem', sm: '1rem' }
+                    }
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+            <ListItem disablePadding sx={{ mb: 1 }}>
+              <ListItemButton
+                onClick={() => handleNavigation('/admin/reports')}
+                sx={{
+                  borderRadius: 2,
+                  backgroundColor: isActive('/admin/reports')
+                    ? theme.palette.error.main
+                    : 'transparent',
+                  color: isActive('/admin/reports')
+                    ? theme.palette.error.contrastText
+                    : theme.palette.text.primary,
+                  '&:hover': {
+                    backgroundColor: isActive('/admin/reports')
+                      ? theme.palette.error.dark
+                      : theme.palette.action.hover,
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    color: isActive('/admin/reports')
+                      ? theme.palette.error.contrastText
+                      : theme.palette.text.secondary,
+                  }}
+                >
+                  <Dashboard />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Reportes"
+                  sx={{
+                    '& .MuiListItemText-primary': {
+                      fontSize: { xs: '1.1rem', sm: '1rem' }
+                    }
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
           </>
         )}
       </List>
@@ -288,7 +470,7 @@ export default function AppLayout({ children }) {
               variant="body2"
               sx={{
                 fontWeight: 600,
-                fontSize: { xs: '0.875rem', sm: '0.875rem' }
+                fontSize: { xs: '1rem', sm: '0.875rem' }
               }}
             >
               {userProfile?.displayName || userProfile?.display_name || 'Usuario'}
@@ -296,9 +478,9 @@ export default function AppLayout({ children }) {
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
+              sx={{ fontSize: { xs: '0.8rem', sm: '0.75rem' } }}
             >
-              {userProfile?.role === 'teacher' ? 'Docente' : 'Estudiante'}
+              {userProfile?.role === 'admin' ? 'Administrador' : userProfile?.role === 'teacher' ? 'Docente' : 'Estudiante'}
             </Typography>
           </Box>
         </Box>
@@ -354,7 +536,7 @@ export default function AppLayout({ children }) {
             component="div"
             sx={{
               flexGrow: 1,
-              fontSize: { xs: '1rem', sm: '1.25rem' },
+              fontSize: { xs: '1.25rem', sm: '1.25rem' },
               fontWeight: 600
             }}
           >
@@ -363,11 +545,11 @@ export default function AppLayout({ children }) {
 
           {/* Indicador de sesión - Solo mostrar si hay múltiples sesiones posibles */}
           {sessionRole && (
-            <Tooltip title={`Sesión: ${sessionIdShort} | Rol: ${sessionRole === 'teacher' ? 'Docente' : 'Estudiante'}`}>
+            <Tooltip title={`Sesión: ${sessionIdShort} | Rol: ${sessionRole === 'admin' ? 'Administrador' : sessionRole === 'teacher' ? 'Docente' : 'Estudiante'}`}>
               <Chip
-                label={sessionRole === 'teacher' ? 'Docente' : 'Estudiante'}
+                label={sessionRole === 'admin' ? 'Administrador' : sessionRole === 'teacher' ? 'Docente' : 'Estudiante'}
                 size="small"
-                color={sessionRole === 'teacher' ? 'secondary' : 'primary'}
+                color={sessionRole === 'admin' ? 'error' : sessionRole === 'teacher' ? 'secondary' : 'primary'}
                 sx={{
                   mr: { xs: 1, sm: 2 },
                   display: { xs: 'none', sm: 'flex' }, // Ocultar en móviles

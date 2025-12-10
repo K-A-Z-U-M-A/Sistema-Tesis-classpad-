@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
+import os from 'os';
 import pool from './config/database.js';
 import passport from './config/passport.js';
 import authRoutes from './routes/auth.js';
@@ -19,6 +20,8 @@ import { router as notificationRoutes } from './routes/notifications.js';
 import attendanceRoutes from './routes/attendance.js';
 import gradeRoutes from './routes/grades.js';
 import reportRoutes from './routes/reports.js';
+import auditRoutes from './routes/audit.js';
+import adminRoutes from './routes/admin.js';
 import passwordRecoveryRoutes from './routes/passwordRecovery.js';
 import ensureAttendanceTables from './ensure-attendance-tables.js';
 import ensureProfileFields from './ensure-profile-fields.js';
@@ -28,15 +31,9 @@ const PORT = process.env.PORT || 3001;
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN?.split(',') || [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    // Permitir acceso desde cualquier IP en la red local (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
-    /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:5173$/,
-    /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:5173$/,
-    /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:5173$/
-  ],
-  credentials: false,
+  // Permitir acceso dinámico desde cualquier origen en la red local
+  origin: true,
+  credentials: true, // Permitir cookies/headers si fuera necesario en futuro
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 };
@@ -90,6 +87,24 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/grades', gradeRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/admin', adminRoutes);
+
+// Endpoint de configuración de red (Para Bonjour/QR)
+app.get('/api/config', (req, res) => {
+  const hostname = os.hostname().toLowerCase();
+  const networkInterfaces = os.networkInterfaces();
+  const ipv4 = Object.values(networkInterfaces)
+    .flat()
+    .find(i => i.family === 'IPv4' && !i.internal)?.address || 'localhost';
+
+  res.json({
+    hostname,
+    bonjurHostname: `${hostname}.local`,
+    ipv4,
+    port: PORT
+  });
+});
 
 // 404 handler
 app.use('*', (req, res) => {
@@ -144,4 +159,3 @@ const gracefulShutdown = async (signal) => {
 
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-

@@ -4,10 +4,10 @@ import pool from '../config/database.js';
 export async function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
-    
+
     console.log('🔍 Auth middleware - Full headers:', req.headers);
     console.log('🔍 Auth middleware - Auth header:', authHeader);
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.log('❌ Auth middleware - Missing or invalid auth header:', authHeader);
       return res.status(401).json({
@@ -20,11 +20,11 @@ export async function authMiddleware(req, res, next) {
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
     console.log('🔍 Auth middleware - Token preview:', token.substring(0, 20) + '...');
-    
+
     // Verify JWT token
     const decoded = verifyToken(token);
     console.log('✅ Auth middleware - Decoded token:', decoded);
-    
+
     // Get fresh user data from database
     const result = await pool.query(
       'SELECT id, email, display_name, role, provider, is_active, photo_url, created_at, last_login FROM users WHERE id = $1',
@@ -75,4 +75,37 @@ export async function authMiddleware(req, res, next) {
       }
     });
   }
+}
+
+export function requireRole(role) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        error: {
+          message: 'Authentication required',
+          code: 'AUTH_REQUIRED'
+        }
+      });
+    }
+
+    // Normalize roles
+    const userRole = req.user.role.toLowerCase();
+    const requiredRole = role.toLowerCase();
+
+    // Admin has access to everything
+    if (userRole === 'admin') {
+      return next();
+    }
+
+    if (userRole !== requiredRole) {
+      return res.status(403).json({
+        error: {
+          message: `Role '${requiredRole}' required`,
+          code: 'INSUFFICIENT_PERMISSIONS'
+        }
+      });
+    }
+
+    next();
+  };
 }

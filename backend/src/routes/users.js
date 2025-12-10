@@ -1,6 +1,8 @@
 import express from 'express';
 import pool from '../config/database.js';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+import { authMiddleware, requireRole } from '../middleware/authMiddleware.js';
+import { logAction } from '../utils/auditLogger.js';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
@@ -33,7 +35,283 @@ function getCourseIdCast(courseId) {
   return '';
 }
 
-// GET /api/users/me - Obtener perfil del usuario autenticado con estadísticas
+// POST /api/users/create-teacher - Crear una cuenta de profesor (Solo Admin)
+router.post('/create-teacher', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    const { email, displayName, password } = req.body;
+
+    // Validación básica
+    if (!email || !displayName || !password) {
+      return res.status(400).json({
+        error: {
+          message: 'Email, nombre y contraseña son requeridos',
+          code: 'MISSING_FIELDS'
+        }
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        error: {
+          message: 'La contraseña debe tener al menos 8 caracteres',
+          code: 'PASSWORD_TOO_SHORT'
+        }
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Verificar si el usuario ya existe
+    const existingUser = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [normalizedEmail]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        error: {
+          message: 'Ya existe un usuario con este correo electrónico',
+          code: 'EMAIL_EXISTS'
+        }
+      });
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Crear usuario con rol 'teacher'
+    const result = await pool.query(
+      `INSERT INTO users (email, display_name, password_hash, provider, role, is_active)
+       VALUES ($1, $2, $3, 'local', 'teacher', true)
+       RETURNING id, email, display_name, role, provider, is_active, created_at`,
+      [normalizedEmail, displayName, passwordHash]
+    );
+
+    const user = result.rows[0];
+
+    // Log teacher creation
+    await logAction({
+      userId: req.user.id,
+      action: 'CREATE_USER',
+      entity: 'User',
+      entityId: user.id.toString(),
+      details: { email: user.email, role: user.role, created_by: req.user.email },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        message: 'Cuenta de profesor creada exitosamente',
+        user: {
+          id: user.id,
+          email: user.email,
+          display_name: user.display_name,
+          role: user.role,
+          is_active: user.is_active,
+          created_at: user.created_at
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating teacher:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error al crear la cuenta de profesor',
+        code: 'CREATE_TEACHER_FAILED'
+      }
+    });
+  }
+});
+
+// GET /api/users - List users (Admin only)
+router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    const { role } = req.query;
+    let query = 'SELECT id, email, display_name, role, is_active, created_at, photo_url FROM users';
+    const params = [];
+
+    if (role) {
+      query += ' WHERE role = $1';
+      params.push(role);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const result = await pool.query(query, params);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Error getting users:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error al obtener usuarios',
+        code: 'GET_USERS_FAILED'
+      }
+    });
+  }
+});
+
+// DELETE /api/users/:id - Delete user (Admin only)
+router.delete('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent deleting yourself
+    if (String(id) === String(req.user.id)) {
+      return res.status(400).json({
+        error: {
+          message: 'No puedes eliminar tu propia cuenta desde aquí',
+          code: 'CANNOT_DELETE_SELF'
+        }
+      });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Check if user exists
+      const userCheck = await client.query('SELECT role FROM users WHERE id = $1', [id]);
+      if (userCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({
+          error: {
+            message: 'Usuario no encontrado',
+            code: 'USER_NOT_FOUND'
+          }
+        });
+      }
+
+      // Delete user (cascade will handle related data if configured)
+      await client.query('DELETE FROM users WHERE id = $1', [id]);
+
+      await client.query('COMMIT');
+
+      // Log user deletion
+      await logAction({
+        userId: req.user.id,
+        action: 'DELETE_USER',
+        entity: 'User',
+        entityId: id.toString(),
+        details: { deleted_by: req.user.email },
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+
+      res.json({
+        success: true,
+        message: 'Usuario eliminado exitosamente'
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error al eliminar usuario',
+        code: 'DELETE_USER_FAILED'
+      }
+    });
+  }
+});
+
+// PUT /api/users/:id - Update any user (Admin only)
+router.put('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email, display_name, password, role, is_active } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramCounter = 1;
+
+    if (email) {
+      updates.push(`email = $${paramCounter++}`);
+      values.push(email.toLowerCase());
+    }
+    if (display_name) {
+      updates.push(`display_name = $${paramCounter++}`);
+      values.push(display_name);
+    }
+    if (role) {
+      updates.push(`role = $${paramCounter++}`);
+      values.push(role);
+    }
+    if (is_active !== undefined) {
+      updates.push(`is_active = $${paramCounter++}`);
+      values.push(is_active);
+    }
+    if (password) {
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      updates.push(`password_hash = $${paramCounter++}`);
+      values.push(hashedPassword);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        error: {
+          message: 'No se proporcionaron datos para actualizar',
+          code: 'NO_UPDATES'
+        }
+      });
+    }
+
+    updates.push(`updated_at = NOW()`);
+    values.push(id); // ID is safe to put at end for WHERE clause
+
+    const query = `
+      UPDATE users 
+      SET ${updates.join(', ')} 
+      WHERE id = $${paramCounter}
+      RETURNING id, email, display_name, role, is_active, updated_at
+    `;
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: {
+          message: 'Usuario no encontrado',
+          code: 'USER_NOT_FOUND'
+        }
+      });
+    }
+
+    // Log user update
+    await logAction({
+      userId: req.user.id,
+      action: 'UPDATE_USER',
+      entity: 'User',
+      entityId: id.toString(),
+      details: { updated_fields: Object.keys(req.body), updated_by: req.user.email },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error al actualizar usuario',
+        code: 'UPDATE_USER_FAILED'
+      }
+    });
+  }
+});
+
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;

@@ -23,7 +23,7 @@ router.get('/course/:courseId/excel', authMiddleware, async (req, res) => {
         const { courseId } = req.params;
         const { role, id: userId } = req.user;
 
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden exportar reportes',
@@ -33,7 +33,7 @@ router.get('/course/:courseId/excel', authMiddleware, async (req, res) => {
         }
 
         const isTeacher = await isCourseTeacher(userId, courseId);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',
@@ -247,7 +247,7 @@ router.get('/course/:courseId/pdf', authMiddleware, async (req, res) => {
         const { courseId } = req.params;
         const { role, id: userId } = req.user;
 
-        if (role !== 'teacher') {
+        if (role !== 'teacher' && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'Solo los profesores pueden exportar reportes',
@@ -257,7 +257,7 @@ router.get('/course/:courseId/pdf', authMiddleware, async (req, res) => {
         }
 
         const isTeacher = await isCourseTeacher(userId, courseId);
-        if (!isTeacher) {
+        if (!isTeacher && role !== 'admin') {
             return res.status(403).json({
                 error: {
                     message: 'No tienes acceso a este curso',

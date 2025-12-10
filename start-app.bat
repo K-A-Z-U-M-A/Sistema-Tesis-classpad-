@@ -29,7 +29,7 @@ echo Backend: http://localhost:3001
 echo Frontend: http://localhost:5173
 echo.
 echo Abriendo aplicacion en el navegador...
-start "" http://localhost:5173
+start "" https://localhost:5173
 echo.
 echo Los servicios estan ejecutandose en ventanas separadas.
 echo Para detener los servicios, cierra las ventanas de consola correspondientes.

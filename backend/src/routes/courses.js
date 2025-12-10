@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { generateUniqueCourseCode } from '../utils/courseCodeGenerator.js';
+import { logAction } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
@@ -188,7 +189,7 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
 
-    if (role !== 'teacher') {
+    if (role !== 'teacher' && role !== 'admin') {
       return res.status(403).json({
         error: {
           message: 'Solo los profesores pueden crear cursos',
@@ -230,6 +231,16 @@ router.post('/', authMiddleware, async (req, res) => {
        VALUES ($1, $2, 'owner')`,
       [course.id, req.user.id]
     );
+
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'CREATE_COURSE',
+      entity: 'Course',
+      entityId: course.id,
+      details: { name: course.name, code: course.course_code },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
 
     res.status(201).json({
       success: true,
@@ -362,7 +373,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 
     // Check if user has access to course
     const hasAccess = await hasCourseAccess(req.user.id, courseId);
-    if (!hasAccess) {
+    if (!hasAccess && req.user.role !== 'admin') {
       return res.status(403).json({
         error: {
           message: 'No tienes acceso a este curso',
@@ -521,7 +532,7 @@ router.post('/:id/units', authMiddleware, async (req, res) => {
     }
 
     const isTeacher = await isCourseTeacher(req.user.id, courseId);
-    if (!isTeacher) {
+    if (!isTeacher && req.user.role !== 'admin') {
       return res.status(403).json({ error: { message: 'Solo los profesores pueden crear unidades', code: 'INSUFFICIENT_PERMISSIONS' } });
     }
 
@@ -549,6 +560,16 @@ router.post('/:id/units', authMiddleware, async (req, res) => {
       [courseId, title, description || null, finalOrderIndex, !!is_published]
     );
 
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'CREATE_UNIT',
+      entity: 'Unit',
+      entityId: result.rows[0].id,
+      details: { title: result.rows[0].title, course_id: courseId },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Error creating unit under course:', error);
@@ -572,7 +593,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     // Check if user is teacher of course
     const isTeacher = await isCourseTeacher(req.user.id, courseId);
-    if (!isTeacher) {
+    if (!isTeacher && req.user.role !== 'admin') {
       return res.status(403).json({
         error: {
           message: 'Solo los profesores pueden editar cursos',
@@ -609,9 +630,21 @@ router.put('/:id', authMiddleware, async (req, res) => {
       });
     }
 
+    const updatedCourse = result.rows[0];
+
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'UPDATE_COURSE',
+      entity: 'Course',
+      entityId: updatedCourse.id,
+      details: { updated_fields: Object.keys(req.body) },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.json({
       success: true,
-      data: result.rows[0]
+      data: updatedCourse
     });
   } catch (error) {
     console.error('Error updating course:', error);
@@ -742,7 +775,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       });
     }
 
-    if (courseResult.rows[0].owner_id !== req.user.id) {
+    if (courseResult.rows[0].owner_id !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         error: {
           message: 'Solo el propietario puede eliminar el curso',

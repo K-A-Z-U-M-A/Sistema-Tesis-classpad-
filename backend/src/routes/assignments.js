@@ -23,63 +23,63 @@ async function hasCourseAccess(userId, courseId) {
   try {
     console.log(`🔍 Checking course access for user ${userId} to course ${courseId}`);
     console.log(`🔍 User ID type: ${typeof userId}, Course ID type: ${typeof courseId}`);
-    
+
     // First check if user is the owner
     const ownerResult = await pool.query(
       `SELECT 1 FROM courses WHERE id = $1 AND owner_id = $2`,
       [courseId, userId]
     );
-    
+
     console.log(`🔍 Owner check result:`, ownerResult.rows.length > 0);
     console.log(`🔍 Owner query: SELECT 1 FROM courses WHERE id = '${courseId}' AND owner_id = '${userId}'`);
-    
+
     if (ownerResult.rows.length > 0) {
       console.log(`✅ User ${userId} is owner of course ${courseId}`);
       return true;
     }
-    
+
     // Check if user is a teacher
     const teacherResult = await pool.query(
       `SELECT 1 FROM course_teachers WHERE course_id = $1 AND teacher_id = $2`,
       [courseId, userId]
     );
-    
+
     console.log(`🔍 Teacher check result:`, teacherResult.rows.length > 0);
     console.log(`🔍 Teacher query: SELECT 1 FROM course_teachers WHERE course_id = '${courseId}' AND teacher_id = '${userId}'`);
-    
+
     if (teacherResult.rows.length > 0) {
       console.log(`✅ User ${userId} is teacher of course ${courseId}`);
       return true;
     }
-    
+
     // Check if user is a student (old system)
     const studentResult = await pool.query(
       `SELECT 1 FROM course_students WHERE course_id = $1 AND student_id = $2 AND status = 'active'`,
       [courseId, userId]
     );
-    
+
     console.log(`🔍 Student check result:`, studentResult.rows.length > 0);
     console.log(`🔍 Student query: SELECT 1 FROM course_students WHERE course_id = '${courseId}' AND student_id = '${userId}' AND status = 'active'`);
-    
+
     if (studentResult.rows.length > 0) {
       console.log(`✅ User ${userId} is student of course ${courseId}`);
       return true;
     }
-    
+
     // Check if user is enrolled (new system)
     const enrollmentResult = await pool.query(
       `SELECT 1 FROM enrollments WHERE course_id = $1 AND student_id = $2 AND status = 'active'`,
       [courseId, userId]
     );
-    
+
     console.log(`🔍 Enrollment check result:`, enrollmentResult.rows.length > 0);
     console.log(`🔍 Enrollment query: SELECT 1 FROM enrollments WHERE course_id = '${courseId}' AND student_id = '${userId}' AND status = 'active'`);
-    
+
     if (enrollmentResult.rows.length > 0) {
       console.log(`✅ User ${userId} is enrolled in course ${courseId}`);
       return true;
     }
-    
+
     console.log(`❌ User ${userId} has no access to course ${courseId}`);
     return false;
   } catch (error) {
@@ -107,7 +107,7 @@ function isIntegerString(value) { return /^\d+$/.test(String(value)); }
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const assignmentId = req.params.id;
-    
+
     if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
       return res.status(400).json({
         error: {
@@ -147,28 +147,28 @@ router.get('/:id', authMiddleware, async (req, res) => {
       email: req.user.email,
       role: req.user.role
     });
-    
+
     const hasAccess = await hasCourseAccess(req.user.id, assignment.course_id);
     console.log(`🔍 hasAccess result:`, hasAccess);
-    
+
     if (!hasAccess) {
       console.log(`❌ Access denied for user ${req.user.id} to course ${assignment.course_id}`);
-      
+
       // Let's also check if the user is the owner or a teacher
       const isOwner = assignment.course_id && await pool.query(
         `SELECT 1 FROM courses WHERE id = $1 AND owner_id = $2`,
         [assignment.course_id, req.user.id]
       );
-      
+
       const isTeacher = assignment.course_id && await pool.query(
         `SELECT 1 FROM course_teachers WHERE course_id = $1 AND teacher_id = $2`,
         [assignment.course_id, req.user.id]
       );
-      
+
       console.log(`🔍 Is owner: ${isOwner.rows.length > 0}, Is teacher: ${isTeacher.rows.length > 0}`);
       console.log(`🔍 Owner query result:`, isOwner.rows);
       console.log(`🔍 Teacher query result:`, isTeacher.rows);
-      
+
       // If user is neither owner nor teacher, deny access
       if (isOwner.rows.length === 0 && isTeacher.rows.length === 0) {
         return res.status(403).json({
@@ -250,7 +250,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.get('/course/:courseId', authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.courseId;
-    
+
     if (!(isIntegerString(courseId) || isUuid(courseId))) {
       return res.status(400).json({ error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' } });
     }
@@ -269,7 +269,7 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
     // Get assignments with submission status for students
     let query;
     let params;
-    
+
     // Determine casts for IDs
     const cast = isUuid(courseId) ? '::uuid' : '';
     const assignmentIdCast = ''; // Will be determined based on assignment.id type
@@ -330,7 +330,7 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
     console.log(`🔍 Course ID: ${courseId}, Cast: ${cast}`);
     console.log(`🔍 Query: ${query.replace(/a\.course_id = \$1/g, `a.course_id = $1${cast}`)}`);
     console.log(`🔍 Params:`, params);
-    
+
     let assignmentsResult;
     try {
       assignmentsResult = await pool.query(
@@ -362,11 +362,11 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
           [assignment.id]
         )
       ]);
-      
+
       // Get assigned students count if assignment has specific students
       let assignedStudentCount = 0;
       let hasSpecificStudents = false;
-      
+
       if (assignment.has_specific_students !== undefined) {
         hasSpecificStudents = assignment.has_specific_students;
         assignedStudentCount = parseInt(assignment.assigned_student_count || 0, 10);
@@ -385,7 +385,7 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
           hasSpecificStudents = false;
         }
       }
-      
+
       assignments.push({
         ...assignment,
         status: assignment.is_published ? 'published' : 'draft',
@@ -415,8 +415,8 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
-    
-    if (role !== 'teacher') {
+
+    if (role !== 'teacher' && role !== 'admin') {
       return res.status(403).json({
         error: {
           message: 'Solo los profesores pueden crear tareas',
@@ -425,20 +425,20 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
-    const { 
-      course_id, 
-      unit_id, 
-      title, 
-      description, 
-      instructions, 
-      due_date, 
+    const {
+      course_id,
+      unit_id,
+      title,
+      description,
+      instructions,
+      due_date,
       due_time,
-      max_points, 
-      allow_late_submission, 
-      late_penalty, 
-      is_published, 
+      max_points,
+      allow_late_submission,
+      late_penalty,
+      is_published,
       rubric,
-      attachments 
+      attachments
     } = req.body;
 
     // Validate required fields
@@ -453,7 +453,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // Check if user is teacher of course
     const isTeacher = await isCourseTeacher(req.user.id, course_id);
-    if (!isTeacher) {
+    if (!isTeacher && req.user.role !== 'admin') {
       return res.status(403).json({
         error: {
           message: 'No tienes permisos para crear tareas en este curso',
@@ -515,7 +515,7 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const assignmentId = req.params.id;
-    
+
     if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
       return res.status(400).json({
         error: {
@@ -546,7 +546,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     // Check if user is teacher of course
     const isTeacher = await isCourseTeacher(req.user.id, courseId);
-    if (!isTeacher) {
+    if (!isTeacher && req.user.role !== 'admin') {
       return res.status(403).json({
         error: {
           message: 'Solo los profesores pueden editar tareas',
@@ -555,14 +555,14 @@ router.put('/:id', authMiddleware, async (req, res) => {
       });
     }
 
-    const { 
-      title, 
-      description, 
-      instructions, 
-      due_date, 
+    const {
+      title,
+      description,
+      instructions,
+      due_date,
       due_time,
-      points, 
-      status 
+      points,
+      status
     } = req.body;
 
     // Build due timestamp
@@ -607,7 +607,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     // Determine if assignmentId is UUID or INTEGER
     const cast = isUuid(assignmentId) ? '::uuid' : '';
-    
+
     const result = await pool.query(
       `UPDATE assignments 
        SET title = COALESCE($1, title),
@@ -630,11 +630,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
         // If rubric is already an array, use it directly
         if (Array.isArray(rubricValue)) {
           parsedRubric = rubricValue;
-        } 
+        }
         // If rubric is an object (but not array), set to empty array
         else if (typeof rubricValue === 'object') {
           parsedRubric = [];
-        } 
+        }
         // If rubric is a string, parse it (only if not empty)
         else if (typeof rubricValue === 'string' && rubricValue.trim() !== '') {
           parsedRubric = JSON.parse(rubricValue);
@@ -678,7 +678,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const assignmentId = req.params.id;
-    
+
     if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
       return res.status(400).json({
         error: {
@@ -707,7 +707,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     // Check if user is teacher of course
     const isTeacher = await isCourseTeacher(req.user.id, courseId);
-    if (!isTeacher) {
+    if (!isTeacher && req.user.role !== 'admin') {
       return res.status(403).json({
         error: {
           message: 'Solo los profesores pueden eliminar tareas',
@@ -740,7 +740,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 router.post('/:id/submit', authMiddleware, async (req, res) => {
   try {
     const assignmentId = req.params.id;
-    
+
     if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
       return res.status(400).json({
         error: {
@@ -840,7 +840,7 @@ router.post('/:id/submit', authMiddleware, async (req, res) => {
 router.put('/:id/grade', authMiddleware, async (req, res) => {
   try {
     const assignmentId = req.params.id;
-    
+
     if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
       return res.status(400).json({
         error: {
@@ -922,11 +922,11 @@ router.put('/:id/grade', authMiddleware, async (req, res) => {
 
     if (assignmentInfoResult.rows.length > 0) {
       const assignmentInfo = assignmentInfoResult.rows[0];
-      
+
       // Create notification for the student
       const title = 'Tarea calificada';
       const messageText = `Tu tarea "${assignmentInfo.assignment_title}" ha sido calificada. Calificación: ${grade}/${assignmentInfo.max_points}${feedback ? `. Comentarios: ${feedback.substring(0, 100)}${feedback.length > 100 ? '...' : ''}` : ''}`;
-      
+
       createNotification(
         student_id,
         'grade',
@@ -1073,7 +1073,7 @@ router.post('/:id/attachments/upload', authMiddleware, upload.single('file'), as
 
     const { title } = req.body;
     const fileInfo = getFileInfo(req.file, 'assignments');
-    
+
     // Determine attachment type from MIME type
     const attachmentType = getMaterialTypeFromMime(req.file.mimetype);
 
@@ -1084,10 +1084,10 @@ router.post('/:id/attachments/upload', authMiddleware, upload.single('file'), as
       [assignmentId, attachmentType, title || fileInfo.originalName, fileInfo.publicUrl, fileInfo.originalName, fileInfo.size, fileInfo.mimeType]
     );
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: result.rows[0],
-      message: 'Archivo agregado exitosamente' 
+      message: 'Archivo agregado exitosamente'
     });
   } catch (error) {
     console.error('Error uploading assignment attachment:', error);
@@ -1140,10 +1140,10 @@ router.post('/:id/attachments', authMiddleware, async (req, res) => {
       [assignmentId, type, title, url]
     );
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       data: result.rows[0],
-      message: 'Adjunto agregado exitosamente' 
+      message: 'Adjunto agregado exitosamente'
     });
   } catch (error) {
     console.error('Error adding assignment attachment:', error);
@@ -1188,9 +1188,9 @@ router.delete('/:id/attachments/:attachmentId', authMiddleware, async (req, res)
       return res.status(404).json({ error: { message: 'Adjunto no encontrado', code: 'ATTACHMENT_NOT_FOUND' } });
     }
 
-    res.json({ 
-      success: true, 
-      message: 'Adjunto eliminado exitosamente' 
+    res.json({
+      success: true,
+      message: 'Adjunto eliminado exitosamente'
     });
   } catch (error) {
     console.error('Error deleting assignment attachment:', error);
@@ -1202,7 +1202,7 @@ router.delete('/:id/attachments/:attachmentId', authMiddleware, async (req, res)
 router.get('/units/:unitId/assignments', authMiddleware, async (req, res) => {
   try {
     const unitId = req.params.unitId;
-    
+
     if (!(isIntegerString(unitId) || isUuid(unitId))) {
       return res.status(400).json({ error: { message: 'ID de unidad inválido', code: 'INVALID_UNIT_ID' } });
     }
@@ -1260,7 +1260,7 @@ router.get('/units/:unitId/assignments', authMiddleware, async (req, res) => {
 router.get('/:id/materials', authMiddleware, async (req, res) => {
   try {
     const assignmentId = req.params.id;
-    
+
     // Get assignment to check course access
     const assignmentResult = await pool.query(
       `SELECT a.*, c.id as course_id 
@@ -1269,23 +1269,23 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
        WHERE a.id = $1`,
       [assignmentId]
     );
-    
+
     if (assignmentResult.rows.length === 0) {
-      return res.status(404).json({ 
-        error: { message: 'Tarea no encontrada', code: 'ASSIGNMENT_NOT_FOUND' } 
+      return res.status(404).json({
+        error: { message: 'Tarea no encontrada', code: 'ASSIGNMENT_NOT_FOUND' }
       });
     }
-    
+
     const assignment = assignmentResult.rows[0];
-    
+
     // Check if user has access to the course
     const hasAccess = await hasCourseAccess(req.user.id, assignment.course_id);
     if (!hasAccess) {
-      return res.status(403).json({ 
-        error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' } 
+      return res.status(403).json({
+        error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' }
       });
     }
-    
+
     // Get assignment attachments (materials)
     const materialsResult = await pool.query(
       `SELECT * FROM assignment_attachments 
@@ -1293,12 +1293,12 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
        ORDER BY created_at`,
       [assignmentId]
     );
-    
+
     res.json({ success: true, data: materialsResult.rows });
   } catch (error) {
     console.error('Error getting assignment materials:', error);
-    res.status(500).json({ 
-      error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_MATERIALS_FAILED' } 
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_MATERIALS_FAILED' }
     });
   }
 });
@@ -1311,9 +1311,9 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
       userId: req.user?.id,
       hasUser: !!req.user
     });
-    
+
     const assignmentId = req.params.id;
-    
+
     if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
       return res.status(400).json({
         error: { message: 'ID de tarea inválido', code: 'INVALID_ASSIGNMENT_ID' }
@@ -1340,8 +1340,8 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
     // Check if user has access to course
     const hasAccess = await hasCourseAccess(req.user.id, assignment.course_id);
     if (!hasAccess) {
-      return res.status(403).json({ 
-        error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' } 
+      return res.status(403).json({
+        error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' }
       });
     }
 
@@ -1400,15 +1400,15 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
       ]
     );
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       data: insertResult.rows[0],
       message: 'Material agregado exitosamente'
     });
   } catch (error) {
     console.error('Error uploading assignment material:', error);
-    res.status(500).json({ 
-      error: { message: 'Error interno del servidor', code: 'UPLOAD_ASSIGNMENT_MATERIAL_FAILED' } 
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'UPLOAD_ASSIGNMENT_MATERIAL_FAILED' }
     });
   }
 });
@@ -1417,7 +1417,7 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
 router.get('/:id/materials', authMiddleware, async (req, res) => {
   try {
     const assignmentId = req.params.id;
-    
+
     if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
       return res.status(400).json({
         error: { message: 'ID de tarea inválido', code: 'INVALID_ASSIGNMENT_ID' }
@@ -1444,11 +1444,11 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
     // Check if user has access to course
     const hasAccess = await hasCourseAccess(req.user.id, assignment.course_id);
     if (!hasAccess) {
-      return res.status(403).json({ 
-        error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' } 
+      return res.status(403).json({
+        error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' }
       });
     }
-    
+
     // Get assignment materials
     const materialsResult = await pool.query(
       `SELECT m.*, u.display_name as created_by_name
@@ -1458,12 +1458,12 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
        ORDER BY m.created_at`,
       [assignmentId]
     );
-    
+
     res.json({ success: true, data: materialsResult.rows });
   } catch (error) {
     console.error('Error getting assignment materials:', error);
-    res.status(500).json({ 
-      error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_MATERIALS_FAILED' } 
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_MATERIALS_FAILED' }
     });
   }
 });
@@ -1472,7 +1472,7 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
 router.delete('/materials/:materialId', authMiddleware, async (req, res) => {
   try {
     const materialId = req.params.materialId;
-    
+
     if (!(isIntegerString(materialId) || isUuid(materialId))) {
       return res.status(400).json({
         error: { message: 'ID de material inválido', code: 'INVALID_MATERIAL_ID' }
@@ -1500,24 +1500,24 @@ router.delete('/materials/:materialId', authMiddleware, async (req, res) => {
     // Check if user has access (owner or teacher)
     const isOwner = material.owner_id === req.user.id;
     const isTeacher = await isCourseTeacher(req.user.id, material.course_id);
-    
+
     if (!isOwner && !isTeacher) {
-      return res.status(403).json({ 
-        error: { message: 'No tienes permisos para eliminar este material', code: 'ACCESS_DENIED' } 
+      return res.status(403).json({
+        error: { message: 'No tienes permisos para eliminar este material', code: 'ACCESS_DENIED' }
       });
     }
 
     // Delete material
     await pool.query('DELETE FROM materials WHERE id = $1', [materialId]);
-    
-    res.json({ 
-      success: true, 
-      message: 'Material eliminado exitosamente' 
+
+    res.json({
+      success: true,
+      message: 'Material eliminado exitosamente'
     });
   } catch (error) {
     console.error('Error deleting assignment material:', error);
-    res.status(500).json({ 
-      error: { message: 'Error interno del servidor', code: 'DELETE_ASSIGNMENT_MATERIAL_FAILED' } 
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'DELETE_ASSIGNMENT_MATERIAL_FAILED' }
     });
   }
 });
@@ -1526,7 +1526,7 @@ router.delete('/materials/:materialId', authMiddleware, async (req, res) => {
 router.get('/:assignmentId', authMiddleware, async (req, res) => {
   try {
     const assignmentId = req.params.assignmentId;
-    
+
     if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
       return res.status(400).json({ error: { message: 'ID de tarea inválido', code: 'INVALID_ASSIGNMENT_ID' } });
     }
@@ -1544,8 +1544,8 @@ router.get('/:assignmentId', authMiddleware, async (req, res) => {
     `, [assignmentId]);
 
     if (assignmentResult.rows.length === 0) {
-      return res.status(404).json({ 
-        error: { message: 'Tarea no encontrada', code: 'ASSIGNMENT_NOT_FOUND' } 
+      return res.status(404).json({
+        error: { message: 'Tarea no encontrada', code: 'ASSIGNMENT_NOT_FOUND' }
       });
     }
 
@@ -1555,8 +1555,8 @@ router.get('/:assignmentId', authMiddleware, async (req, res) => {
     // Check if user has access to this course
     const hasAccess = await hasCourseAccess(req.user.id, courseId);
     if (!hasAccess) {
-      return res.status(403).json({ 
-        error: { message: 'No tienes acceso a esta tarea', code: 'ACCESS_DENIED' } 
+      return res.status(403).json({
+        error: { message: 'No tienes acceso a esta tarea', code: 'ACCESS_DENIED' }
       });
     }
 
@@ -1598,8 +1598,8 @@ router.get('/:assignmentId', authMiddleware, async (req, res) => {
 
   } catch (error) {
     console.error('Error getting assignment:', error);
-    res.status(500).json({ 
-      error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_FAILED' } 
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_FAILED' }
     });
   }
 });

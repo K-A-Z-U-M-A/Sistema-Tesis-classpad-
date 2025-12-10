@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import crypto from 'crypto';
+import { logAction } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
@@ -68,7 +69,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000; // Earth's radius in meters
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
@@ -80,7 +81,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 router.post('/sessions', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
-    
+
     if (role !== 'teacher') {
       return res.status(403).json({
         error: {
@@ -90,15 +91,15 @@ router.post('/sessions', authMiddleware, async (req, res) => {
       });
     }
 
-    const { 
-      course_id, 
-      title, 
-      description, 
-      location_required, 
-      allowed_latitude, 
-      allowed_longitude, 
+    const {
+      course_id,
+      title,
+      description,
+      location_required,
+      allowed_latitude,
+      allowed_longitude,
       allowed_radius,
-      duration_minutes 
+      duration_minutes
     } = req.body;
 
     if (!course_id || !title) {
@@ -123,9 +124,9 @@ router.post('/sessions', authMiddleware, async (req, res) => {
 
     // Generate unique QR token
     const qrToken = crypto.randomBytes(32).toString('hex');
-    
+
     // Calculate end time
-    const endTime = duration_minutes 
+    const endTime = duration_minutes
       ? new Date(Date.now() + duration_minutes * 60 * 1000)
       : null;
 
@@ -139,11 +140,21 @@ router.post('/sessions', authMiddleware, async (req, res) => {
        VALUES ($1${cast}, $2, $3, $4, $5, $6, $7, $8, $9, true, $10)
        RETURNING *`,
       [course_id, title, description, qrToken, !!location_required,
-       allowed_latitude, allowed_longitude, allowed_radius || 50,
-       endTime, req.user.id]
+        allowed_latitude, allowed_longitude, allowed_radius || 50,
+        endTime, req.user.id]
     );
 
     const session = result.rows[0];
+
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'CREATE_ATTENDANCE_SESSION',
+      entity: 'AttendanceSession',
+      entityId: session.id,
+      details: { title: session.title, course_id: course_id },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
 
     res.status(201).json({
       success: true,
@@ -189,8 +200,8 @@ router.get('/sessions/:sessionId', authMiddleware, async (req, res) => {
 
     // Check access
     const hasAccess = await isCourseTeacher(req.user.id, session.course_id) ||
-                      await isCourseStudent(req.user.id, session.course_id);
-    
+      await isCourseStudent(req.user.id, session.course_id);
+
     if (!hasAccess) {
       return res.status(403).json({
         error: {
@@ -225,8 +236,8 @@ router.get('/courses/:courseId/sessions', authMiddleware, async (req, res) => {
 
     // Check access
     const hasAccess = await isCourseTeacher(req.user.id, courseId) ||
-                      await isCourseStudent(req.user.id, courseId);
-    
+      await isCourseStudent(req.user.id, courseId);
+
     if (!hasAccess) {
       return res.status(403).json({
         error: {
@@ -294,8 +305,8 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
 
     // Check access
     const hasAccess = await isCourseTeacher(req.user.id, session.course_id) ||
-                      await isCourseStudent(req.user.id, session.course_id);
-    
+      await isCourseStudent(req.user.id, session.course_id);
+
     if (!hasAccess) {
       console.log('⚠️ Access denied for user:', req.user.id);
       return res.status(403).json({
@@ -338,7 +349,7 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
 router.post('/scan', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
-    
+
     if (role !== 'student') {
       return res.status(403).json({
         error: {
@@ -457,6 +468,16 @@ router.post('/scan', authMiddleware, async (req, res) => {
       [newQrToken, session.id]
     );
 
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'SCAN_QR',
+      entity: 'AttendanceRecord',
+      entityId: recordResult.rows[0].id,
+      details: { session_id: session.id, course_id: session.course_id },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.status(201).json({
       success: true,
       message: 'Asistencia registrada exitosamente',
@@ -481,7 +502,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
 router.post('/manual', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
-    
+
     if (role !== 'teacher') {
       return res.status(403).json({
         error: {
@@ -562,6 +583,16 @@ router.post('/manual', authMiddleware, async (req, res) => {
       record = insertResult.rows[0];
     }
 
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'RECORD_MANUAL_ATTENDANCE',
+      entity: 'AttendanceRecord',
+      entityId: record.id,
+      details: { session_id: session_id, student_id: student_id, status: status },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.json({
       success: true,
       message: 'Asistencia registrada exitosamente',
@@ -585,7 +616,7 @@ router.post('/manual', authMiddleware, async (req, res) => {
 router.post('/holidays', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
-    
+
     if (role !== 'teacher') {
       return res.status(403).json({
         error: {
@@ -640,6 +671,16 @@ router.post('/holidays', authMiddleware, async (req, res) => {
       }
     }
 
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'RECORD_HOLIDAY',
+      entity: 'AttendanceHoliday',
+      entityId: holidayResult.id,
+      details: { course_id: course_id, date: date, reason: reason },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.json({
       success: true,
       message: 'Feriado registrado exitosamente',
@@ -666,7 +707,7 @@ router.delete('/sessions/:sessionId', authMiddleware, async (req, res) => {
     const { permanent } = req.query; // Si permanent=true, elimina completamente. Si false o no existe, solo desactiva
 
     const { role } = req.user;
-    
+
     if (role !== 'teacher') {
       return res.status(403).json({
         error: {
@@ -714,15 +755,25 @@ router.delete('/sessions/:sessionId', authMiddleware, async (req, res) => {
           `DELETE FROM attendance_records WHERE session_id = $1`,
           [sessionId]
         );
-        
+
         // Eliminar la sesión
         await pool.query(
           `DELETE FROM attendance_sessions WHERE id = $1`,
           [sessionId]
         );
-        
+
         await pool.query('COMMIT');
-        
+
+        // Audit Log
+        await logAction({
+          userId: req.user.id,
+          action: 'DELETE_ATTENDANCE_SESSION',
+          entity: 'AttendanceSession',
+          entityId: sessionId,
+          details: { permanent: true, deleted_records: deleteRecordsResult.rowCount },
+          ipAddress: req.ip || req.connection.remoteAddress
+        });
+
         res.json({
           success: true,
           message: 'Sesión eliminada exitosamente',
@@ -738,6 +789,16 @@ router.delete('/sessions/:sessionId', authMiddleware, async (req, res) => {
         `UPDATE attendance_sessions SET is_active = false WHERE id = $1`,
         [sessionId]
       );
+
+      // Audit Log
+      await logAction({
+        userId: req.user.id,
+        action: 'DEACTIVATE_ATTENDANCE_SESSION',
+        entity: 'AttendanceSession',
+        entityId: sessionId,
+        details: { permanent: false },
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
 
       res.json({
         success: true,
@@ -765,8 +826,8 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
 
     // Check access
     const hasAccess = await isCourseTeacher(req.user.id, courseId) ||
-                      await isCourseStudent(req.user.id, courseId);
-    
+      await isCourseStudent(req.user.id, courseId);
+
     if (!hasAccess) {
       return res.status(403).json({
         error: {
@@ -777,7 +838,7 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
     }
 
     const cast = isUuid(courseId) ? '::uuid' : '';
-    
+
     // Get all finished sessions for the course (only existing, non-deleted sessions)
     const sessionsResult = await pool.query(
       `SELECT id, title, start_time 
@@ -786,7 +847,7 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
        ORDER BY start_time ASC`,
       [courseId]
     );
-    
+
     // Clean up orphaned records (records without existing sessions) - one-time cleanup
     // This ensures data integrity
     await pool.query(
@@ -800,7 +861,7 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
     );
 
     const sessions = sessionsResult.rows;
-    
+
     if (sessions.length === 0) {
       return res.json({
         success: true,
@@ -818,7 +879,7 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
          ORDER BY u.display_name`,
         [courseId]
       );
-      
+
       // If no results, try course_students (legacy table)
       if (studentsResult.rows.length === 0) {
         studentsResult = await pool.query(
@@ -859,7 +920,7 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
         // No sessions, skip this student
         continue;
       }
-      
+
       const recordsResult = await pool.query(
         `SELECT ar.session_id, ar.status 
          FROM attendance_records ar
@@ -886,8 +947,8 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
       }
 
       // Calculate percentage: (Present + Late + Excused) / Total Sessions
-      const attendancePercentage = totalSessions > 0 
-        ? ((presentCount + lateCount + excusedCount) / totalSessions) * 100 
+      const attendancePercentage = totalSessions > 0
+        ? ((presentCount + lateCount + excusedCount) / totalSessions) * 100
         : 0;
       const isEnabled = attendancePercentage >= 60;
 

@@ -5,6 +5,7 @@ import { upload } from '../config/multer.js';
 import { getFileInfo } from '../services/storage.js';
 import { isUuid } from '../utils/uuid.js';
 import { createNotification } from './notifications.js';
+import { logAction } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
@@ -69,7 +70,7 @@ router.get('/assignment/:assignmentId', authMiddleware, async (req, res) => {
            FROM submission_files WHERE submission_id = $1 ORDER BY uploaded_at`,
           [submission.id]
         );
-        
+
         return {
           ...submission,
           files: filesResult.rows
@@ -181,7 +182,7 @@ router.post('/', authMiddleware, async (req, res) => {
     console.log('🔍 Checking access for user', req.user.id, 'to assignment', assignmentId);
     const hasAccess = await hasAssignmentAccess(req.user.id, assignmentId);
     console.log('🔍 Access result:', hasAccess);
-    
+
     if (!hasAccess) {
       return res.status(403).json({
         success: false,
@@ -190,7 +191,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     const cast = isUuid(assignmentId) ? '::uuid' : '';
-    
+
     // Check if submission already exists
     const existingResult = await pool.query(
       `SELECT id FROM submissions 
@@ -205,7 +206,7 @@ router.post('/', authMiddleware, async (req, res) => {
       console.log('🔍 Updating existing submission:', existingSubmission.id);
       console.log('🔍 Current status:', existingSubmission.status);
       console.log('🔍 New status:', status);
-      
+
       const updateData = {
         content: content || null,
         status: status || 'draft'
@@ -265,7 +266,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
         if (assignmentResult.rows.length > 0) {
           const assignment = assignmentResult.rows[0];
-          
+
           // Get all teachers in the course (owner + course teachers)
           const teachersResult = await pool.query(
             `SELECT DISTINCT user_id FROM (
@@ -287,7 +288,7 @@ router.post('/', authMiddleware, async (req, res) => {
           const notificationPromises = teachersResult.rows.map(teacher => {
             const title = 'Nueva entrega de tarea';
             const messageText = `${studentName} ha entregado la tarea "${assignment.assignment_title}" en ${assignment.course_name}. ${content ? `Contenido: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}` : ''}`;
-            
+
             return createNotification(
               teacher.user_id,
               'assignment',
@@ -315,6 +316,16 @@ router.post('/', authMiddleware, async (req, res) => {
       success: true,
       data: submission,
       message: status === 'submitted' ? 'Tarea entregada exitosamente' : 'Borrador guardado'
+    });
+
+    // Audit log
+    await logAction({
+      userId: req.user.id,
+      action: status === 'submitted' ? 'SUBMIT_ASSIGNMENT' : 'SAVE_DRAFT_ASSIGNMENT',
+      entity: 'Submission',
+      entityId: submission.id,
+      details: { assignment_id: assignmentId, status: status },
+      ipAddress: req.ip || req.connection.remoteAddress
     });
 
   } catch (error) {
@@ -363,7 +374,7 @@ router.post('/:submissionId/files', authMiddleware, upload.single('file'), async
     }
 
     const fileInfo = getFileInfo(req.file, 'assignments');
-    
+
     const result = await pool.query(
       `INSERT INTO submission_files (submission_id, file_name, original_name, file_size, mime_type, url)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -375,6 +386,16 @@ router.post('/:submissionId/files', authMiddleware, upload.single('file'), async
       success: true,
       data: result.rows[0],
       message: 'Archivo subido exitosamente'
+    });
+
+    // Audit log
+    await logAction({
+      userId: req.user.id,
+      action: 'UPLOAD_SUBMISSION_FILE',
+      entity: 'SubmissionFile',
+      entityId: result.rows[0].id,
+      details: { submission_id: submissionId, file_name: fileInfo.filename },
+      ipAddress: req.ip || req.connection.remoteAddress
     });
 
   } catch (error) {
@@ -433,6 +454,16 @@ router.delete('/:submissionId/files/:fileId', authMiddleware, async (req, res) =
     res.json({
       success: true,
       message: 'Archivo eliminado exitosamente'
+    });
+
+    // Audit log
+    await logAction({
+      userId: req.user.id,
+      action: 'DELETE_SUBMISSION_FILE',
+      entity: 'SubmissionFile',
+      entityId: fileId,
+      details: { submission_id: submissionId },
+      ipAddress: req.ip || req.connection.remoteAddress
     });
 
   } catch (error) {

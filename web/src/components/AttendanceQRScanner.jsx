@@ -31,9 +31,11 @@ import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
 export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorded }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [cameraError, setCameraError] = useState(false);
   const [success, setSuccess] = useState(false);
   const [qrToken, setQrToken] = useState('');
-  const [tab, setTab] = useState(0); // 0 = camera, 1 = manual, 2 = upload image
+  const [tab, setTab] = useState(window.isSecureContext ? 0 : 2); // 0 = camera, 1 = manual, 2 = upload image (default to 2 if not HTTPS)
   const [uploadedImage, setUploadedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const scannerRef = useRef(null);
@@ -112,7 +114,9 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
       setSuccess(false);
       setTab(0);
       setUploadedImage(null);
+
       setImagePreview(null);
+      setCameraError(false);
       // Limpiar input de archivo
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -160,7 +164,7 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
       // Limpiar la instancia si fue creada
       if (html5QrCode) {
         try {
-          await html5QrCode.clear().catch(() => {});
+          await html5QrCode.clear().catch(() => { });
         } catch (e) {
           // Ignorar errores al limpiar
         }
@@ -260,8 +264,10 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
           );
 
           scannerRef.current = scanner;
+
         } catch (error) {
           console.error('Error initializing QR scanner:', error);
+          setCameraError(true);
         }
       }, 300);
     }
@@ -322,17 +328,38 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 2 }}>
             <Tabs value={tab} onChange={(e, newValue) => setTab(newValue)}>
-              <Tab icon={<QrCodeScanner />} iconPosition="start" label="Cámara" />
-              <Tab icon={<CameraAlt />} iconPosition="start" label="Manual" />
-              <Tab icon={<ImageIcon />} iconPosition="start" label="Subir Imagen" />
+              {window.isSecureContext && (
+                <Tab icon={<QrCodeScanner />} iconPosition="start" label="Cámara En Vivo" />
+              )}
+              <Tab icon={<CameraAlt />} iconPosition="start" label="Código Manual" />
+              <Tab icon={<ImageIcon />} iconPosition="start" label="Escanear QR (Foto)" />
             </Tabs>
 
             {tab === 0 ? (
               <Box>
-                <Alert severity="info" icon={<QrCodeScanner />} sx={{ mb: 2 }}>
-                  Apunta la cámara hacia el código QR
-                </Alert>
-                <Box id="qr-reader" sx={{ display: 'flex', justifyContent: 'center' }} />
+                {cameraError ? (
+                  <Alert
+                    severity="warning"
+                    action={
+                      <Button color="inherit" size="small" onClick={() => setTab(2)}>
+                        Usar Cámara (Foto)
+                      </Button>
+                    }
+                    sx={{ mb: 2 }}
+                  >
+                    El navegador bloqueó la cámara en vivo (requiere HTTPS).
+                    Usa la opción de "Subir Imagen" para tomar una foto del QR.
+                  </Alert>
+                ) : (
+                  <Alert severity="info" icon={<QrCodeScanner />} sx={{ mb: 2 }}>
+                    Apunta la cámara hacia el código QR
+                  </Alert>
+                )}
+
+                {!cameraError && (
+                  <Box id="qr-reader" sx={{ display: 'flex', justifyContent: 'center' }} />
+                )}
+
                 {error && (
                   <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>
                 )}
@@ -364,14 +391,15 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
               </Box>
             ) : (
               <Box>
-                <Alert severity="info" icon={<ImageIcon />} sx={{ mb: 2 }}>
-                  Sube una imagen que contenga un código QR
+                <Alert severity="success" icon={<ImageIcon />} sx={{ mb: 2 }}>
+                  Toca el botón para tomar una foto del código QR con tu cámara
                 </Alert>
 
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   onChange={handleFileSelect}
                   style={{ display: 'none' }}
                 />
@@ -412,7 +440,7 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
                     <Box>
                       <Upload sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
                       <Typography variant="body1" gutterBottom>
-                        Haz clic para subir una imagen
+                        Toca para abrir la cámara y escanear el QR
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         Formatos soportados: JPG, PNG, GIF (máx. 5MB)

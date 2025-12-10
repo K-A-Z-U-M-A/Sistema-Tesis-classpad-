@@ -1,0 +1,267 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Container,
+  Grid,
+  Typography,
+  Box,
+  Card,
+  CardActionArea,
+  CardContent,
+  LinearProgress,
+  Chip,
+  CircularProgress,
+  Alert,
+  AlertTitle,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Avatar,
+  Button
+} from '@mui/material';
+import {
+  School,
+  Assignment,
+  CheckCircle,
+  Schedule,
+  TrendingUp,
+  People,
+  Assessment,
+  Warning,
+  TrendingDown,
+  AccessTime,
+  BarChart,
+  Notifications,
+  ErrorOutline,
+  CheckCircleOutline,
+  AttachMoney,
+  CalendarToday,
+  FactCheck,
+  AssignmentTurnedIn,
+  Bolt
+} from '@mui/icons-material';
+import { motion } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext.tsx';
+import { useNavigate } from 'react-router-dom';
+import api from '../../services/api';
+import {
+  BarChart as RechartsBarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+
+// Componente de tarjeta de estadística mejorado (Pill Layout Mobile)
+const StatCard = ({ title, value, icon, color, subtitle, onClick }) => {
+  const formatValue = (val) => {
+    if (typeof val === 'string') return val;
+    if (val === null || val === undefined) return 'N/A';
+    if (typeof val === 'number') {
+      if (Number.isInteger(val)) return val.toLocaleString('es-ES');
+      return val.toFixed(1);
+    }
+    return String(val);
+  };
+  const displayValue = formatValue(value);
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      <Card
+        sx={{
+          height: { xs: 'auto', sm: '100%' },
+          minHeight: { xs: 'auto', sm: 140 },
+          background: `linear-gradient(135deg, ${color}15, ${color}05)`,
+          border: `1px solid ${color}30`,
+          borderRadius: { xs: 4, sm: 3 }, // Pill shape
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          cursor: onClick ? 'pointer' : 'default',
+          '&:hover': { transform: onClick ? 'translateY(-4px)' : 'none', boxShadow: onClick ? '0 4px 16px rgba(0,0,0,0.12)' : '0 2px 8px rgba(0,0,0,0.08)' }
+        }}
+        onClick={onClick}
+      >
+        <CardContent sx={{ p: { xs: 1.5, sm: 3 }, '&:last-child': { pb: { xs: 1.5, sm: 3 } }, height: '100%', display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, justifyContent: 'space-between', alignItems: { xs: 'center', sm: 'flex-start' } }}>
+          <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', width: '100%', gap: 2 }}>
+            <Box sx={{ p: 1, borderRadius: '50%', bgcolor: 'rgba(255, 255, 255, 0.9)', color: color, display: 'flex', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+              {React.cloneElement(icon, { sx: { fontSize: 20 } })}
+            </Box>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="body1" fontWeight="600" color="text.secondary" sx={{ fontSize: '0.9rem', lineHeight: 1.1 }}>{title}</Typography>
+              {subtitle && <Typography variant="caption" sx={{ color: color, fontSize: '0.75rem' }}>{subtitle}</Typography>}
+            </Box>
+            <Typography variant="h4" fontWeight="bold" color="text.primary" sx={{ fontSize: '1.5rem' }}>{displayValue}</Typography>
+          </Box>
+          <Box sx={{ display: { xs: 'none', sm: 'flex' }, width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(255, 255, 255, 0.9)', color: color, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {icon}
+            </Box>
+          </Box>
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <Typography variant="h3" color="text.primary" fontWeight="800" sx={{ fontSize: '2.5rem', lineHeight: 1 }}>{displayValue}</Typography>
+            <Typography variant="body1" color="text.secondary" fontWeight="500" sx={{ mt: 0.5, fontSize: '1rem' }}>{title}</Typography>
+            {subtitle && <Typography variant="caption" sx={{ color: color, fontWeight: 600, mt: 0.5, display: 'block', fontSize: '0.75rem' }}>{subtitle}</Typography>}
+          </Box>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
+// Componente de tarjeta de curso (Pill Layout Mobile)
+const CourseCard = ({ course }) => {
+  const navigate = useNavigate();
+  const progress = course.progress || 0;
+  const isActive = course.is_active !== undefined ? course.is_active : (course.isActive !== undefined ? course.isActive : true);
+  return (
+    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }}>
+      <Card sx={{ height: '100%', cursor: 'pointer', borderRadius: { xs: 4, sm: 3 }, '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }, transition: 'all 0.3s ease' }} onClick={() => navigate(`/courses/${course.id}`)}>
+        <CardContent sx={{ p: { xs: 1.5, sm: 3 }, '&:last-child': { pb: { xs: 1.5, sm: 3 } } }}>
+          <Box sx={{ display: { xs: 'flex', sm: 'none' }, flexDirection: 'column', gap: 1 }}>
+             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: course.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <School sx={{ color: 'white', fontSize: 20 }} />
+                </Box>
+                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                  <Typography variant="body1" fontWeight="bold" noWrap sx={{ fontSize: '1rem' }}>{course.name}</Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap display="block">{course.subject}</Typography>
+                </Box>
+                <Chip label={isActive ? 'Activo' : 'Inactivo'} color={isActive ? 'success' : 'default'} size="small" sx={{ height: 24, fontSize: '0.7rem' }} />
+             </Box>
+             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 0.5 }}>
+                <Typography variant="caption" color="text.secondary" fontWeight="500">{course.student_count || 0} alumnos</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '50%' }}>
+                  <Typography variant="caption" color="text.secondary">{Math.round(progress)}%</Typography>
+                  <LinearProgress variant="determinate" value={progress} sx={{ flexGrow: 1, height: 6, borderRadius: 3, backgroundColor: 'grey.200', '& .MuiLinearProgress-bar': { backgroundColor: course.color, borderRadius: 3 } }} />
+                </Box>
+             </Box>
+          </Box>
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Box sx={{ width: 40, height: 40, borderRadius: 2, backgroundColor: course.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><School sx={{ color: 'white', fontSize: 20 }} /></Box>
+              <Chip label={isActive ? 'Activo' : 'Inactivo'} color={isActive ? 'success' : 'default'} size="small" sx={{ fontSize: '0.75rem', height: 28 }} />
+            </Box>
+            <Typography variant="h6" gutterBottom sx={{ fontSize: '1.25rem', lineHeight: 1.4 }}>{course.name}</Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: '0.875rem' }}>{course.course_code || course.code} • {course.subject}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: '0.875rem' }}>{course.student_count || 0} estudiantes</Typography>
+            <Box sx={{ mb: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>Progreso: {Math.round(progress)}%</Typography>
+              <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3, backgroundColor: 'grey.200', '& .MuiLinearProgress-bar': { backgroundColor: course.color, borderRadius: 3 } }} />
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
+// Componente de tarea pendiente (Pill Layout Mobile)
+const PendingTask = ({ assignment }) => {
+  const navigate = useNavigate();
+  const assignmentId = assignment.id ?? assignment.assignment_id;
+  const hasDueDate = Boolean(assignment.due_date);
+  const dueDate = hasDueDate ? new Date(assignment.due_date) : null;
+  const now = new Date();
+  const daysLeft = hasDueDate ? Math.ceil((dueDate - now) / (1000 * 60 * 60 * 24)) : null;
+  const isOverdue = hasDueDate ? daysLeft < 0 : false;
+  const statusKey = !hasDueDate ? 'noDue' : isOverdue ? 'overdue' : daysLeft <= 3 ? 'urgent' : daysLeft <= 7 ? 'soon' : 'scheduled';
+  
+  const statusVisuals = {
+    overdue: { accent: 'rgba(244,67,54,0.95)', background: 'linear-gradient(135deg, rgba(244,67,54,0.18), rgba(244,67,54,0.05))', borderColor: 'rgba(244,67,54,0.35)', chipColor: 'error', icon: <Warning fontSize="small" color="error" /> },
+    urgent: { accent: 'rgba(255,152,0,0.95)', background: 'linear-gradient(135deg, rgba(255,152,0,0.18), rgba(255,152,0,0.05))', borderColor: 'rgba(255,152,0,0.35)', chipColor: 'warning', icon: <AccessTime fontSize="small" color="warning" /> },
+    soon: { accent: 'rgba(33,150,243,0.95)', background: 'linear-gradient(135deg, rgba(33,150,243,0.18), rgba(33,150,243,0.05))', borderColor: 'rgba(33,150,243,0.35)', chipColor: 'info', icon: <Schedule fontSize="small" color="info" /> },
+    scheduled: { accent: 'rgba(76,175,80,0.95)', background: 'linear-gradient(135deg, rgba(76,175,80,0.18), rgba(76,175,80,0.05))', borderColor: 'rgba(76,175,80,0.35)', chipColor: 'success', icon: <CalendarToday fontSize="small" color="success" /> },
+    noDue: { accent: 'rgba(158,158,158,0.95)', background: 'linear-gradient(135deg, rgba(158,158,158,0.18), rgba(158,158,158,0.05))', borderColor: 'rgba(158,158,158,0.35)', chipColor: 'default', icon: <Assignment fontSize="small" color="action" /> }
+  };
+  const visuals = statusVisuals[statusKey];
+
+  return (
+    <Card elevation={0} sx={{ mb: { xs: 1.5, sm: 2 }, borderRadius: { xs: 4, sm: 3 }, border: `1px solid ${visuals.borderColor}`, background: visuals.background, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { transform: 'translateX(4px)', borderColor: visuals.accent } }} onClick={() => navigate(`/assignments/${assignmentId}`)}>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+         <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ p: 1, borderRadius: '50%', bgcolor: 'white', display: 'flex', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>{visuals.icon}</Box>
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+               <Typography variant="body1" fontWeight="600" noWrap sx={{ fontSize: '0.95rem' }}>{assignment.title}</Typography>
+               <Typography variant="caption" color="text.secondary" noWrap display="block">{assignment.course_name || assignment.subject_name || 'Curso'}</Typography>
+            </Box>
+            <Box sx={{ textAlign: 'right' }}>
+               {hasDueDate && <Typography variant="caption" fontWeight="bold" sx={{ color: visuals.accent, fontSize: '0.75rem', display: 'block' }}>{daysLeft === 0 ? 'Hoy' : daysLeft === 1 ? 'Mañana' : isOverdue ? 'Vencida' : `${daysLeft} días`}</Typography>}
+            </Box>
+         </Box>
+        <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+            <Box>
+              <Typography variant="subtitle1" fontWeight="bold" gutterBottom sx={{ fontSize: '1.1rem' }}>{assignment.title}</Typography>
+              <Box display="flex" alignItems="center" gap={1} mb={1}>
+                <Chip label={assignment.course_name || assignment.subject_name || 'Curso'} size="small" variant="outlined" sx={{ borderColor: 'rgba(0,0,0,0.12)', height: 24 }} />
+              </Box>
+            </Box>
+            <Chip label={!hasDueDate ? 'Sin fecha' : isOverdue ? 'Vencida' : daysLeft === 0 ? 'Para hoy' : daysLeft === 1 ? 'Para mañana' : `${daysLeft} días restantes`} color={visuals.chipColor} size="small" icon={visuals.icon} sx={{ fontWeight: 'bold' }} />
+          </Box>
+          <Box display="flex" alignItems="center" gap={2} mt={1}>
+            {hasDueDate && <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><CalendarToday sx={{ fontSize: 16 }} />{dueDate.toLocaleDateString()}</Typography>}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+};
+
+const PerformanceChart = ({ data }) => {
+  if (!data || data.length === 0) return <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}><Typography variant="body2" color="text.secondary">No hay datos disponibles</Typography></Box>;
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <RechartsBarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} tick={{ fontSize: 11 }} interval={0} />
+        <YAxis domain={[0, 100]} />
+        <Tooltip formatter={(value, name) => [name === 'Promedio (%)' || name.includes('Asistencia') || name.includes('Participación') ? `${value.toFixed(1)}%` : value, name]} labelStyle={{ color: '#000', fontWeight: 'bold' }} />
+        <Legend />
+        <Bar dataKey="averageGrade" fill="#8884d8" name="Promedio (%)" radius={[8, 8, 0, 0]} />
+        <Bar dataKey="attendanceRate" fill="#82ca9d" name="Asistencia (%)" radius={[8, 8, 0, 0]} />
+        <Bar dataKey="participationRate" fill="#ffc658" name="Participación (%)" radius={[8, 8, 0, 0]} />
+      </RechartsBarChart>
+    </ResponsiveContainer>
+  );
+};
+
+const GradeDistributionChart = ({ gradeDistribution }) => {
+  if (!gradeDistribution || Object.values(gradeDistribution).every(v => v === 0)) return <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200 }}><Typography variant="body2" color="text.secondary">No hay calificaciones</Typography></Box>;
+  const data = [
+    { name: 'Excelente', value: gradeDistribution.excellent || 0, color: '#4CAF50' },
+    { name: 'Bueno', value: gradeDistribution.good || 0, color: '#8BC34A' },
+    { name: 'Regular', value: gradeDistribution.average || 0, color: '#FFC107' },
+    { name: 'Bajo', value: gradeDistribution.poor || 0, color: '#F44336' }
+  ].filter(item => item.value > 0);
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <RechartsBarChart data={data} layout="vertical" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis type="number" />
+        <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11 }} />
+        <Tooltip />
+        <Bar dataKey="value" radius={[0, 8, 8, 0]}><Cell fill="#8884d8"/></Bar>
+      </RechartsBarChart>
+    </ResponsiveContainer>
+  );
+};
+
+const Dashboard = () => {
+  const { userProfile, profileComplete } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [courses, setCourses] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [teacherStats, setTeacherStats] = useState(null);
+  const isTeacher = userProfile?.role === 'teacher';
+
+  useEffect(() => {
+    if (userProfile) loadDashboardData();
+  }, [userProfile]);

@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { createNotification } from './notifications.js';
+import { logAction } from '../utils/auditLogger.js';
 
 const router = express.Router();
 
@@ -115,7 +116,7 @@ function isIntegerString(value) { return /^\d+$/.test(String(value)); }
 router.get('/:courseId', authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.courseId;
-    
+
     if (!(isIntegerString(courseId) || isUuid(courseId))) {
       return res.status(400).json({ error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' } });
     }
@@ -225,6 +226,16 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const message = result.rows[0];
 
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'CREATE_MESSAGE',
+      entity: 'Message',
+      entityId: message.id,
+      details: { title: message.title, course_id: course_id, type: type },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     // Add attachments if provided
     if (attachments && attachments.length > 0) {
       for (const attachment of attachments) {
@@ -262,7 +273,7 @@ router.post('/', authMiddleware, async (req, res) => {
         const notificationType = type === 'announcement' ? 'announcement' : 'message';
         const title = type === 'announcement' ? 'Nuevo anuncio' : 'Nuevo mensaje';
         const messageText = `${title} en ${course.name}: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
-        
+
         return createNotification(
           member.user_id,
           notificationType,
@@ -299,7 +310,7 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const messageId = req.params.id;
-    
+
     if (!(isIntegerString(messageId) || isUuid(messageId))) {
       return res.status(400).json({
         error: {
@@ -361,9 +372,21 @@ router.put('/:id', authMiddleware, async (req, res) => {
       [title, content, type, is_pinned, messageId]
     );
 
+    const updatedMessage = result.rows[0];
+
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'UPDATE_MESSAGE',
+      entity: 'Message',
+      entityId: updatedMessage.id,
+      details: { updated_fields: Object.keys(req.body) },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.json({
       success: true,
-      data: result.rows[0]
+      data: updatedMessage
     });
   } catch (error) {
     console.error('Error updating message:', error);
@@ -380,7 +403,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const messageId = req.params.id;
-    
+
     if (!(isIntegerString(messageId) || isUuid(messageId))) {
       return res.status(400).json({
         error: {
@@ -431,6 +454,16 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     // Delete message (cascade will handle comments and attachments)
     await pool.query(`DELETE FROM messages WHERE id = $1`, [messageId]);
 
+    // Audit Log
+    await logAction({
+      userId: req.user.id,
+      action: 'DELETE_MESSAGE',
+      entity: 'Message',
+      entityId: messageId,
+      details: { deleted_by: req.user.email, course_id: message.course_id },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
     res.json({
       success: true,
       data: {
@@ -452,7 +485,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 router.post('/:id/comments', authMiddleware, async (req, res) => {
   try {
     const messageId = req.params.id;
-    
+
     if (!(isIntegerString(messageId) || isUuid(messageId))) {
       return res.status(400).json({
         error: {
@@ -537,7 +570,7 @@ router.post('/:id/comments', authMiddleware, async (req, res) => {
       .map(member => {
         const title = 'Nuevo comentario';
         const messageText = `Nuevo comentario en "${messageInfo.title}" de ${messageInfo.course_name}: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
-        
+
         return createNotification(
           member.user_id,
           'comment',
@@ -574,7 +607,7 @@ router.post('/:id/comments', authMiddleware, async (req, res) => {
 router.put('/comments/:commentId', authMiddleware, async (req, res) => {
   try {
     const commentId = req.params.commentId;
-    
+
     if (!(isIntegerString(commentId) || isUuid(commentId))) {
       return res.status(400).json({
         error: {
@@ -647,7 +680,7 @@ router.put('/comments/:commentId', authMiddleware, async (req, res) => {
 router.delete('/comments/:commentId', authMiddleware, async (req, res) => {
   try {
     const commentId = req.params.commentId;
-    
+
     if (!(isIntegerString(commentId) || isUuid(commentId))) {
       return res.status(400).json({
         error: {
