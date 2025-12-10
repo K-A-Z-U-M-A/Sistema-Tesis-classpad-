@@ -22,7 +22,7 @@ interface AuthStore extends AuthState {
   getUserProfileWithStats: (userId?: number) => Promise<any>;
   getTeacherCourses: (teacherId?: number) => Promise<any>;
   initializeAuth: () => void;
-  handleGoogleCallback: (token: string, user: any) => void;
+  handleGoogleCallback: (token: string, user: any) => Promise<boolean>;
   checkProfileComplete: () => Promise<boolean>;
 }
 
@@ -36,25 +36,25 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       set({ loading: true, error: null });
       const response = await apiService.login(credentials);
-      
+
       // Guardar token y datos del usuario usando sessionManager
       apiService.setToken(response.data.token);
       sessionManager.setItem('user', JSON.stringify(response.data.user));
-      
+
       // Actualizar información de sesión con el rol del usuario
-      sessionManager.updateSessionInfo({ 
+      sessionManager.updateSessionInfo({
         role: response.data.user.role,
-        userId: response.data.user.id 
+        userId: response.data.user.id
       });
-      
+
       set({ user: response.data.user, loading: false });
-      
+
       // Verificar si el perfil está completo
       await get().checkProfileComplete();
     } catch (error: any) {
-      set({ 
-        error: error.message || 'Error al iniciar sesión', 
-        loading: false 
+      set({
+        error: error.message || 'Error al iniciar sesión',
+        loading: false
       });
       throw error;
     }
@@ -63,17 +63,17 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   loginWithGoogle: async () => {
     try {
       set({ loading: true, error: null });
-      
+
       // Flujo por redirección completa (sin popup): evita problemas de CSP y cross-origin postMessage
       const googleAuthUrl = `${apiService.getGoogleAuthUrl()}?flow=redirect`;
       window.location.href = googleAuthUrl;
-      
+
       // No necesitamos esperar nada aquí, el callback se maneja en AuthCallback.jsx
       return Promise.resolve();
     } catch (error: any) {
-      set({ 
-        error: error.message || 'Error al iniciar sesión con Google', 
-        loading: false 
+      set({
+        error: error.message || 'Error al iniciar sesión con Google',
+        loading: false
       });
       throw error;
     }
@@ -82,35 +82,35 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   register: async (userData: RegisterForm) => {
     try {
       set({ loading: true, error: null });
-      
+
       const response = await apiService.register({
         email: userData.email,
         displayName: userData.displayName,
         password: userData.password,
         role: userData.role
       });
-      
+
       // Guardar token y datos del usuario usando sessionManager
       apiService.setToken(response.data.token);
       sessionManager.setItem('user', JSON.stringify(response.data.user));
-      
+
       // Actualizar información de sesión
-      sessionManager.updateSessionInfo({ 
+      sessionManager.updateSessionInfo({
         role: response.data.user.role,
-        userId: response.data.user.id 
+        userId: response.data.user.id
       });
-      
+
       // El perfil no estará completo después del registro
       set({ user: response.data.user, loading: false, profileComplete: false });
-      
+
       // Verificar el perfil completo después de un pequeño delay
       setTimeout(async () => {
         await get().checkProfileComplete();
       }, 500);
     } catch (error: any) {
-      set({ 
-        error: error.message || 'Error al registrar usuario', 
-        loading: false 
+      set({
+        error: error.message || 'Error al registrar usuario',
+        loading: false
       });
       throw error;
     }
@@ -122,9 +122,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       await apiService.logout();
       set({ user: null, loading: false });
     } catch (error: any) {
-      set({ 
-        error: error.message || 'Error al cerrar sesión', 
-        loading: false 
+      set({
+        error: error.message || 'Error al cerrar sesión',
+        loading: false
       });
       throw error;
     }
@@ -136,9 +136,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       // TODO: Implementar reset password con la nueva API
       throw new Error('Password reset not implemented yet');
     } catch (error: any) {
-      set({ 
-        error: error.message || 'Error al enviar email de restablecimiento', 
-        loading: false 
+      set({
+        error: error.message || 'Error al enviar email de restablecimiento',
+        loading: false
       });
       throw error;
     }
@@ -148,9 +148,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const { user } = get();
       if (!user) throw new Error('Usuario no autenticado');
-      
+
       set({ loading: true, error: null });
-      
+
       // Llamar a updateMyProfile que acepta los nuevos campos
       const response = await apiService.updateMyProfile({
         displayName: data.displayName || user.displayName,
@@ -162,18 +162,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         gender: (data as any).gender,
         phone: (data as any).phone,
       });
-      
+
       const updatedUser = response.data.user;
       sessionManager.setItem('user', JSON.stringify(updatedUser));
-      
+
       set({ user: updatedUser, loading: false });
-      
+
       // Verificar si el perfil está completo después de la actualización
       await get().checkProfileComplete();
     } catch (error: any) {
-      set({ 
-        error: error.message || 'Error al actualizar perfil', 
-        loading: false 
+      set({
+        error: error.message || 'Error al actualizar perfil',
+        loading: false
       });
       throw error;
     }
@@ -184,19 +184,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const { user } = get();
       const targetUserId = userId || user?.id;
-      
+
       if (!targetUserId) throw new Error('Usuario no autenticado');
-      
+
       set({ loading: true, error: null });
-      
+
       const response = await apiService.getUserProfile(targetUserId);
-      
+
       set({ loading: false });
       return response.data;
     } catch (error: any) {
-      set({ 
-        error: error.message || 'Error al obtener perfil', 
-        loading: false 
+      set({
+        error: error.message || 'Error al obtener perfil',
+        loading: false
       });
       throw error;
     }
@@ -207,18 +207,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       console.log('🔍 AuthStore - getUserProfileMe called');
       set({ loading: true, error: null });
-      
+
       console.log('🔍 AuthStore - Calling apiService.getUserProfileMe()');
       const response = await apiService.getUserProfileMe();
       console.log('🔍 AuthStore - getUserProfileMe response:', response);
-      
+
       set({ loading: false });
       return response.data;
     } catch (error: any) {
       console.error('🔍 AuthStore - getUserProfileMe error:', error);
-      set({ 
-        error: error.message || 'Error al obtener perfil', 
-        loading: false 
+      set({
+        error: error.message || 'Error al obtener perfil',
+        loading: false
       });
       throw error;
     }
@@ -229,9 +229,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       const { user } = get();
       const targetTeacherId = teacherId || user?.id;
-      
+
       if (!targetTeacherId) throw new Error('Usuario no autenticado');
-      
+
       const response = await apiService.getTeacherCourses(targetTeacherId);
       return response.data;
     } catch (error: any) {
@@ -242,18 +242,18 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   initializeAuth: () => {
     set({ loading: true });
-    
+
     try {
       // Obtener el sessionId actual para logging
       const currentSessionId = sessionManager.getSessionId();
       if (process.env.NODE_ENV === 'development') {
         console.log(`🔐 Inicializando auth para sesión: ${currentSessionId.substring(0, 12)}...`);
       }
-      
+
       // Verificar si hay token y usuario guardados en esta sesión ESPECÍFICA
       const token = apiService.getToken();
       const savedUser = sessionManager.getItem('user');
-      
+
       // VERIFICACIÓN ADICIONAL: Asegurar que los datos pertenecen a esta sesión
       if (token && savedUser) {
         try {
@@ -269,7 +269,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           } else {
             user = savedUser;
           }
-          
+
           // Verificación adicional: asegurar que sessionManager confirma que es de esta sesión
           // Esta verificación es crítica para prevenir leer datos de otras pestañas
           const isMySession = sessionManager.isMySession('user');
@@ -284,20 +284,20 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             set({ user: null, loading: false, error: null, profileComplete: null });
             return;
           }
-          
+
           // Los datos son válidos y pertenecen a esta sesión
           set({ user, loading: false, error: null });
-          
+
           // Actualizar información de sesión
-          sessionManager.updateSessionInfo({ 
+          sessionManager.updateSessionInfo({
             role: user.role,
-            userId: user.id 
+            userId: user.id
           });
-          
+
           if (process.env.NODE_ENV === 'development') {
             console.log(`✅ Usuario cargado para sesión: ${currentSessionId.substring(0, 12)}..., Rol: ${user.role}`);
           }
-          
+
           // Verificar si el perfil está completo de forma asíncrona
           get().checkProfileComplete().catch(console.error);
         } catch (error) {
@@ -317,9 +317,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       console.error('Error inicializando autenticación:', error);
       set({ user: null, loading: false, error: null, profileComplete: null });
     }
-    
+
     // Retornar función de limpieza (no-op para compatibilidad)
-    return () => {};
+    return () => { };
   },
 
   checkProfileComplete: async () => {
@@ -342,22 +342,22 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       apiService.setToken(token);
       sessionManager.setItem('user', JSON.stringify(user));
-      
+
       // Actualizar información de sesión
-      sessionManager.updateSessionInfo({ 
+      sessionManager.updateSessionInfo({
         role: user.role,
-        userId: user.id 
+        userId: user.id
       });
-      
+
       set({ user, loading: false, error: null });
-      
+
       // Verificar si el perfil está completo y retornar el estado
       const isComplete = await get().checkProfileComplete();
       return isComplete;
     } catch (error) {
-      set({ 
-        error: 'Error al procesar el callback de Google', 
-        loading: false 
+      set({
+        error: 'Error al procesar el callback de Google',
+        loading: false
       });
       return false;
     }

@@ -84,7 +84,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     logout: authStore.logout,
     resetPassword: authStore.resetPassword,
     updateUserProfile: authStore.updateUserProfile,
-    handleGoogleCallback: authStore.handleGoogleCallback,
+    handleGoogleCallback: async (token, user) => {
+      const result = await authStore.handleGoogleCallback(token, user);
+      if (typeof result === 'boolean') return result;
+      return false; // Fallback if void was returned
+    },
     checkProfileComplete: authStore.checkProfileComplete,
   };
 

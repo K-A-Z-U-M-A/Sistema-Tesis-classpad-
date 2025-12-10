@@ -8,7 +8,19 @@ export default defineConfig({
   plugins: [react(), basicSsl()],
   server: {
     host: true,
-    allowedHosts: true,
+    allowedHosts: true, // This option might not exist in all Vite versions but user had it or I added it? Wait, user code had it.
+    port: 5173,
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  },
+  preview: {
+    host: true,
     port: 5173,
     strictPort: true,
     proxy: {

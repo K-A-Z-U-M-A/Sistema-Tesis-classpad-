@@ -9,6 +9,7 @@
  */
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Card,
@@ -58,6 +59,9 @@ const ChangePassword = () => {
     const [showNew, setShowNew] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
+    const navigate = useNavigate();
+    const { logout } = useAuth();
+
     const {
         register,
         handleSubmit,
@@ -79,31 +83,28 @@ const ChangePassword = () => {
             setError('');
             setSuccess(false);
 
-            const response = await api.put('/users/change-password', {
+            await api.put('/users/change-password', {
                 currentPassword: data.currentPassword,
                 newPassword: data.newPassword
             });
 
-            // El backend devuelve un nuevo token que se guarda automáticamente en localStorage
-            // por el interceptor de api.js
-
             setSuccess(true);
-            toast.success('Contraseña actualizada exitosamente');
+            toast.success('Contraseña actualizada. Redirigiendo al login...');
 
             // Limpiar formulario
             reset();
 
-            // Ocultar mensaje de éxito después de 5 segundos
-            setTimeout(() => {
-                setSuccess(false);
-            }, 5000);
+            // Esperar un momento para que el usuario vea el mensaje y luego cerrar sesión
+            setTimeout(async () => {
+                await logout();
+                navigate('/login');
+            }, 2000);
 
         } catch (err) {
             console.error('Error cambiando contraseña:', err);
             const errorMsg = err.response?.data?.error?.message || 'Error al cambiar la contraseña';
             setError(errorMsg);
             toast.error(errorMsg);
-        } finally {
             setLoading(false);
         }
     };
