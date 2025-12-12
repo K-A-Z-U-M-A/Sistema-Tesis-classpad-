@@ -89,7 +89,7 @@ export default function Attendance() {
   const [activeTab, setActiveTab] = useState(0);
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [courseSearchTerm, setCourseSearchTerm] = useState('');
-  
+
   const [sessionForm, setSessionForm] = useState({
     title: '',
     description: '',
@@ -233,7 +233,7 @@ export default function Attendance() {
       const response = await api.getSessionAttendanceRecords(sessionId);
       if (response.success) {
         setRecords(response.data);
-        
+
         // Initialize manual attendance form with all students
         const allStudents = students || [];
         const initialForm = {};
@@ -388,7 +388,7 @@ export default function Attendance() {
       const response = await api.request(`/attendance/sessions/${sessionId}?permanent=true`, {
         method: 'DELETE'
       });
-      
+
       if (response.success) {
         toast.success('Sesión eliminada exitosamente');
         loadSessions(selectedCourse);
@@ -459,9 +459,9 @@ export default function Attendance() {
     try {
       setLoading(true);
       const now = new Date();
-      const sessionTitle = `Asistencia por Lista - ${now.toLocaleDateString('es-ES', { 
-        day: '2-digit', 
-        month: '2-digit', 
+      const sessionTitle = `Asistencia por Lista - ${now.toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
@@ -479,7 +479,7 @@ export default function Attendance() {
       if (response.success) {
         const newSession = response.data;
         setCurrentListSession(newSession);
-        
+
         // Asegurar que los estudiantes estén cargados
         let currentStudents = students;
         if (currentStudents.length === 0) {
@@ -489,14 +489,14 @@ export default function Attendance() {
             setStudents(currentStudents);
           }
         }
-        
+
         // Inicializar formulario de asistencia
         const initialForm = {};
         currentStudents.forEach(student => {
           initialForm[student.id] = '';
         });
         setListAttendanceForm(initialForm);
-        
+
         // Cargar sesiones y abrir diálogo de lista
         await loadSessions(selectedCourse);
         setAttendanceMethodDialogOpen(false);
@@ -539,12 +539,12 @@ export default function Attendance() {
 
       // Desactivar la sesión después de guardar
       await api.deactivateAttendanceSession(currentListSession.id);
-      
+
       toast.success(`Asistencia guardada exitosamente (${savedCount} estudiantes)`);
       setListAttendanceDialogOpen(false);
       setCurrentListSession(null);
       setListAttendanceForm({});
-      
+
       // Recargar sesiones
       await loadSessions(selectedCourse);
       setSelectedSession(null);
@@ -567,7 +567,7 @@ export default function Attendance() {
   };
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse);
-  
+
   // Filtrar sesiones por fecha si hay filtro
   const filterSessionsByDate = (sessionsList) => {
     if (!dateFilter) return sessionsList;
@@ -575,19 +575,19 @@ export default function Attendance() {
     filterDate.setHours(0, 0, 0, 0);
     const nextDay = new Date(filterDate);
     nextDay.setDate(nextDay.getDate() + 1);
-    
+
     return sessionsList.filter(session => {
       const sessionDate = new Date(session.start_time);
       sessionDate.setHours(0, 0, 0, 0);
       return sessionDate >= filterDate && sessionDate < nextDay;
     });
   };
-  
+
   const activeSessionsBase = sessions.filter(s => s.is_active && s.course_id === selectedCourse);
   const pastSessionsBase = sessions.filter(s => !s.is_active && s.course_id === selectedCourse);
   const activeSessions = filterSessionsByDate(activeSessionsBase);
   const pastSessions = filterSessionsByDate(pastSessionsBase);
-  
+
   // Manejar expandir/contraer sesiones
   const toggleSessionExpansion = (sessionId) => {
     setExpandedSessions(prev => {
@@ -611,7 +611,7 @@ export default function Attendance() {
       return newSet;
     });
   };
-  
+
   // Cerrar sesión expandida
   const closeExpandedSession = (sessionId, options = {}) => {
     const { keepSelected = false } = options;
@@ -624,24 +624,24 @@ export default function Attendance() {
       setSelectedSession(null);
     }
   };
-  
+
   // Calcular estadísticas de asistencia
   const calculateAttendanceStats = async () => {
     if (!selectedCourse) return;
-    
+
     try {
       setLoading(true);
-      
+
       // Verificar que haya sesiones finalizadas
       const allSessions = sessions.filter(s => s.course_id === selectedCourse && !s.is_active);
       if (allSessions.length === 0) {
         toast.info('No hay sesiones finalizadas para calcular estadísticas');
         return;
       }
-      
+
       // Obtener estadísticas del backend (más eficiente)
       const response = await api.getCourseAttendanceStats(selectedCourse);
-      
+
       if (response.success && response.data) {
         setAttendanceStats(response.data);
         setShowStats(true);
@@ -656,22 +656,22 @@ export default function Attendance() {
       setLoading(false);
     }
   };
-  
+
   // Exportar a Excel
   const exportToExcel = () => {
     if (!selectedCourse || attendanceStats.length === 0) {
       toast.error('No hay datos para exportar');
       return;
     }
-    
+
     const courseName = selectedCourseData?.name || 'Curso';
     const courseCode = selectedCourseData?.course_code || '';
-    
+
     // Crear datos para Excel
     const excelData = [
       ['Estudiante', 'Cédula', 'Total Sesiones', 'Presentes', 'Ausentes', 'Tardes', 'Justificados', 'Porcentaje (%)', 'Habilitado para Examen', 'Estado']
     ];
-    
+
     attendanceStats.forEach(stat => {
       excelData.push([
         stat.studentName,
@@ -686,11 +686,11 @@ export default function Attendance() {
         stat.isLowAverage ? 'Bajo Promedio' : 'Normal'
       ]);
     });
-    
+
     // Crear workbook
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(excelData);
-    
+
     // Ajustar ancho de columnas
     ws['!cols'] = [
       { wch: 25 }, // Estudiante
@@ -704,13 +704,13 @@ export default function Attendance() {
       { wch: 20 }, // Habilitado
       { wch: 15 }  // Estado
     ];
-    
+
     XLSX.utils.book_append_sheet(wb, ws, 'Asistencia');
-    
+
     // Descargar archivo
     const fileName = `Asistencia_${courseName}_${courseCode}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
-    
+
     toast.success('Datos exportados exitosamente');
   };
 
@@ -781,8 +781,8 @@ export default function Attendance() {
             Abrir Escáner
           </Button>
         </Paper>
-        <AttendanceQRScanner 
-          open={scanDialogOpen} 
+        <AttendanceQRScanner
+          open={scanDialogOpen}
           onClose={() => {
             setScanDialogOpen(false);
             // Refrescar registros cuando se cierra el escáner si hay una sesión seleccionada
@@ -798,8 +798,8 @@ export default function Attendance() {
                 qr_token: newQrToken
               }));
               // También actualizar en la lista de sesiones
-              setSessions(prev => prev.map(session => 
-                session.id === selectedSession.id 
+              setSessions(prev => prev.map(session =>
+                session.id === selectedSession.id
                   ? { ...session, qr_token: newQrToken }
                   : session
               ));
@@ -857,10 +857,10 @@ export default function Attendance() {
 
       {/* Course Selector - Diseño similar a Mis Cursos */}
       <Box sx={{ mb: 4 }}>
-        <Box 
-          display="flex" 
-          gap={2} 
-          mb={3} 
+        <Box
+          display="flex"
+          gap={2}
+          mb={3}
           flexWrap="wrap"
           sx={{
             '& > *': {
@@ -876,7 +876,7 @@ export default function Attendance() {
             InputProps={{
               startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
             }}
-            sx={{ 
+            sx={{
               minWidth: { xs: '100%', sm: 300 },
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2
@@ -892,15 +892,15 @@ export default function Attendance() {
           </Box>
         ) : filteredCourses.length === 0 ? (
           <Alert severity="info" sx={{ borderRadius: 2 }}>
-            {courseSearchTerm 
-              ? 'No se encontraron cursos que coincidan con tu búsqueda' 
+            {courseSearchTerm
+              ? 'No se encontraron cursos que coincidan con tu búsqueda'
               : 'No hay cursos disponibles'}
           </Alert>
         ) : (
           <Grid container spacing={{ xs: 2, sm: 3 }}>
             {filteredCourses.map((course, index) => {
               const isSelected = selectedCourse === course.id;
-              
+
               return (
                 <Grid item xs={12} sm={6} lg={4} key={course.id}>
                   <motion.div
@@ -929,10 +929,10 @@ export default function Attendance() {
                     >
                       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                         {/* Header del curso */}
-                        <Box 
-                          display="flex" 
-                          alignItems="center" 
-                          justifyContent="space-between" 
+                        <Box
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="space-between"
                           mb={2}
                         >
                           <Box
@@ -948,7 +948,7 @@ export default function Attendance() {
                           >
                             <School sx={{ color: 'white', fontSize: { xs: 20, sm: 24 } }} />
                           </Box>
-                          
+
                           <Button
                             variant="contained"
                             size="small"
@@ -960,7 +960,7 @@ export default function Attendance() {
                               setActiveTab(0);
                               setAttendanceMethodDialogOpen(true);
                             }}
-                            sx={{ 
+                            sx={{
                               textTransform: 'none',
                               borderRadius: 2
                             }}
@@ -970,11 +970,11 @@ export default function Attendance() {
                         </Box>
 
                         {/* Información del curso */}
-                        <Typography 
-                          variant="h6" 
-                          gutterBottom 
+                        <Typography
+                          variant="h6"
+                          gutterBottom
                           fontWeight="bold"
-                          sx={{ 
+                          sx={{
                             fontSize: { xs: '1.1rem', sm: '1.25rem' },
                             lineHeight: { xs: 1.3, sm: 1.4 }
                           }}
@@ -983,9 +983,9 @@ export default function Attendance() {
                         </Typography>
 
                         {course.course_code && (
-                          <Typography 
-                            variant="body2" 
-                            color="text.secondary" 
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
                             gutterBottom
                             sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
                           >
@@ -998,7 +998,7 @@ export default function Attendance() {
                             label={course.subject}
                             size="small"
                             variant="outlined"
-                            sx={{ 
+                            sx={{
                               mt: 1,
                               fontSize: { xs: '0.7rem', sm: '0.75rem' },
                               height: { xs: 24, sm: 28 }
@@ -1113,8 +1113,8 @@ export default function Attendance() {
                 <Grid container spacing={2}>
                   {(activeTab === 0 ? activeSessions : pastSessions).map((session) => (
                     <Grid item xs={12} md={6} key={session.id}>
-                      <Card 
-                        sx={{ 
+                      <Card
+                        sx={{
                           border: 1,
                           borderColor: 'divider',
                           transition: 'all 0.2s',
@@ -1135,20 +1135,20 @@ export default function Attendance() {
                                 </Typography>
                               )}
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                                <Chip 
+                                <Chip
                                   icon={<CalendarToday fontSize="small" />}
                                   label={new Date(session.start_time).toLocaleDateString('es-ES')}
                                   size="small"
                                   variant="outlined"
                                 />
-                                <Chip 
+                                <Chip
                                   icon={<AccessTime fontSize="small" />}
                                   label={new Date(session.start_time).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                                   size="small"
                                   variant="outlined"
                                 />
                                 {session.location_required && (
-                                  <Chip 
+                                  <Chip
                                     icon={<LocationOn fontSize="small" />}
                                     label="Geolocalización"
                                     size="small"
@@ -1158,7 +1158,7 @@ export default function Attendance() {
                                 )}
                               </Box>
                               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                <Chip 
+                                <Chip
                                   label={session.is_active ? 'Activa' : 'Finalizada'}
                                   color={session.is_active ? 'success' : 'default'}
                                   size="small"
@@ -1227,10 +1227,10 @@ export default function Attendance() {
       )}
 
       {/* Estadísticas de Asistencia Dialog */}
-      <Dialog 
-        open={showStats && attendanceStats.length > 0} 
-        onClose={() => setShowStats(false)} 
-        maxWidth="lg" 
+      <Dialog
+        open={showStats && attendanceStats.length > 0}
+        onClose={() => setShowStats(false)}
+        maxWidth="lg"
         fullWidth
         PaperProps={{
           sx: {
@@ -1365,10 +1365,10 @@ export default function Attendance() {
 
       {/* Session Details Dialog */}
       {selectedSession && (
-        <Dialog 
-          open={expandedSessions.has(selectedSession.id)} 
-          onClose={() => closeExpandedSession(selectedSession.id)} 
-          maxWidth="md" 
+        <Dialog
+          open={expandedSessions.has(selectedSession.id)}
+          onClose={() => closeExpandedSession(selectedSession.id)}
+          maxWidth="md"
           fullWidth
           PaperProps={{
             sx: {
@@ -1400,7 +1400,7 @@ export default function Attendance() {
             {selectedSession.is_active && (
               <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
                 <Box sx={{ textAlign: 'center' }}>
-                  <Box 
+                  <Box
                     ref={qrCodeRef}
                     sx={{ p: 2, bgcolor: 'white', borderRadius: 2, display: 'inline-block', position: 'relative' }}
                   >
@@ -1410,8 +1410,11 @@ export default function Attendance() {
                       level="H"
                     />
                   </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 1 }}>
-                    Código QR para escanear
+                  <Typography variant="h5" fontWeight="bold" sx={{ mt: 2, letterSpacing: 2 }}>
+                    {selectedSession.qr_token}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Código QR para escanear o ingreso manual
                   </Typography>
                   <Button
                     variant="outlined"
@@ -1567,7 +1570,7 @@ export default function Attendance() {
               fullWidth
               helperText="Tiempo que el QR estará activo (0 = sin límite)"
             />
-            
+
             <FormControlLabel
               control={
                 <Switch
@@ -1621,10 +1624,10 @@ export default function Attendance() {
       </Dialog>
 
       {/* Manual Attendance Dialog */}
-      <Dialog 
-        open={studentAttendanceDialogOpen} 
-        onClose={() => setStudentAttendanceDialogOpen(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={studentAttendanceDialogOpen}
+        onClose={() => setStudentAttendanceDialogOpen(false)}
+        maxWidth="md"
         fullWidth
       >
         <DialogTitle>
@@ -1656,7 +1659,7 @@ export default function Attendance() {
                     <React.Fragment key={student.id}>
                       <ListItem>
                         <ListItemAvatar>
-                          <Badge 
+                          <Badge
                             color={manualAttendanceForm[student.id] === 'present' ? 'success' : 'error'}
                             invisible={!manualAttendanceForm[student.id]}
                           >
@@ -1705,8 +1708,8 @@ export default function Attendance() {
       </Dialog>
 
       {/* Diálogo de selección de método de asistencia */}
-      <Dialog 
-        open={attendanceMethodDialogOpen} 
+      <Dialog
+        open={attendanceMethodDialogOpen}
         onClose={() => setAttendanceMethodDialogOpen(false)}
         maxWidth="sm"
         fullWidth
@@ -1792,7 +1795,7 @@ export default function Attendance() {
                 </Card>
               </Grid>
             </Grid>
-    </Box>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAttendanceMethodDialogOpen(false)}>
@@ -1802,8 +1805,8 @@ export default function Attendance() {
       </Dialog>
 
       {/* Diálogo de asistencia por lista */}
-      <Dialog 
-        open={listAttendanceDialogOpen} 
+      <Dialog
+        open={listAttendanceDialogOpen}
         onClose={() => {
           if (window.confirm('¿Estás seguro de cerrar? Los cambios no guardados se perderán.')) {
             setListAttendanceDialogOpen(false);
@@ -1854,7 +1857,7 @@ export default function Attendance() {
               </Typography>
             </Box>
           )}
-          
+
           <Box sx={{ mt: 2, maxHeight: 500, overflow: 'auto' }}>
             {students.length === 0 ? (
               <Alert severity="info">No hay estudiantes matriculados en este curso</Alert>
@@ -1918,7 +1921,7 @@ export default function Attendance() {
                           {statusOptions.map((option) => {
                             const OptionIcon = option.icon;
                             const isSelected = status === option.value;
-                            
+
                             return (
                               <Box
                                 key={option.value}
@@ -1951,7 +1954,7 @@ export default function Attendance() {
                                     e.stopPropagation();
                                     handleStatusChange(option.value);
                                   }}
-                                  onChange={() => {}}
+                                  onChange={() => { }}
                                   sx={{
                                     color: option.color,
                                     p: 0.5,
@@ -1961,15 +1964,15 @@ export default function Attendance() {
                                     }
                                   }}
                                 />
-                                <OptionIcon 
-                                  sx={{ 
-                                    fontSize: 18, 
-                                    color: isSelected ? option.color : 'text.secondary' 
-                                  }} 
+                                <OptionIcon
+                                  sx={{
+                                    fontSize: 18,
+                                    color: isSelected ? option.color : 'text.secondary'
+                                  }}
                                 />
-                                <Typography 
+                                <Typography
                                   variant="body2"
-                                  sx={{ 
+                                  sx={{
                                     color: isSelected ? option.color : 'text.secondary',
                                     fontWeight: isSelected ? 600 : 400,
                                     whiteSpace: 'nowrap'
@@ -2030,7 +2033,7 @@ export default function Attendance() {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button 
+          <Button
             onClick={() => {
               if (window.confirm('¿Estás seguro de cerrar? Los cambios no guardados se perderán.')) {
                 setListAttendanceDialogOpen(false);

@@ -122,8 +122,8 @@ router.post('/sessions', authMiddleware, async (req, res) => {
       });
     }
 
-    // Generate unique QR token
-    const qrToken = crypto.randomBytes(32).toString('hex');
+    // Generate unique QR token shorter
+    const qrToken = crypto.randomBytes(4).toString('hex').toUpperCase();
 
     // Calculate end time
     const endTime = duration_minutes
@@ -460,7 +460,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
     );
 
     // Generate new QR token to prevent reuse/fraud
-    const newQrToken = crypto.randomBytes(32).toString('hex');
+    const newQrToken = crypto.randomBytes(4).toString('hex').toUpperCase();
     await pool.query(
       `UPDATE attendance_sessions 
        SET qr_token = $1, updated_at = CURRENT_TIMESTAMP 

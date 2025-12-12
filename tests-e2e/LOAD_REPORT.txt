@@ -1,0 +1,26 @@
+
+===========================================================
+🔥 REPORTE DE PRUEBAS DE CARGA - CLASSPAD BACKEND 🔥
+===========================================================
+Fecha: 10/12/2025, 20:09:20
+Duración: 10.08 segundos
+Conexiones concurrentes: 100
+
+📊 RENDIMIENTO GENERAL
+-----------------------
+Total Peticiones:      10192
+Total Bytes Tx:        9.67 MB
+Peticiones/Segundo:    1019.2 req/s (Promedio)
+Latencia Promedio:     97.5 ms
+
+⚡ LATENCIAS (Tiempos de respuesta)
+-----------------------------------
+Rápido (Top 1%):       154 ms
+Medio:                 97.5 ms
+Lento (Max):           218 ms
+
+🏆 CLASIFICACIÓN
+----------------
+✅ BUENO: Rendimiento sólido para producción normal.
+
+===========================================================
