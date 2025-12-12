@@ -42,6 +42,7 @@ import Users from './pages/Admin/Users';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 import Audit from './pages/Admin/Audit';
 import Reports from './pages/Admin/Reports';
+import NotFound from './pages/NotFound.jsx';
 
 // Component to route dashboard based on role
 const DashboardRouter = () => {
@@ -318,7 +319,7 @@ function AppRoutes() {
       } />
 
       {/* Ruta por defecto */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

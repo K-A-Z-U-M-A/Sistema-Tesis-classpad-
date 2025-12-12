@@ -207,6 +207,8 @@ export default function Signup() {
 
             <TextField
               fullWidth
+              id="displayName"
+              name="displayName"
               label="Nombre Completo"
               value={formData.displayName}
               onChange={(e) => handleInputChange('displayName', e.target.value)}
@@ -223,6 +225,8 @@ export default function Signup() {
 
             <TextField
               fullWidth
+              id="email"
+              name="email"
               label="Correo Electrónico"
               type="email"
               value={formData.email}
@@ -239,8 +243,11 @@ export default function Signup() {
             />
 
             <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Rol</InputLabel>
+              <InputLabel id="role-label">Rol</InputLabel>
               <Select
+                labelId="role-label"
+                id="role"
+                name="role"
                 value={formData.role}
                 onChange={(e) => handleInputChange('role', e.target.value)}
                 label="Rol"
@@ -252,6 +259,8 @@ export default function Signup() {
 
             <TextField
               fullWidth
+              id="password"
+              name="password"
               label="Contraseña"
               type={showPassword ? 'text' : 'password'}
               value={formData.password}
@@ -279,6 +288,8 @@ export default function Signup() {
 
             <TextField
               fullWidth
+              id="confirmPassword"
+              name="confirmPassword"
               label="Confirmar Contraseña"
               type={showConfirmPassword ? 'text' : 'password'}
               value={formData.confirmPassword}
