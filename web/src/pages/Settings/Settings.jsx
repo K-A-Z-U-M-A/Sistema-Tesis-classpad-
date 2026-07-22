@@ -13,7 +13,9 @@ import {
   Container,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Alert,
+  AlertTitle
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -28,7 +30,7 @@ import RecoveryEmailSettings from '../../components/settings/RecoveryEmailSettin
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, mustChangePassword, clearMustChangePassword } = useAuth();
   const [expandedPanel, setExpandedPanel] = React.useState('password');
   const [recoveryEmail, setRecoveryEmail] = React.useState(user?.recovery_email || '');
 
@@ -107,6 +109,25 @@ export default function Settings() {
           </Box>
         </motion.div>
 
+        {/* Alerta de cambio de contraseña obligatorio (docentes recién creados) */}
+          {mustChangePassword && (
+            <Alert
+              severity="warning"
+              sx={{
+                mb: 3,
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'warning.main',
+                boxShadow: '0 4px 16px rgba(255, 152, 0, 0.2)'
+              }}
+            >
+              <AlertTitle sx={{ fontWeight: 700 }}>¡Acción requerida: Cambia tu contraseña</AlertTitle>
+              Tu cuenta fue creada por un administrador con una contraseña temporal.
+              Por seguridad, debes establecer una nueva contraseña antes de continuar usando el sistema.
+              Completa el formulario de abajo y luego podrás acceder a todas las funcionalidades.
+            </Alert>
+          )}
+
         {/* Contenido (Solo Seguridad) */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
@@ -169,7 +190,7 @@ export default function Settings() {
                 </Box>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 3, pt: 2 }}>
-                <ChangePassword />
+                <ChangePassword onSuccess={mustChangePassword ? clearMustChangePassword : undefined} />
               </AccordionDetails>
             </Accordion>
 

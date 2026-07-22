@@ -25,6 +25,7 @@ import adminRoutes from './routes/admin.js';
 import passwordRecoveryRoutes from './routes/passwordRecovery.js';
 import ensureAttendanceTables from './ensure-attendance-tables.js';
 import ensureProfileFields from './ensure-profile-fields.js';
+import { handleMulterError } from './config/multer.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -115,6 +116,9 @@ app.use('*', (req, res) => {
     }
   });
 });
+
+// Register Multer error handler
+app.use(handleMulterError);
 
 // Error handler
 app.use((error, req, res, next) => {

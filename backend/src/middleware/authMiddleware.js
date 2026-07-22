@@ -46,7 +46,7 @@ export async function authMiddleware(req, res, next) {
       return res.status(403).json({
         error: {
           message: 'Account is deactivated',
-          code: 'ACCOUNT_DEACTIVATED'
+          code: 'USER_INACTIVE'
         }
       });
     }
