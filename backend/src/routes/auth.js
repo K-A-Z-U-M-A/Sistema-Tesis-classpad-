@@ -46,7 +46,7 @@ router.post('/register', async (req, res) => {
     if (existingUser.rows.length > 0) {
       return res.status(409).json({
         error: {
-          message: 'User with this email already exists',
+          message: 'Ya existe un usuario con este correo electrónico',
           code: 'EMAIL_EXISTS'
         }
       });
@@ -130,9 +130,9 @@ router.post('/login', async (req, res) => {
     const normalizedEmail = email.toLowerCase();
     console.log('🔍 Normalized email:', normalizedEmail);
 
-    // Find user
+    // Find user (incluimos must_change_password para verificar si el usuario debe cambiar su contraseña)
     const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
+      'SELECT id, email, display_name, password_hash, role, provider, is_active, photo_url, created_at, must_change_password FROM users WHERE email = $1',
       [normalizedEmail]
     );
 
@@ -224,7 +224,8 @@ router.post('/login', async (req, res) => {
           is_active: user.is_active,
           photo_url: user.photo_url,
           created_at: user.created_at,
-          last_login: new Date().toISOString()
+          last_login: new Date().toISOString(),
+          must_change_password: user.must_change_password || false
         }
       }
     });

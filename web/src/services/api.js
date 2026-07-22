@@ -41,7 +41,23 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      const text = await response.text();
+      let data = {};
+
+      if (text.trim()) {
+        try {
+          data = JSON.parse(text);
+        } catch (parseError) {
+          console.error('Failed to parse JSON response:', text);
+          if (!response.ok) {
+            const error = new Error(`HTTP error! status: ${response.status}`);
+            error.status = response.status;
+            error.code = 'HTTP_ERROR';
+            throw error;
+          }
+          throw new SyntaxError('Response is not valid JSON');
+        }
+      }
 
       console.log('🔍 API Response:');
       console.log('  - endpoint:', endpoint);
@@ -54,10 +70,17 @@ class ApiService {
         const error = new Error(data.error?.message || `HTTP error! status: ${response.status}`);
         error.code = data.error?.code;
         error.status = response.status;
+        error.details = data.error?.details || data.error?.errors || null;
 
         // Si el token es inválido, limpiar el localStorage y redirigir al login
         // Evitar bucle infinito si la falla ocurre justo en el logout
-        if (endpoint !== '/auth/logout' && response.status === 401 && (error.code === 'INVALID_TOKEN' || error.message.includes('Invalid token'))) {
+        // NO CERRAR SESIÓN si el código es INVALID_CURRENT_PASSWORD o INVALID_PASSWORD
+        const isAuthError = response.status === 401 && 
+                            error.code !== 'INVALID_CURRENT_PASSWORD' && 
+                            error.code !== 'INVALID_PASSWORD' &&
+                            (error.code === 'INVALID_TOKEN' || error.message.includes('Invalid token'));
+
+        if (endpoint !== '/auth/logout' && isAuthError) {
           console.log('🔍 Token inválido detectado, limpiando localStorage');
           this.logout();
           // Redirigir al login si estamos en el navegador
@@ -151,22 +174,21 @@ class ApiService {
   }
 
   // Admin User Management
-  async getUsers(role = null) {
-    const query = role ? `?role=${role}` : '';
+  async getUsers(role = null, includeInactive = false) {
+    const params = new URLSearchParams();
+    if (role) params.append('role', role);
+    if (includeInactive) params.append('includeInactive', 'true');
+    const query = params.toString() ? `?${params.toString()}` : '';
     return this.request(`/users${query}`);
   }
 
   async createUser(data) {
-    // Currently only create-teacher is supported explicitly for admin specific creation endpoint
-    // If creating a teacher, use the specific endpoint
-    if (data.role === 'teacher') {
-      return this.request('/users/create-teacher', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
-    }
-    // Generic create? We don't have one yet, assume teacher for now or register
-    return this.register(data);
+    // La creación de usuarios desde el panel admin es exclusiva para docentes.
+    // El endpoint /users/create-teacher está protegido con authMiddleware + requireRole('admin').
+    return this.request('/users/create-teacher', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 
   async updateUser(userId, data) {

@@ -3,6 +3,7 @@ import pool from '../config/database.js';
 import { authMiddleware, requireRole } from '../middleware/authMiddleware.js';
 import { logAction } from '../utils/auditLogger.js';
 import bcrypt from 'bcryptjs';
+import passwordService from '../../services/PasswordService.js';
 
 const router = express.Router();
 
@@ -80,11 +81,11 @@ router.post('/create-teacher', authMiddleware, requireRole('admin'), async (req,
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Crear usuario con rol 'teacher'
+    // Crear usuario con rol 'teacher' y flag de cambio de contraseña obligatorio
     const result = await pool.query(
-      `INSERT INTO users (email, display_name, password_hash, provider, role, is_active)
-       VALUES ($1, $2, $3, 'local', 'teacher', true)
-       RETURNING id, email, display_name, role, provider, is_active, created_at`,
+      `INSERT INTO users (email, display_name, password_hash, provider, role, is_active, must_change_password)
+       VALUES ($1, $2, $3, 'local', 'teacher', true, true)
+       RETURNING id, email, display_name, role, provider, is_active, created_at, must_change_password`,
       [normalizedEmail, displayName, passwordHash]
     );
 
@@ -110,7 +111,8 @@ router.post('/create-teacher', authMiddleware, requireRole('admin'), async (req,
           display_name: user.display_name,
           role: user.role,
           is_active: user.is_active,
-          created_at: user.created_at
+          created_at: user.created_at,
+          must_change_password: user.must_change_password
         }
       }
     });
@@ -129,13 +131,25 @@ router.post('/create-teacher', authMiddleware, requireRole('admin'), async (req,
 // GET /api/users - List users (Admin only)
 router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
   try {
-    const { role } = req.query;
+    const { role, includeInactive } = req.query;
     let query = 'SELECT id, email, display_name, role, is_active, created_at, photo_url FROM users';
+    const conditions = [];
     const params = [];
+    let paramCounter = 1;
+
+    // Por defecto, solo traer usuarios activos
+    if (includeInactive !== 'true') {
+      conditions.push(`is_active = $${paramCounter++}`);
+      params.push(true);
+    }
 
     if (role) {
-      query += ' WHERE role = $1';
+      conditions.push(`role = $${paramCounter++}`);
       params.push(role);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
     }
 
     query += ' ORDER BY created_at DESC';
@@ -157,16 +171,26 @@ router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
   }
 });
 
-// DELETE /api/users/:id - Delete user (Admin only)
+// DELETE /api/users/:id - Delete user logically (Admin only)
 router.delete('/:id', authMiddleware, requireRole('admin'), async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    // Prevent deleting yourself
+  try {
+    // Validar tipo UUID
+    if (!isUuid(id)) {
+      return res.status(400).json({
+        error: {
+          message: 'El ID proporcionado no es un UUID válido',
+          code: 'INVALID_USER_ID'
+        }
+      });
+    }
+
+    // Evitar que el administrador se desactive a sí mismo
     if (String(id) === String(req.user.id)) {
       return res.status(400).json({
         error: {
-          message: 'No puedes eliminar tu propia cuenta desde aquí',
+          message: 'No puedes desactivar tu propia cuenta',
           code: 'CANNOT_DELETE_SELF'
         }
       });
@@ -176,8 +200,8 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req, res) => 
     try {
       await client.query('BEGIN');
 
-      // Check if user exists
-      const userCheck = await client.query('SELECT role FROM users WHERE id = $1', [id]);
+      // Obtener datos del usuario
+      const userCheck = await client.query('SELECT role, is_active, email FROM users WHERE id = $1', [id]);
       if (userCheck.rows.length === 0) {
         await client.query('ROLLBACK');
         return res.status(404).json({
@@ -188,39 +212,102 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req, res) => 
         });
       }
 
-      // Delete user (cascade will handle related data if configured)
-      await client.query('DELETE FROM users WHERE id = $1', [id]);
+      const user = userCheck.rows[0];
 
+      // Respuesta idempotente si ya está inactivo
+      if (!user.is_active) {
+        await client.query('COMMIT');
+        return res.json({
+          success: true,
+          message: 'Usuario eliminado exitosamente',
+          data: {
+            user: {
+              id: id,
+              is_active: false
+            }
+          }
+        });
+      }
+
+      // Impedir que se desactive al último administrador activo del sistema
+      if (user.role === 'admin') {
+        const adminCountResult = await client.query(
+          "SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = true"
+        );
+        const activeAdminsCount = parseInt(adminCountResult.rows[0].count, 10);
+        if (activeAdminsCount <= 1) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            error: {
+              message: 'No se puede desactivar al último administrador activo',
+              code: 'LAST_ACTIVE_ADMIN'
+            }
+          });
+        }
+      }
+
+      // Realizar la desactivación lógica
+      const updateResult = await client.query(
+        `UPDATE users
+         SET is_active = false, updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, email, display_name, role, is_active`,
+        [id]
+      );
+      
+      const deactivatedUser = updateResult.rows[0];
       await client.query('COMMIT');
 
-      // Log user deletion
+      // Registrar la auditoría de desactivación lógica
       await logAction({
         userId: req.user.id,
-        action: 'DELETE_USER',
+        action: 'DEACTIVATE_USER',
         entity: 'User',
         entityId: id.toString(),
-        details: { deleted_by: req.user.email },
+        details: {
+          email: deactivatedUser.email,
+          role: deactivatedUser.role,
+          logical_deletion: true,
+          deactivated_by: req.user.email
+        },
         ipAddress: req.ip || req.connection.remoteAddress
       });
 
-      res.json({
+      return res.json({
         success: true,
-        message: 'Usuario eliminado exitosamente'
+        message: 'Usuario eliminado exitosamente',
+        data: {
+          user: {
+            id: deactivatedUser.id,
+            is_active: deactivatedUser.is_active
+          }
+        }
       });
-    } catch (error) {
+
+    } catch (innerError) {
       await client.query('ROLLBACK');
-      throw error;
+      throw innerError;
     } finally {
       client.release();
     }
+
   } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({
-      error: {
-        message: 'Error al eliminar usuario',
-        code: 'DELETE_USER_FAILED'
-      }
+    console.error('❌ Error in DELETE /api/users/:id:', {
+      message: error.message,
+      code: error.code,
+      constraint: error.constraint,
+      detail: error.detail,
+      stack: error.stack
     });
+
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: {
+          message: 'Error al eliminar usuario',
+          code: 'DELETE_USER_FAILED'
+        }
+      });
+    }
   }
 });
 
@@ -394,23 +481,55 @@ router.put('/change-password', authMiddleware, async (req, res) => {
 
     const client = await pool.connect();
     try {
-      // Obtener hash de contraseña actual
-      const result = await client.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+      // Obtener hash de contraseña actual y proveedor
+      const result = await client.query('SELECT password_hash, provider FROM users WHERE id = $1', [userId]);
 
       if (result.rows.length === 0) {
         return res.status(404).json({ error: { message: 'Usuario no encontrado', code: 'USER_NOT_FOUND' } });
       }
 
       const user = result.rows[0];
-      // Si el usuario no tiene password (login social), validPassword será false
-      // Pero para login social no deberían estar usando este endpoint en teoría
-      const validPassword = user.password_hash ? await bcrypt.compare(currentPassword, user.password_hash) : false;
 
+      // Si el usuario no tiene contraseña establecida (login OAuth)
+      if (!user.password_hash) {
+        return res.status(400).json({
+          error: {
+            message: 'Este usuario no tiene contraseña establecida. Usa el método de autenticación OAuth.',
+            code: 'NO_PASSWORD_SET'
+          }
+        });
+      }
+
+      // Verificar contraseña actual
+      const validPassword = await bcrypt.compare(currentPassword, user.password_hash);
       if (!validPassword) {
         return res.status(401).json({
           error: {
-            message: 'La contraseña actual es incorrecta',
-            code: 'INVALID_PASSWORD'
+            message: 'La contraseña actual ingresada es incorrecta.',
+            code: 'INVALID_CURRENT_PASSWORD'
+          }
+        });
+      }
+
+      // Validar que la nueva contraseña no sea igual a la actual
+      const isSamePassword = await bcrypt.compare(newPassword, user.password_hash);
+      if (isSamePassword) {
+        return res.status(400).json({
+          error: {
+            message: 'La nueva contraseña no puede ser igual a la contraseña actual',
+            code: 'SAME_PASSWORD'
+          }
+        });
+      }
+
+      // Validar fortaleza de la nueva contraseña
+      const validationResult = passwordService.validatePasswordStrength(newPassword);
+      if (!validationResult.isValid) {
+        return res.status(400).json({
+          error: {
+            message: 'La nueva contraseña no cumple los requisitos de seguridad',
+            code: 'WEAK_PASSWORD',
+            errors: validationResult.errors
           }
         });
       }
@@ -419,10 +538,10 @@ router.put('/change-password', authMiddleware, async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-      // Actualizar contraseña
-      await client.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, userId]);
+      // Actualizar contraseña y limpiar flag de cambio obligatorio
+      await client.query('UPDATE users SET password_hash = $1, must_change_password = false, updated_at = NOW() WHERE id = $2', [hashedPassword, userId]);
 
-      // Registrar acción en auditoría
+      // Registrar acción en auditoría (sin registrar contraseñas ni hashes)
       await logAction({
         userId,
         action: 'CHANGE_PASSWORD',
@@ -432,7 +551,7 @@ router.put('/change-password', authMiddleware, async (req, res) => {
         ipAddress: req.ip || req.connection.remoteAddress
       });
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Contraseña actualizada exitosamente'
       });
@@ -442,7 +561,7 @@ router.put('/change-password', authMiddleware, async (req, res) => {
     }
   } catch (error) {
     console.error('Error changing password:', error);
-    res.status(500).json({ error: { message: 'Error al cambiar la contraseña', code: 'CHANGE_PASSWORD_FAILED' } });
+    return res.status(500).json({ error: { message: 'Error al cambiar la contraseña', code: 'CHANGE_PASSWORD_FAILED' } });
   }
 });
 
@@ -1760,126 +1879,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * PUT /api/users/change-password
- * Cambiar contraseña del usuario autenticado
- * Requiere contraseña actual para validación
- * IMPORTANTE: Esta ruta debe estar ANTES de /:id para evitar conflictos
- */
-router.put('/change-password', authMiddleware, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { currentPassword, newPassword } = req.body;
 
-    // Validar datos
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({
-        error: {
-          message: 'La contraseña actual y la nueva contraseña son requeridas',
-          code: 'MISSING_FIELDS'
-        }
-      });
-    }
-
-    // Importar servicios (lazy loading para evitar dependencias circulares)
-    const passwordService = await import('../../services/PasswordService.js').then(m => m.default);
-    const tokenService = await import('../../services/TokenService.js').then(m => m.default);
-    const emailService = await import('../../services/EmailService.js').then(m => m.default);
-    const bcrypt = await import('bcryptjs').then(m => m.default || m);
-
-    // Validar fortaleza de nueva contraseña
-    const passwordValidation = passwordService.validatePasswordStrength(newPassword);
-    if (!passwordValidation.isValid) {
-      return res.status(400).json({
-        error: {
-          message: 'La nueva contraseña no cumple los requisitos de seguridad',
-          code: 'WEAK_PASSWORD',
-          errors: passwordValidation.errors
-        }
-      });
-    }
-
-    // Obtener usuario
-    const userResult = await pool.query(
-      'SELECT id, email, display_name, password_hash, provider FROM users WHERE id = $1',
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        error: {
-          message: 'Usuario no encontrado',
-          code: 'USER_NOT_FOUND'
-        }
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    // Verificar que el usuario tenga contraseña (no solo OAuth)
-    if (!user.password_hash) {
-      return res.status(400).json({
-        error: {
-          message: 'Este usuario no tiene contraseña establecida. Usa el método de autenticación OAuth.',
-          code: 'NO_PASSWORD_SET'
-        }
-      });
-    }
-
-    // Verificar contraseña actual
-    const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash);
-    if (!isValidPassword) {
-      return res.status(401).json({
-        error: {
-          message: 'La contraseña actual es incorrecta',
-          code: 'INVALID_CURRENT_PASSWORD'
-        }
-      });
-    }
-
-    // Hash de nueva contraseña
-    const newPasswordHash = await passwordService.hashPassword(newPassword);
-
-    // Actualizar contraseña
-    await pool.query(
-      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
-      [newPasswordHash, userId]
-    );
-
-    // Invalidar todos los tokens JWT del usuario (logout de todas las sesiones)
-    tokenService.invalidateUserTokens(userId);
-
-    // Enviar notificación por email
-    try {
-      await emailService.sendPasswordChangedNotification(user.email, user.display_name);
-    } catch (emailError) {
-      console.warn('⚠️ No se pudo enviar email de notificación:', emailError.message);
-      // No fallar la operación si el email falla
-    }
-
-    console.log(`✅ Contraseña actualizada para usuario ${userId}`);
-
-    const newToken = tokenService.generateToken(user);
-
-    res.json({
-      success: true,
-      data: {
-        message: 'Contraseña actualizada exitosamente',
-        // Generar nuevo token para que el usuario no sea deslogueado inmediatamente
-        token: newToken
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error en change-password:', error);
-    res.status(500).json({
-      error: {
-        message: 'Error al cambiar la contraseña',
-        code: 'INTERNAL_ERROR'
-      }
-    });
-  }
-});
 
 /**
  * PUT /api/users/update-profile

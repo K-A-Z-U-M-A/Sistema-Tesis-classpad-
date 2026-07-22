@@ -1256,52 +1256,7 @@ router.get('/units/:unitId/assignments', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/assignments/:id/materials - Get materials for an assignment
-router.get('/:id/materials', authMiddleware, async (req, res) => {
-  try {
-    const assignmentId = req.params.id;
 
-    // Get assignment to check course access
-    const assignmentResult = await pool.query(
-      `SELECT a.*, c.id as course_id 
-       FROM assignments a 
-       JOIN courses c ON a.course_id = c.id 
-       WHERE a.id = $1`,
-      [assignmentId]
-    );
-
-    if (assignmentResult.rows.length === 0) {
-      return res.status(404).json({
-        error: { message: 'Tarea no encontrada', code: 'ASSIGNMENT_NOT_FOUND' }
-      });
-    }
-
-    const assignment = assignmentResult.rows[0];
-
-    // Check if user has access to the course
-    const hasAccess = await hasCourseAccess(req.user.id, assignment.course_id);
-    if (!hasAccess) {
-      return res.status(403).json({
-        error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' }
-      });
-    }
-
-    // Get assignment attachments (materials)
-    const materialsResult = await pool.query(
-      `SELECT * FROM assignment_attachments 
-       WHERE assignment_id = $1 
-       ORDER BY created_at`,
-      [assignmentId]
-    );
-
-    res.json({ success: true, data: materialsResult.rows });
-  } catch (error) {
-    console.error('Error getting assignment materials:', error);
-    res.status(500).json({
-      error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_MATERIALS_FAILED' }
-    });
-  }
-});
 
 // POST /api/assignments/:id/materials/upload - Upload material to assignment
 router.post('/:id/materials/upload', authMiddleware, upload.single('file'), async (req, res) => {
@@ -1315,6 +1270,10 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
     const assignmentId = req.params.id;
 
     if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
+      if (req.file) {
+        const fs = await import('fs').then(m => m.default);
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
       return res.status(400).json({
         error: { message: 'ID de tarea inválido', code: 'INVALID_ASSIGNMENT_ID' }
       });
@@ -1330,6 +1289,10 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
     );
 
     if (assignmentResult.rows.length === 0) {
+      if (req.file) {
+        const fs = await import('fs').then(m => m.default);
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
       return res.status(404).json({
         error: { message: 'Tarea no encontrada', code: 'ASSIGNMENT_NOT_FOUND' }
       });
@@ -1337,17 +1300,28 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
 
     const assignment = assignmentResult.rows[0];
 
-    // Check if user has access to course
-    const hasAccess = await hasCourseAccess(req.user.id, assignment.course_id);
-    if (!hasAccess) {
+    // Verificar permisos: Propietario, docente del curso o administrador
+    const isOwner = await pool.query('SELECT 1 FROM courses WHERE id = $1 AND owner_id = $2', [assignment.course_id, req.user.id]);
+    const isTeacher = await pool.query('SELECT 1 FROM course_teachers WHERE course_id = $1 AND teacher_id = $2', [assignment.course_id, req.user.id]);
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isOwner.rows.length && !isTeacher.rows.length && !isAdmin) {
+      if (req.file) {
+        const fs = await import('fs').then(m => m.default);
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
       return res.status(403).json({
-        error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' }
+        error: { message: 'No tienes permisos para subir materiales a este curso', code: 'ACCESS_DENIED' }
       });
     }
 
     const { title, description, type, url } = req.body;
 
     if (!title) {
+      if (req.file) {
+        const fs = await import('fs').then(m => m.default);
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
       return res.status(400).json({
         error: { message: 'El título es requerido', code: 'TITLE_REQUIRED' }
       });
@@ -1355,11 +1329,11 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
 
     let materialData = {
       assignment_id: assignmentId,
-      course_id: assignment.course_id,
+      unit_id: null,
       title,
       description: description || '',
       type: type || 'document',
-      created_by: req.user.id
+      uploaded_by: req.user.id
     };
 
     if (req.file) {
@@ -1379,16 +1353,16 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
       });
     }
 
-    // Insert material
+    // Insert material using real DB schema columns
     const insertResult = await pool.query(
       `INSERT INTO materials (
-        assignment_id, course_id, title, description, type, url, 
-        file_name, file_size, mime_type, created_by
+        assignment_id, unit_id, title, description, type, url, 
+        file_name, file_size, mime_type, uploaded_by
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *`,
       [
         materialData.assignment_id,
-        materialData.course_id,
+        materialData.unit_id,
         materialData.title,
         materialData.description,
         materialData.type,
@@ -1396,18 +1370,27 @@ router.post('/:id/materials/upload', authMiddleware, upload.single('file'), asyn
         materialData.file_name,
         materialData.file_size,
         materialData.mime_type,
-        materialData.created_by
+        materialData.uploaded_by
       ]
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: insertResult.rows[0],
       message: 'Material agregado exitosamente'
     });
   } catch (error) {
     console.error('Error uploading assignment material:', error);
-    res.status(500).json({
+    // Eliminar archivo físico huérfano
+    if (req.file) {
+      const fs = await import('fs').then(m => m.default);
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (unlinkErr) {
+        console.warn('Failed to delete orphaned file:', unlinkErr.message);
+      }
+    }
+    return res.status(500).json({
       error: { message: 'Error interno del servidor', code: 'UPLOAD_ASSIGNMENT_MATERIAL_FAILED' }
     });
   }
@@ -1449,20 +1432,20 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
       });
     }
 
-    // Get assignment materials
+    // Get assignment materials joining with users on uploaded_by
     const materialsResult = await pool.query(
       `SELECT m.*, u.display_name as created_by_name
        FROM materials m
-       LEFT JOIN users u ON m.created_by = u.id
+       LEFT JOIN users u ON m.uploaded_by = u.id
        WHERE m.assignment_id = $1 
        ORDER BY m.created_at`,
       [assignmentId]
     );
 
-    res.json({ success: true, data: materialsResult.rows });
+    return res.json({ success: true, data: materialsResult.rows });
   } catch (error) {
     console.error('Error getting assignment materials:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_MATERIALS_FAILED' }
     });
   }

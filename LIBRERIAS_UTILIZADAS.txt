@@ -1,0 +1,528 @@
+# HERRAMIENTAS Y TECNOLOGÍAS UTILIZADAS EN CLASSPAD
+
+## 1. HERRAMIENTAS UTILIZADAS
+
+### Lenguaje de Programación
+
+Se utilizará JavaScript, en combinación con TypeScript para el tipado estático, y JSX (JavaScript XML) para la construcción de componentes de interfaz de usuario.
+
+"JavaScript es un lenguaje de programación que los desarrolladores utilizan para hacer páginas web interactivas. Desde actualizar fuentes de redes sociales a mostrar animaciones y mapas interactivos, las funciones de JavaScript pueden mejorar la experiencia del usuario de un sitio web." (Amazon, 2022)
+
+"TypeScript es un lenguaje de programación fuertemente tipado que se basa en JavaScript, brindándole mejores herramientas a cualquier escala. TypeScript agrega sintaxis adicional a JavaScript para admitir una integración más estrecha con su editor, detectar errores temprano en su editor y hacer que el código JavaScript sea más seguro y mantenible." (Microsoft, 2024)
+
+**Versiones utilizadas:**
+- JavaScript: ES6+
+- TypeScript: ^5.2.2
+
+---
+
+### IDE (Entorno de Desarrollo Integrado)
+
+El desarrollo se realizará utilizando Cursor, un editor de código potenciado con inteligencia artificial, por la facilidad y practicidad del editor, puesto que brinda herramientas avanzadas de asistencia de código mediante IA para el desarrollo del sistema web.
+
+"Cursor es un editor de código impulsado por IA construido sobre Visual Studio Code que integra capacidades de inteligencia artificial directamente en el flujo de trabajo de desarrollo. Ofrece características como autocompletado inteligente con IA, generación de código mediante prompts en lenguaje natural, refactorización asistida, depuración integrada, control de versiones Git incorporado, y todas las funcionalidades de VSCode, mejorando significativamente la productividad del desarrollador mediante asistencia contextual en tiempo real." (Cursor, 2024)
+
+---
+
+### Gestor de Base de Datos
+
+Se utilizará PostgreSQL como sistema de gestión de base de datos relacional.
+
+"PostgreSQL es un potente sistema de base de datos relacional de objetos de código abierto que utiliza y extiende el lenguaje SQL combinado con muchas características que almacenan y escalan de forma segura las cargas de trabajo de datos más complicadas. PostgreSQL tiene una sólida reputación por su arquitectura probada, confiabilidad, integridad de datos, conjunto de características robustas y extensibilidad." (PostgreSQL Global Development Group, 2024)
+
+**Versión utilizada:** ^8.11.3 (cliente pg para Node.js)
+
+---
+
+### Herramienta de Construcción
+
+El proyecto utiliza Vite como herramienta de construcción y servidor de desarrollo.
+
+"Vite ha emergido como una herramienta de construcción líder para proyectos React en 2024, ampliamente reconocido por su velocidad, eficiencia y experiencia de desarrollador mejorada en comparación con alternativas tradicionales como Create React App. Vite aprovecha los módulos ES nativos (ESM), permitiendo que el navegador cargue módulos de forma independiente durante el desarrollo. Esto elimina la necesidad de empaquetado inicial, resultando en tiempos de inicio de servidor casi instantáneos, incluso para proyectos grandes. Para producción, Vite utiliza Rollup, un empaquetador eficiente conocido por generar bundles más pequeños y altamente optimizados con características como tree-shaking y code splitting." (Medium, 2024)
+
+**Versión utilizada:** ^5.0.8
+
+---
+
+## 2. FRAMEWORK
+
+### React JS
+
+El framework base para el desarrollo de la aplicación será React JS, uno de los más populares y con una gran comunidad de desarrolladores.
+
+"ReactJS es una de las librerías más populares de JavaScript para el desarrollo de aplicaciones móviles y web. Creada por Facebook, React contiene una colección de fragmentos de código JavaScript reutilizables utilizados para crear interfaces de usuario (UI) llamadas componentes. React permite a los desarrolladores crear aplicaciones web de una sola página (SPA) que pueden actualizar y renderizar de manera eficiente solo los componentes necesarios cuando los datos cambian, sin necesidad de recargar toda la página." (Deyimar, 2025)
+
+**Versión utilizada:** ^18.2.0
+
+---
+
+### Express.js (Backend Framework)
+
+Framework web minimalista y flexible para Node.js que proporciona un conjunto robusto de características para aplicaciones web y APIs.
+
+"Express.js continúa siendo un framework oficial y altamente relevante de Node.js en 2024, marcando un año significativo con el lanzamiento de su muy anticipado Express 5.0. Este lanzamiento introdujo características modernas y una arquitectura orientada al futuro, solidificando su papel en el ecosistema de Node.js. Express.js también logró el 'estatus de Proyecto de Impacto' bajo la OpenJS Foundation, reafirmando su importancia en la comunidad JavaScript. Express.js sigue siendo una opción popular para construir varios servicios backend, incluyendo APIs RESTful y microservicios. Su naturaleza ligera y sin opiniones proporciona a los desarrolladores una flexibilidad considerable." (ExpressJS.com, 2024)
+
+**Versión utilizada:** ^4.18.2
+
+---
+
+## 3. LIBRERÍAS PRINCIPALES
+
+### React Router DOM
+
+Para la navegación entre vistas de la aplicación sin recargar la página.
+
+"React Router v6 es una librería ampliamente utilizada para el enrutamiento del lado del cliente en aplicaciones React, permitiendo la navegación entre diferentes páginas sin recargas completas. Utiliza componentes como BrowserRouter, Routes, Route y Link para gestionar los cambios de URL y renderizar los componentes correspondientes. Las características clave de React Router v6 incluyen declaraciones de rutas simplificadas, soporte mejorado para rutas anidadas utilizando el componente Outlet, y potentes hooks de navegación como useNavigate, useLocation y useParams. La ventaja de usar React Router sobre otras maneras de crear rutas de navegación es que con ella podremos poner enlaces e incluso redirigir rutas sin hacer peticiones nuevas a nuestro servidor." (Trio.dev, 2024; KeepCoding, 2024)
+
+**Versión utilizada:** ^6.8.1
+
+---
+
+### Material UI (MUI)
+
+Framework de componentes de interfaz de usuario que implementa Material Design de Google.
+
+"Material UI (MUI) 5 es una biblioteca completa de componentes React que implementa el sistema Material Design de Google. Su desarrollo tuvo como objetivo mejorar tanto la experiencia del usuario (UX) como la experiencia del desarrollador (DX). MUI 5 adoptó Emotion como su motor de estilizado predeterminado, reemplazando JSS, para permitir un estilizado dinámico más rápido. Trajo mejores opciones de personalización a través de un tema global, permitiendo la creación de nuevos colores y variantes de componentes. Cada componente también ganó una prop sx para estilizado directo con CSS o atajos de utilidad, aprovechando los tokens de diseño del tema global." (HackerNoon, 2024)
+
+**Versión utilizada:** ^5.15.0
+
+**Paquetes complementarios:**
+- @emotion/react: ^11.11.1
+- @emotion/styled: ^11.11.0
+- @mui/icons-material: ^5.15.0
+- @mui/x-date-pickers: ^6.18.0
+- @mui/x-date-pickers-pro: ^8.17.0
+
+---
+
+### React Hook Form y Yup
+
+Para validación de formularios y manejo de inputs de manera eficiente.
+
+**React Hook Form:**
+"React Hook Form es conocido por su rendimiento, flexibilidad y extensibilidad, aprovechando el marcado HTML existente y una API de validación basada en restricciones. Ofrece una API intuitiva y completa diseñada para simplificar el manejo de formularios en aplicaciones React. Proporciona componentes y utilidades que permiten definir rápidamente el estado inicial, establecer validaciones personalizadas y manejar los eventos relacionados con el formulario, como el envío y la actualización de valores. Las características clave incluyen gestión de estado de formularios sin esfuerzo, validación intuitiva que se alinea con los estándares HTML, re-renderizados minimizados y montaje más rápido para un rendimiento mejorado." (React Hook Form, 2024; Pazmiño, 2023)
+
+**Versión utilizada:** ^7.48.2
+
+**Yup:**
+"Yup es una biblioteca de validación de esquemas ampliamente utilizada en JavaScript y TypeScript que permite a los desarrolladores definir y aplicar reglas para estructuras de datos de manera simple y declarativa. Es una biblioteca de validación de esquemas que facilita la definición y validación de la estructura y los tipos de datos en aplicaciones de React. Se emplea frecuentemente para validación de formularios, validación de entrada de API y verificaciones de datos estructurados. Yup permite crear esquemas de objetos que definen la estructura esperada y las reglas de validación para los datos, centralizando la lógica de validación y facilitando su gestión y mantenimiento." (Contentful, 2024; Pazmiño, 2023)
+
+**Versión utilizada:** ^1.3.3
+
+**Paquete complementario:**
+- @hookform/resolvers: ^3.3.2 (para integrar Yup con React Hook Form)
+
+---
+
+### Zustand
+
+Gestión de estado global de la aplicación de forma simple y eficiente.
+
+"Zustand continúa siendo una opción altamente relevante y cada vez más popular para la gestión de estado en aplicaciones React en 2024. Es ampliamente reconocido por su enfoque minimalista, excelente rendimiento y facilidad de uso. Zustand ofrece una API compacta e intuitiva que aprovecha los hooks de React, reduciendo significativamente el código repetitivo a menudo asociado con otras soluciones de gestión de estado. Conocido por ser ligero (menos de 1KB gzipped) y rápido, Zustand está diseñado para un rendimiento óptimo. Minimiza los re-renderizados innecesarios al permitir que los componentes se suscriban solo a partes específicas del estado, permitiendo compartir lógica con estado entre componentes sin necesidad de componentes de clase." (Medium, 2024)
+
+**Versión utilizada:** ^4.4.7
+
+---
+
+### Framer Motion
+
+Una biblioteca de animación lista para producción para React que facilita la creación de animaciones complejas y gestos.
+
+"Framer Motion es una biblioteca de animaciones para React que permite crear animaciones fluidas y transiciones de manera declarativa. Proporciona componentes y hooks que simplifican la creación de animaciones complejas, gestos táctiles y transiciones de página, mejorando significativamente la experiencia del usuario con interacciones visuales atractivas y profesionales." (Framer, 2024)
+
+**Versión utilizada:** ^10.16.16
+
+---
+
+## 4. LIBRERÍAS COMPLEMENTARIAS
+
+### Date-fns
+
+Una biblioteca moderna de JavaScript para el manejo, formato y manipulación de fechas.
+
+"Date-fns es una biblioteca moderna de utilidades para manipulación de fechas en JavaScript que proporciona un conjunto de herramientas completo y sencillo. Ofrece más de 200 funciones para trabajar con fechas de manera inmutable y funcional, con soporte completo para internacionalización y zonas horarias. Es una alternativa ligera y modular a bibliotecas como Moment.js." (Leshchinsky, 2024)
+
+**Versión utilizada:** ^2.30.0
+
+---
+
+### React Hot Toast
+
+Una biblioteca para añadir notificaciones tipo "toast" ligeras, personalizables y accesibles.
+
+"React Hot Toast es un sistema de notificaciones toast para React que proporciona feedback visual al usuario de manera elegante y no intrusiva. Permite mostrar mensajes de éxito, error, advertencia e información con animaciones suaves y personalización completa del estilo y comportamiento." (Alim, 2024)
+
+**Versión utilizada:** ^2.4.1
+
+---
+
+### React Toastify
+
+Alternativa adicional para notificaciones toast con diferentes estilos y configuraciones.
+
+"React Toastify es una biblioteca de notificaciones para React que permite mostrar mensajes toast personalizables con diferentes posiciones, animaciones y estilos. Ofrece una API simple y flexible para gestionar notificaciones en aplicaciones React." (React Toastify, 2024)
+
+**Versión utilizada:** ^11.0.5
+
+---
+
+### React Dropzone
+
+Componente para carga de archivos mediante drag and drop.
+
+"React Dropzone es un componente de React que proporciona una zona de arrastre y soltado (drag and drop) para la carga de archivos. Ofrece validación de tipos de archivo, límites de tamaño, vista previa de archivos y una experiencia de usuario intuitiva para la selección y carga de archivos." (React Dropzone, 2024)
+
+**Versión utilizada:** ^14.2.3
+
+---
+
+### Leaflet y React Leaflet
+
+Biblioteca de mapas interactivos para visualización geográfica.
+
+"Leaflet es una biblioteca JavaScript de código abierto líder para mapas interactivos compatibles con dispositivos móviles. React Leaflet proporciona componentes de React para integrar Leaflet en aplicaciones React, permitiendo crear mapas interactivos con marcadores, polígonos, capas y controles personalizados de manera declarativa." (Leaflet, 2024)
+
+**Versiones utilizadas:**
+- Leaflet: ^1.9.4
+- React Leaflet: ^4.2.1
+
+---
+
+### Lucide React
+
+Conjunto de iconos SVG para React.
+
+"Lucide React es una biblioteca de iconos SVG hermosos y consistentes diseñados específicamente para React. Ofrece más de 1000 iconos optimizados, personalizables y accesibles que pueden ser fácilmente integrados en aplicaciones React con soporte completo para TypeScript." (Lucide, 2024)
+
+**Versión utilizada:** ^0.554.0
+
+---
+
+### File Saver
+
+Solución para guardar archivos en el lado del cliente.
+
+"File Saver es una biblioteca JavaScript que permite guardar archivos directamente desde el navegador sin necesidad de un servidor. Facilita la descarga de archivos generados dinámicamente como PDFs, imágenes, hojas de cálculo y documentos de texto." (File Saver, 2024)
+
+**Versión utilizada:** ^2.0.5
+
+---
+
+### XLSX
+
+Biblioteca para leer y escribir archivos de hojas de cálculo.
+
+"XLSX es una biblioteca JavaScript para analizar, crear y manipular archivos de hojas de cálculo en formatos Excel (XLSX, XLS), CSV y otros formatos tabulares. Permite importar y exportar datos de hojas de cálculo directamente desde el navegador o Node.js." (SheetJS, 2024)
+
+**Versión utilizada:** ^0.18.5
+
+---
+
+### React Query
+
+Biblioteca para gestión de estado del servidor, caché y sincronización de datos.
+
+"React Query es una biblioteca para gestión de estado del servidor en aplicaciones React. Proporciona hooks poderosos para obtener, almacenar en caché, sincronizar y actualizar datos del servidor, eliminando la necesidad de gestionar manualmente el estado de carga, errores y datos en componentes. Mejora significativamente el rendimiento y la experiencia del usuario mediante caché inteligente y actualizaciones en segundo plano." (TanStack, 2024)
+
+**Versión utilizada:** ^3.39.3
+
+---
+
+### React Markdown
+
+Renderizador de Markdown para React.
+
+"React Markdown es un componente de React que permite renderizar contenido Markdown de manera segura en aplicaciones React. Soporta sintaxis estándar de Markdown y puede ser extendido con plugins para características adicionales como tablas, listas de tareas y resaltado de sintaxis." (React Markdown, 2024)
+
+**Versión utilizada:** ^9.0.1
+
+---
+
+### React Syntax Highlighter
+
+Resaltado de sintaxis para bloques de código.
+
+"React Syntax Highlighter es un componente de React para resaltar sintaxis de código en múltiples lenguajes de programación. Utiliza bibliotecas populares como Prism y Highlight.js para proporcionar resaltado de sintaxis preciso y personalizable con múltiples temas disponibles." (React Syntax Highlighter, 2024)
+
+**Versión utilizada:** ^15.5.0
+
+---
+
+## 5. VISUALIZACIÓN DE DATOS
+
+### Recharts
+
+Una biblioteca de gráficos componible construida sobre componentes de React y D3.
+
+"Recharts es una biblioteca de gráficos construida con componentes React y D3. Proporciona componentes de gráficos reutilizables y personalizables como gráficos de líneas, barras, áreas, circulares y más. Su API declarativa basada en componentes facilita la creación de visualizaciones de datos interactivas y responsivas." (Recharts Group, 2024)
+
+**Versión utilizada:** ^3.4.1
+
+---
+
+## 6. GENERACIÓN DE CÓDIGOS QR
+
+### QRCode.react
+
+Componente de React diseñado específicamente para generar códigos QR.
+
+"QRCode.react es una biblioteca de componentes React utilizada para generar códigos QR. Ofrece flexibilidad al renderizar códigos QR como elementos SVG o Canvas, siendo SVG generalmente recomendado por su versatilidad. La biblioteca exporta dos componentes principales: QRCodeSVG y QRCodeCanvas, ambos utilizados de manera similar. Un componente React para generar códigos QR para renderizar en el DOM." (NPM, 2024)
+
+**Versión utilizada:** ^3.1.0
+
+**Paquetes relacionados:**
+- react-qr-code: ^2.0.12
+- html5-qrcode: ^2.3.8 (para escaneo de códigos QR)
+
+---
+
+## 7. BACKEND - AUTENTICACIÓN Y SEGURIDAD
+
+### Passport.js con Google OAuth 2.0
+
+Se integrará la API de autenticación de Google para permitir inicio de sesión seguro mediante cuentas de Google, garantizando protección contra amenazas como CSRF y manejo de tokens JWT.
+
+"Implementar la autenticación Google OAuth 2.0 con Passport.js en 2024 implica varios pasos clave, enfocándose en configurar tanto la aplicación como la Consola de Desarrolladores de Google para habilitar inicios de sesión seguros de usuarios. Este proceso típicamente utiliza la estrategia passport-google-oauth20 para aplicaciones Node.js. Antes de integrar con Passport.js, necesitas crear un proyecto en la Consola de Desarrolladores de Google, donde obtendrás tu Client ID y Client Secret, que son cruciales para que tu aplicación se comunique con los servicios OAuth de Google. Las API de Google utilizan el protocolo OAuth 2.0 para la autenticación y la autorización, admitiendo los escenarios comunes de OAuth 2.0, como los de aplicaciones web, aplicaciones instaladas en computadoras de escritorio y dispositivos, y aplicaciones del lado del cliente." (Passportjs.org, 2024; Google, s.f.)
+
+**Paquetes utilizados:**
+- passport: ^0.7.0
+- passport-google-oauth20: ^2.0.0
+- passport-local: ^1.0.0
+
+---
+
+### bcryptjs
+
+Biblioteca para hash de contraseñas, proporcionando encriptación segura.
+
+"bcryptjs es una biblioteca JavaScript para hash de contraseñas basada en el algoritmo bcrypt. Proporciona funciones para generar hashes seguros de contraseñas y verificar contraseñas contra hashes almacenados, protegiendo las credenciales de usuario mediante encriptación robusta y resistente a ataques de fuerza bruta." (bcryptjs, 2024)
+
+**Versión utilizada:** ^2.4.3
+
+---
+
+### JSON Web Token (jsonwebtoken)
+
+Implementación de JSON Web Tokens para autenticación y autorización.
+
+"JSON Web Token (JWT) es un estándar abierto (RFC 7519) que define una forma compacta y autónoma de transmitir información de forma segura entre partes como un objeto JSON. Esta información puede ser verificada y confiable porque está firmada digitalmente. Los JWT se utilizan comúnmente para autenticación y autorización en aplicaciones web y APIs." (JWT.io, 2024)
+
+**Versión utilizada:** ^9.0.2
+
+---
+
+### Helmet
+
+Ayuda a asegurar aplicaciones Express estableciendo varios encabezados HTTP.
+
+"Helmet es un middleware para Express.js que ayuda a asegurar aplicaciones estableciendo varios encabezados de respuesta HTTP. Protege contra vulnerabilidades web comunes como XSS (Cross-Site Scripting), clickjacking, y otros ataques mediante la configuración adecuada de encabezados de seguridad." (Helmet, 2024)
+
+**Versión utilizada:** ^7.1.0
+
+---
+
+### Express Rate Limit
+
+Middleware para limitar solicitudes repetidas a APIs públicas y/o endpoints.
+
+"Express Rate Limit es un middleware para Express que limita las solicitudes repetidas a APIs públicas y/o endpoints. Ayuda a prevenir ataques de fuerza bruta, abuso de API y ataques de denegación de servicio (DoS) al restringir el número de solicitudes que un cliente puede hacer en un período de tiempo determinado." (Express Rate Limit, 2024)
+
+**Versión utilizada:** ^8.2.1
+
+---
+
+### CORS
+
+Middleware para habilitar CORS (Cross-Origin Resource Sharing).
+
+"CORS es un middleware de Node.js para habilitar CORS (Cross-Origin Resource Sharing) en aplicaciones Express. Permite que recursos restringidos en una página web sean solicitados desde otro dominio fuera del dominio desde el cual se sirvió el primer recurso, configurando los encabezados HTTP apropiados." (CORS, 2024)
+
+**Versión utilizada:** ^2.8.5
+
+---
+
+## 8. BACKEND - BASE DE DATOS Y UTILIDADES
+
+### PostgreSQL (pg)
+
+Cliente PostgreSQL para Node.js, utilizado para todas las operaciones de base de datos.
+
+"pg es el cliente PostgreSQL más popular para Node.js. Proporciona una interfaz completa para interactuar con bases de datos PostgreSQL, incluyendo soporte para consultas parametrizadas, transacciones, pools de conexiones y tipos de datos nativos de PostgreSQL." (node-postgres, 2024)
+
+**Versión utilizada:** ^8.11.3
+
+---
+
+### dotenv
+
+Carga variables de entorno desde un archivo .env.
+
+"dotenv es un módulo de Node.js que carga variables de entorno desde un archivo .env en process.env. Permite separar la configuración del código, siguiendo la metodología de Twelve-Factor App, y facilita la gestión de diferentes configuraciones para desarrollo, pruebas y producción." (dotenv, 2024)
+
+**Versión utilizada:** ^16.3.1
+
+---
+
+### Morgan
+
+Middleware de logging de solicitudes HTTP para Node.js.
+
+"Morgan es un middleware de logging de solicitudes HTTP para Node.js. Registra automáticamente las solicitudes HTTP entrantes con información como método, URL, código de estado, tiempo de respuesta y más, facilitando el monitoreo y depuración de aplicaciones Express." (Morgan, 2024)
+
+**Versión utilizada:** ^1.10.0
+
+---
+
+### Multer
+
+Middleware para manejo de multipart/form-data, principalmente usado para subir archivos.
+
+"Multer es un middleware de Node.js para manejar multipart/form-data, que se utiliza principalmente para subir archivos. Facilita el procesamiento de archivos cargados por usuarios, incluyendo validación de tipos de archivo, límites de tamaño y almacenamiento en disco o memoria." (Multer, 2024)
+
+**Versión utilizada:** ^1.4.5-lts.1
+
+---
+
+### Nodemailer
+
+Módulo para envío de correos electrónicos desde Node.js.
+
+"Nodemailer es un módulo para aplicaciones Node.js que permite enviar correos electrónicos de manera fácil. Soporta múltiples transportes (SMTP, sendmail, etc.), plantillas HTML, archivos adjuntos, y características avanzadas como autenticación OAuth2 y envío masivo de correos." (Nodemailer, 2024)
+
+**Versión utilizada:** ^7.0.11
+
+---
+
+### UUID
+
+Generación de identificadores únicos universales.
+
+"UUID es una biblioteca para generar identificadores únicos universales (UUID) según los estándares RFC4122. Los UUID son identificadores de 128 bits que garantizan unicidad global sin necesidad de un registro central, utilizados comúnmente para identificar recursos en bases de datos y sistemas distribuidos." (UUID, 2024)
+
+**Versión utilizada:** ^9.0.1
+
+---
+
+### ExcelJS
+
+Biblioteca para leer, manipular y escribir datos de hojas de cálculo y libros de trabajo.
+
+"ExcelJS es una biblioteca de Node.js para leer, manipular y escribir archivos de hojas de cálculo Excel (XLSX y CSV). Proporciona una API completa para crear libros de trabajo, agregar hojas, formatear celdas, insertar fórmulas, gráficos e imágenes, y exportar datos en formato Excel." (ExcelJS, 2024)
+
+**Versión utilizada:** ^4.4.0
+
+---
+
+### PDFKit
+
+Biblioteca para generación de documentos PDF.
+
+"PDFKit es una biblioteca de generación de PDF para Node.js y navegadores que facilita la creación de documentos PDF complejos. Permite agregar texto, imágenes, gráficos vectoriales, tablas y más, con soporte completo para fuentes personalizadas, estilos y diseños avanzados." (PDFKit, 2024)
+
+**Versión utilizada:** ^0.17.2
+
+---
+
+## 9. APIS Y SERVICIOS
+
+### Firebase SDK
+
+Plataforma de desarrollo de aplicaciones de Google que proporciona servicios backend como autenticación, base de datos en tiempo real, almacenamiento y hosting.
+
+> **NOTA IMPORTANTE:** Firebase está instalado en el proyecto pero **NO está siendo utilizado activamente** en la implementación actual. Los archivos de configuración existen (web/src/config/firebase.ts y web/src/firebase/config.js) pero ningún componente de la aplicación los importa o utiliza. La autenticación se maneja mediante Passport.js con el backend Express.js, y el almacenamiento de datos se realiza en PostgreSQL. Firebase permanece instalado como dependencia para futuras funcionalidades potenciales como notificaciones push en tiempo real o chat.
+
+"El Firebase JavaScript SDK v10 introdujo varios cambios importantes, particularmente relacionados con el bundle de React Native para autenticación y cambios de tipado en varios productos. Firebase Realtime Database es una base de datos alojada en la nube. Los datos se almacenan en formato JSON y se sincronizan en tiempo real con cada cliente conectado. Firebase SDK se distribuye a través de CDN y paquetes npm." (Google Firebase, 2024; Google, s.f.)
+
+En este proyecto, Firebase fue configurado inicialmente para:
+- Firebase Authentication: Gestión de usuarios y autenticación segura
+- Cloud Firestore: Base de datos NoSQL flexible, escalable y en la nube
+- Firebase Storage: Almacenamiento de archivos robusto y seguro para contenido generado por el usuario
+- Firebase Messaging: Notificaciones push en tiempo real
+
+**Versión utilizada:** ^10.7.1
+**Estado:** Instalado pero no utilizado activamente
+
+---
+
+## 10. HERRAMIENTAS DE DESARROLLO
+
+### TypeScript
+
+Superset tipado de JavaScript que proporciona verificación de tipos estática.
+
+"TypeScript es un lenguaje de programación fuertemente tipado que se basa en JavaScript, brindándole mejores herramientas a cualquier escala. TypeScript agrega sintaxis adicional a JavaScript para admitir una integración más estrecha con su editor, detectar errores temprano en su editor y hacer que el código JavaScript sea más seguro y mantenible mediante el sistema de tipos estáticos." (Microsoft, 2024)
+
+**Versión utilizada:** ^5.2.2
+
+---
+
+### ESLint
+
+Herramienta de linting para identificar y reportar patrones en código JavaScript/TypeScript.
+
+"ESLint es una herramienta de análisis de código estático para identificar patrones problemáticos encontrados en código JavaScript y TypeScript. Ayuda a mantener la calidad del código, detectar errores potenciales y hacer cumplir estándares de codificación consistentes en todo el proyecto." (ESLint, 2024)
+
+**Versión utilizada:** ^8.55.0
+
+---
+
+### Nodemon
+
+Utilidad que monitorea cambios en el código fuente y reinicia automáticamente el servidor.
+
+"Nodemon es una utilidad que monitorea los cambios en los archivos de código fuente de una aplicación Node.js y reinicia automáticamente el servidor cuando se detectan cambios. Mejora significativamente la productividad del desarrollador al eliminar la necesidad de reiniciar manualmente el servidor después de cada modificación." (Nodemon, 2024)
+
+**Versión utilizada:** ^3.0.2
+
+---
+
+## 11. REFERENCIAS BIBLIOGRÁFICAS
+
+- Alim, T. (2024). React Hot Toast Documentation. Recuperado de https://react-hot-toast.com
+- Amazon. (2022). ¿Qué es JavaScript? Recuperado de https://aws.amazon.com/es/what-is/javascript/
+- bcryptjs. (2024). bcryptjs Documentation. Recuperado de https://github.com/dcodeIO/bcrypt.js
+- Contentful. (2024). Yup Validation Schema JavaScript. Recuperado de https://contentful.com
+- CORS. (2024). CORS Middleware Documentation. Recuperado de https://github.com/expressjs/cors
+- Cursor. (2024). Cursor - The AI Code Editor. Recuperado de https://cursor.sh
+- Deyimar. (2025). ¿Qué es ReactJS? Recuperado de https://www.hostinger.es/tutoriales/que-es-react
+- dotenv. (2024). dotenv Documentation. Recuperado de https://github.com/motdotla/dotenv
+- ESLint. (2024). ESLint Documentation. Recuperado de https://eslint.org
+- ExcelJS. (2024). ExcelJS Documentation. Recuperado de https://github.com/exceljs/exceljs
+- ExpressJS.com. (2024). Express.js Official Documentation. Recuperado de https://expressjs.com
+- Express Rate Limit. (2024). Express Rate Limit Documentation. Recuperado de https://github.com/express-rate-limit/express-rate-limit
+- File Saver. (2024). FileSaver.js Documentation. Recuperado de https://github.com/eligrey/FileSaver.js
+- Framer. (2024). Framer Motion Documentation. Recuperado de https://www.framer.com/motion/
+- Google. (s.f.). Firebase Realtime Database. Recuperado de https://firebase.google.com/docs/database
+- Google. (s.f.). Uso de OAuth 2.0 para acceder a las API de Google. Recuperado de https://developers.google.com/identity/protocols/oauth2
+- Google Firebase. (2024). Firebase JavaScript SDK Release Notes. Recuperado de https://firebase.google.com
+- HackerNoon. (2024). Material UI v5: What's New. Recuperado de https://hackernoon.com
+- Helmet. (2024). Helmet Documentation. Recuperado de https://helmetjs.github.io
+- JWT.io. (2024). JSON Web Tokens Introduction. Recuperado de https://jwt.io/introduction
+- KeepCoding. (2024). React Router y Axios. Recuperado de https://keepcoding.io
+- Leaflet. (2024). Leaflet Documentation. Recuperado de https://leafletjs.com
+- Leshchinsky, S. (2024). date-fns Documentation. Recuperado de https://date-fns.org
+- Lucide. (2024). Lucide Icons Documentation. Recuperado de https://lucide.dev
+- Medium. (2024). Zustand React State Management. Recuperado de https://medium.com
+- Medium. (2024). Vite Build Tool React. Recuperado de https://medium.com
+- Microsoft. (2024). TypeScript Documentation. Recuperado de https://www.typescriptlang.org
+- Morgan. (2024). Morgan Documentation. Recuperado de https://github.com/expressjs/morgan
+- Multer. (2024). Multer Documentation. Recuperado de https://github.com/expressjs/multer
+- node-postgres. (2024). node-postgres Documentation. Recuperado de https://node-postgres.com
+- Nodemailer. (2024). Nodemailer Documentation. Recuperado de https://nodemailer.com
+- Nodemon. (2024). Nodemon Documentation. Recuperado de https://nodemon.io
+- NPM. (2024). QRCode.react Package. Recuperado de https://npmjs.com
+- Passportjs.org. (2024). Passport.js Google OAuth 2.0 Strategy. Recuperado de https://passportjs.org
+- Pazmiño. (2023). Formik y Yup en React. Recuperado de https://www.linkedin.com/pulse/formik-y-yup-en-react-pazmino
+- PDFKit. (2024). PDFKit Documentation. Recuperado de https://pdfkit.org
+- PostgreSQL Global Development Group. (2024). PostgreSQL Documentation. Recuperado de https://www.postgresql.org
+- React Dropzone. (2024). React Dropzone Documentation. Recuperado de https://react-dropzone.js.org
+- React Hook Form. (2024). Official Documentation. Recuperado de https://react-hook-form.com
+- React Markdown. (2024). React Markdown Documentation. Recuperado de https://github.com/remarkjs/react-markdown
+- React Syntax Highlighter. (2024). React Syntax Highlighter Documentation. Recuperado de https://github.com/react-syntax-highlighter/react-syntax-highlighter
+- React Toastify. (2024). React Toastify Documentation. Recuperado de https://fkhadra.github.io/react-toastify
+- Recharts Group. (2024). Recharts Documentation. Recuperado de https://recharts.org
+- SheetJS. (2024). XLSX Documentation. Recuperado de https://sheetjs.com
+- TanStack. (2024). React Query Documentation. Recuperado de https://tanstack.com/query
+- Trio.dev. (2024). React Router v6 Documentation. Recuperado de https://trio.dev
+- UUID. (2024). UUID Documentation. Recuperado de https://github.com/uuidjs/uuid
+

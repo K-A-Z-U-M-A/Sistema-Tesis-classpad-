@@ -144,3 +144,5 @@ coverage/
 ehthumbs.db
 Thumbs.db
 node_modules
+
+backend/hashes-output.txt

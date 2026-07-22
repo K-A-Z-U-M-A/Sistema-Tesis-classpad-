@@ -9,10 +9,6 @@ import {
   IconButton,
   InputAdornment,
   Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   useTheme,
   Avatar,
   Link,
@@ -28,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 
 export default function Signup() {
@@ -40,6 +37,8 @@ export default function Signup() {
     email: '',
     password: '',
     confirmPassword: '',
+    // El rol siempre es 'student' en el registro público.
+    // Los docentes son creados exclusivamente por el administrador.
     role: 'student',
   });
 
@@ -81,25 +80,33 @@ export default function Signup() {
         displayName: formData.displayName,
         role: formData.role
       });
+      toast.success('¡Cuenta creada exitosamente!');
       navigate('/profile/complete');
     } catch (error) {
       console.error('Signup error:', error);
 
-      // Manejar errores del backend
-      if (error.message) {
-        if (error.message.includes('User with this email already exists')) {
-          setError('Ya existe una cuenta con este correo electrónico');
-        } else if (error.message.includes('Password must be at least 8 characters long')) {
-          setError('La contraseña debe tener al menos 8 caracteres');
-        } else if (error.message.includes('Email, display name, and password are required')) {
-          setError('Todos los campos son obligatorios');
-        } else {
-          setError(error.message);
-        }
-      } else {
-        // Fallback para errores sin mensaje específico
-        setError('Error al crear la cuenta. Intenta de nuevo');
+      let errorMessage = 'Error al crear la cuenta. Intenta de nuevo';
+      const msg = error?.message || '';
+      const code = error?.code || '';
+
+      if (
+        code === 'EMAIL_EXISTS' ||
+        msg.includes('User with this email already exists') ||
+        msg.toLowerCase().includes('already exists') ||
+        msg.toLowerCase().includes('email_exists') ||
+        msg.toLowerCase().includes('ya existe')
+      ) {
+        errorMessage = 'Ya existe una cuenta registrada con este correo electrónico. Por favor inicia sesión o usa otro correo.';
+      } else if (code === 'PASSWORD_TOO_SHORT' || msg.includes('Password must be at least 8 characters long')) {
+        errorMessage = 'La contraseña debe tener al menos 8 caracteres.';
+      } else if (code === 'MISSING_FIELDS' || msg.includes('Email, display name, and password are required')) {
+        errorMessage = 'Todos los campos son obligatorios.';
+      } else if (msg) {
+        errorMessage = msg;
       }
+
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -199,8 +206,24 @@ export default function Signup() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.6 }}
           >
+            {/* Nota informativa: solo estudiantes pueden autorregistrarse */}
+            <Alert
+              severity="info"
+              sx={{ mb: 3, borderRadius: 2 }}
+            >
+              Este formulario es exclusivo para <strong>estudiantes</strong>. Si eres docente, solicita tu acceso a un administrador del sistema.
+            </Alert>
+
             {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
+              <Alert
+                severity="error"
+                sx={{
+                  mb: 3,
+                  borderRadius: 2,
+                  fontWeight: 500,
+                  boxShadow: '0 2px 10px rgba(211, 47, 47, 0.15)'
+                }}
+              >
                 {error}
               </Alert>
             )}
@@ -237,18 +260,6 @@ export default function Signup() {
                 ),
               }}
             />
-
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Rol</InputLabel>
-              <Select
-                value={formData.role}
-                onChange={(e) => handleInputChange('role', e.target.value)}
-                label="Rol"
-              >
-                <MenuItem value="student">Estudiante</MenuItem>
-                <MenuItem value="teacher">Docente</MenuItem>
-              </Select>
-            </FormControl>
 
             <TextField
               fullWidth

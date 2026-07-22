@@ -12,6 +12,7 @@ const sessionManager = createSessionManager();
 interface AuthStore extends AuthState {
   // Estado adicional
   profileComplete: boolean | null;
+  mustChangePassword: boolean;
   // Acciones
   login: (credentials: LoginForm) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -24,6 +25,7 @@ interface AuthStore extends AuthState {
   initializeAuth: () => void;
   handleGoogleCallback: (token: string, user: any) => Promise<boolean>;
   checkProfileComplete: () => Promise<boolean>;
+  clearMustChangePassword: () => void;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -31,6 +33,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   loading: true,
   error: null,
   profileComplete: null,
+  mustChangePassword: false,
 
   login: async (credentials: LoginForm) => {
     try {
@@ -47,7 +50,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         userId: response.data.user.id
       });
 
-      set({ user: response.data.user, loading: false });
+      // Detectar si el usuario debe cambiar su contraseña (docentes creados por admin)
+      const mustChangePassword = response.data.user.must_change_password === true;
+
+      set({ user: response.data.user, loading: false, mustChangePassword });
 
       // Verificar si el perfil está completo
       await get().checkProfileComplete();
@@ -120,7 +126,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       set({ loading: true, error: null });
       await apiService.logout();
-      set({ user: null, loading: false });
+      set({ user: null, loading: false, mustChangePassword: false });
     } catch (error: any) {
       set({
         error: error.message || 'Error al cerrar sesión',
@@ -320,6 +326,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     // Retornar función de limpieza (no-op para compatibilidad)
     return () => { };
+  },
+
+  // Limpiar manualmente el flag de cambio de contraseña (se llama tras cambio exitoso en frontend)
+  clearMustChangePassword: () => {
+    set({ mustChangePassword: false });
   },
 
   checkProfileComplete: async () => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Container,
   Box,
@@ -8,12 +8,9 @@ import {
   Button,
   Link,
   Paper,
+  Alert,
   Divider,
   CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
 import { Google as GoogleIcon } from '@mui/icons-material';
 import toast from 'react-hot-toast';
@@ -27,22 +24,17 @@ const Register = () => {
     email: '',
     password: '',
     confirmPassword: '',
+    // El rol siempre es 'student' en el registro público.
+    // Los docentes son creados exclusivamente por el administrador.
     role: 'student',
   });
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
   const { register, loginWithGoogle } = useAuth();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSelectChange = (e: any) => {
-    setFormData({
-      ...formData,
-      role: e.target.value,
     });
   };
 
@@ -75,7 +67,13 @@ const Register = () => {
       window.location.href = '/profile/complete';
     } catch (error: any) {
       console.error('Registration error:', error);
-      toast.error(error.message || 'Error al crear cuenta');
+      const msg = error?.message || '';
+      const code = error?.code || '';
+      if (code === 'EMAIL_EXISTS' || msg.includes('User with this email already exists') || msg.toLowerCase().includes('already exists')) {
+        toast.error('Ya existe una cuenta registrada con este correo electrónico.');
+      } else {
+        toast.error(msg || 'Error al crear cuenta');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -126,6 +124,10 @@ const Register = () => {
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+            {/* Nota informativa: solo estudiantes pueden autorregistrarse */}
+            <Alert severity="info" sx={{ mt: 1, mb: 2 }}>
+              Este formulario es exclusivo para <strong>estudiantes</strong>. Si eres docente, solicita tu acceso a un administrador del sistema.
+            </Alert>
             <TextField
               margin="normal"
               fullWidth
@@ -174,20 +176,6 @@ const Register = () => {
               onChange={handleInputChange}
               required
             />
-            <FormControl fullWidth margin="normal">
-              <InputLabel id="role-label">Rol</InputLabel>
-              <Select
-                labelId="role-label"
-                id="role"
-                name="role"
-                label="Rol"
-                value={formData.role}
-                onChange={handleSelectChange}
-              >
-                <MenuItem value="student">Estudiante</MenuItem>
-                <MenuItem value="teacher">Docente</MenuItem>
-              </Select>
-            </FormControl>
             <Button
               type="submit"
               fullWidth

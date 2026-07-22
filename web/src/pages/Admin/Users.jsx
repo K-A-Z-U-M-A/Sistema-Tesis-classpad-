@@ -22,7 +22,9 @@ import {
     InputLabel,
     Select,
     Tooltip,
-    CircularProgress
+    CircularProgress,
+    FormControlLabel,
+    Switch
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -54,11 +56,13 @@ const Users = () => {
     // States for filtering
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
+    const [includeInactive, setIncludeInactive] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (roleVal = roleFilter, incInactive = includeInactive) => {
         setLoading(true);
         try {
-            const response = await api.getUsers();
+            const response = await api.getUsers(roleVal === 'all' ? null : roleVal, incInactive);
             if (response.success) {
                 setUsers(response.data);
             }
@@ -140,14 +144,23 @@ const Users = () => {
     };
 
     const handleDelete = async (userId) => {
-        if (window.confirm('¿Está seguro de eliminar este usuario? Esta acción no se puede deshacer.')) {
+        if (window.confirm('¿Está seguro de desactivar este usuario? Se conservará su historial y registros, pero el usuario dejará de tener acceso al sistema.')) {
             try {
-                await api.deleteUser(userId);
-                toast.success('Usuario eliminado exitosamente');
+                setDeletingId(userId);
+                const response = await api.deleteUser(userId);
+                toast.success(response.message || 'Usuario desactivado exitosamente');
                 fetchUsers();
             } catch (error) {
                 console.error('Error deleting user:', error);
-                toast.error(error.message || 'Error al eliminar usuario');
+                if (error.code === 'LAST_ACTIVE_ADMIN') {
+                    toast.error('No es posible desactivar al último administrador activo del sistema.');
+                } else if (error.code === 'CANNOT_DELETE_SELF') {
+                    toast.error('No puedes desactivar tu propia cuenta.');
+                } else {
+                    toast.error(error.message || 'Error al desactivar el usuario.');
+                }
+            } finally {
+                setDeletingId(null);
             }
         }
     };
@@ -214,7 +227,10 @@ const Users = () => {
                         <Select
                             value={roleFilter}
                             label="Filtrar por Rol"
-                            onChange={(e) => setRoleFilter(e.target.value)}
+                            onChange={(e) => {
+                                setRoleFilter(e.target.value);
+                                fetchUsers(e.target.value, includeInactive);
+                            }}
                         >
                             <MenuItem value="all">Todos</MenuItem>
                             <MenuItem value="admin">Administrador</MenuItem>
@@ -222,10 +238,23 @@ const Users = () => {
                             <MenuItem value="student">Estudiante</MenuItem>
                         </Select>
                     </FormControl>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={includeInactive}
+                                onChange={(e) => {
+                                    setIncludeInactive(e.target.checked);
+                                    fetchUsers(roleFilter, e.target.checked);
+                                }}
+                                color="primary"
+                            />
+                        }
+                        label="Mostrar inactivos"
+                    />
                     <Button
                         variant="outlined"
                         startIcon={<RefreshIcon />}
-                        onClick={fetchUsers}
+                        onClick={() => fetchUsers(roleFilter, includeInactive)}
                     >
                         Refrescar
                     </Button>
@@ -286,13 +315,18 @@ const Users = () => {
                                         </TableCell>
                                         <TableCell align="right">
                                             <Tooltip title="Editar">
-                                                <IconButton onClick={() => handleOpenEdit(user)} color="primary" size="small">
+                                                <IconButton onClick={() => handleOpenEdit(user)} color="primary" size="small" disabled={deletingId !== null}>
                                                     <EditIcon />
                                                 </IconButton>
                                             </Tooltip>
                                             <Tooltip title="Eliminar">
-                                                <IconButton onClick={() => handleDelete(user.id)} color="error" size="small">
-                                                    <DeleteIcon />
+                                                <IconButton
+                                                    onClick={() => handleDelete(user.id)}
+                                                    color="error"
+                                                    size="small"
+                                                    disabled={deletingId === user.id}
+                                                >
+                                                    {deletingId === user.id ? <CircularProgress size={20} color="error" /> : <DeleteIcon />}
                                                 </IconButton>
                                             </Tooltip>
                                         </TableCell>
@@ -315,7 +349,7 @@ const Users = () => {
             {/* Create/Edit Modal */}
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="sm" fullWidth>
                 <DialogTitle>
-                    {modalMode === 'create' ? 'Crear Nuevo Usuario' : 'Editar Usuario'}
+                    {modalMode === 'create' ? 'Crear Cuenta de Docente' : 'Editar Usuario'}
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -340,18 +374,23 @@ const Users = () => {
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         />
 
-                        <FormControl fullWidth>
-                            <InputLabel>Rol</InputLabel>
-                            <Select
-                                value={formData.role}
-                                label="Rol"
-                                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                            >
-                                <MenuItem value="student">Estudiante</MenuItem>
-                                <MenuItem value="teacher">Profesor</MenuItem>
-                                <MenuItem value="admin">Administrador</MenuItem>
-                            </Select>
-                        </FormControl>
+                        {/* Selector de Rol: solo visible en modo edición.
+                            Al crear un usuario, el rol siempre es 'teacher' (docente).
+                            El selector de edición permite cambiar el rol de usuarios existentes. */}
+                        {modalMode === 'edit' && (
+                            <FormControl fullWidth>
+                                <InputLabel>Rol</InputLabel>
+                                <Select
+                                    value={formData.role}
+                                    label="Rol"
+                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                >
+                                    <MenuItem value="student">Estudiante</MenuItem>
+                                    <MenuItem value="teacher">Profesor</MenuItem>
+                                    <MenuItem value="admin">Administrador</MenuItem>
+                                </Select>
+                            </FormControl>
+                        )}
 
                         <FormControl fullWidth>
                             <InputLabel>Estado</InputLabel>
