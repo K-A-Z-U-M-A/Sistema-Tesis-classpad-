@@ -548,7 +548,7 @@ const CourseDetail = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -557,12 +557,12 @@ const CourseDetail = () => {
       >
         <Box mb={2}>
           <Button
-            variant="outlined"
+            size="small"
             startIcon={<ArrowBack />}
             onClick={() => navigate('/courses')}
-            sx={{ borderRadius: 2 }}
+            sx={{ color: '#67666B' }}
           >
-            Volver a Mis Cursos
+            Mis Cursos
           </Button>
         </Box>
         <Box
@@ -587,23 +587,22 @@ const CourseDetail = () => {
           </Box>
           <Box flex={1} width="100%">
             <Typography
-              variant="h3"
-              fontWeight="bold"
-              sx={{ fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' } }}
+              variant="h1"
+              component="h1"
+              sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' }, fontWeight: 700, color: '#1C1B1F', lineHeight: 1.2 }}
             >
               {course.name}
             </Typography>
             <Typography
-              variant="h6"
+              variant="body2"
               color="text.secondary"
-              sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+              sx={{ mt: 0.5 }}
             >
-              {course.turn} {course.grade && `• ${course.grade}`}
+              {course.turn} {course.grade && `· ${course.grade}`}
             </Typography>
             <Typography
-              variant="body1"
+              variant="body2"
               color="text.secondary"
-              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
             >
               {course.description}
             </Typography>
@@ -1264,7 +1263,6 @@ const CourseDetail = () => {
                             <Box
                               component="div"
                               display="flex"
-                              alignItems="center"
                               gap={1}
                               flexDirection={{ xs: 'column', sm: 'row' }}
                               alignItems={{ xs: 'flex-start', sm: 'center' }}
@@ -2493,7 +2491,7 @@ const CourseDetail = () => {
           setNewTask(prev => ({ ...prev, selectedStudentIds: selectedIds }));
         }}
       />
-    </Container>
+    </Box>
   );
 };
 

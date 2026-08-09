@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -210,7 +210,7 @@ const CreateUnit = () => {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -498,8 +498,9 @@ const CreateUnit = () => {
           <Button variant="contained" onClick={handleAddMaterial}>Agregar</Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 };
 
 export default CreateUnit;
+

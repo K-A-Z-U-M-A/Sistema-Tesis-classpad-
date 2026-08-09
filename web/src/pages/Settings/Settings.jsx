@@ -65,49 +65,20 @@ export default function Settings() {
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ py: 4 }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-              <Box
-                sx={{
-                  p: 1.5,
-                  borderRadius: 2,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
-                }}
-              >
-                <SettingsIcon sx={{ fontSize: 28, color: 'white' }} />
-              </Box>
-              <Box>
-                <Typography
-                  variant="h4"
-                  fontWeight="bold"
-                  sx={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    backgroundClip: 'text'
-                  }}
-                >
-                  Configuración
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  Administra tus preferencias de seguridad
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        </motion.div>
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="h1"
+            component="h1"
+            sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: '#1C1B1F', mb: 0.25 }}
+          >
+            Configuracion
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Administra tus preferencias de seguridad
+          </Typography>
+        </Box>
 
         {/* Alerta de cambio de contraseña obligatorio (docentes recién creados) */}
           {mustChangePassword && (
@@ -258,7 +229,6 @@ export default function Settings() {
             </Accordion>
           </Box>
         </motion.div>
-      </Box>
-    </Container >
+    </Box>
   );
 }

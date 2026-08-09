@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -317,18 +317,18 @@ export default function People() {
   // Check if user is teacher
   if (userProfile?.role !== 'teacher') {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
         <Alert severity="info">
           Esta sección es solo para docentes.
         </Alert>
-      </Container>
+      </Box>
     );
   }
 
   // If no course selected, show course selection
   if (!selectedCourse) {
     return (
-      <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+      <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -509,48 +509,39 @@ export default function People() {
             ))}
           </Grid>
         )}
-      </Container>
+      </Box>
     );
   }
 
   // If course selected, show students list
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       {/* Header with Back Button */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <Box sx={{ mb: 4 }}>
+        <Box sx={{ mb: 3 }}>
           <Button
             startIcon={<ArrowBack />}
             onClick={handleBackToCourses}
-            sx={{ mb: 2 }}
+            sx={{ mb: 1.5, color: '#67666B' }}
+            size="small"
           >
             Volver a cursos
           </Button>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-            <Box
-              sx={{
-                width: 60,
-                height: 60,
-                borderRadius: 2,
-                backgroundColor: selectedCourse.color || 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <School sx={{ color: 'white', fontSize: 32 }} />
+            <Box sx={{ width: 48, height: 48, borderRadius: '12px', backgroundColor: selectedCourse.color || '#0A7AFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <School sx={{ color: 'white', fontSize: 24 }} />
             </Box>
             <Box>
-              <Typography variant="h4" fontWeight="bold">
+              <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.4rem', sm: '1.6rem' }, fontWeight: 700, color: '#1C1B1F', lineHeight: 1.2 }}>
                 {selectedCourse.name}
               </Typography>
-              <Typography variant="body1" color="text.secondary">
-                {selectedCourse.turn && `${selectedCourse.turn} • `}
-                {selectedCourse.course_code && `Código: ${selectedCourse.course_code}`}
+              <Typography variant="body2" color="text.secondary">
+                {selectedCourse.turn && `${selectedCourse.turn} · `}
+                {selectedCourse.course_code && `Cod: ${selectedCourse.course_code}`}
               </Typography>
             </Box>
           </Box>
@@ -1246,6 +1237,7 @@ export default function People() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 }
+

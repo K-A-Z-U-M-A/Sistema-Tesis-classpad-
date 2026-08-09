@@ -129,26 +129,26 @@ const CreateCourse = () => {
 
   if (userProfile?.role !== 'teacher') {
     return (
-      <Container maxWidth="md" sx={{ py: 4 }}>
+      <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
         <Alert severity="error">
           Solo los profesores pueden crear cursos
         </Alert>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
         <Box mb={4}>
-          <Typography variant="h3" gutterBottom fontWeight="bold">
+          <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: '#1C1B1F', mb: 0.5 }}>
             Crear Nuevo Curso
           </Typography>
-          <Typography variant="h6" color="text.secondary">
+          <Typography variant="body2" color="text.secondary">
             Completa la información para crear tu curso
           </Typography>
         </Box>
@@ -302,7 +302,7 @@ const CreateCourse = () => {
           </CardContent>
         </Card>
       </motion.div>
-    </Container>
+    </Box>
   );
 };
 

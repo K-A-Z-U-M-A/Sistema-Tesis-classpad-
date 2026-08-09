@@ -238,13 +238,13 @@ export default function Messages() {
   }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 3 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: '#1C1B1F', mb: 0.25 }}>
           Mensajes
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Revisa conversaciones y anuncios recientes de tus cursos
+          Conversaciones y anuncios de tus cursos
         </Typography>
       </Box>
 
@@ -368,14 +368,12 @@ export default function Messages() {
                 <Box
                   key={message.id}
                   sx={{
-                    px: 3,
-                    py: 2,
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s ease, transform 0.2s ease',
+                    px: 3, py: 2, cursor: 'pointer',
+                    transition: 'background-color 150ms ease',
                     backgroundColor: 'background.default',
                     borderLeft: '3px solid',
                     borderLeftColor: getMessageAccentColor(message.type),
-                    '&:hover': { backgroundColor: 'grey.50', transform: 'translateX(4px)' }
+                    '&:hover': { backgroundColor: '#F7F8FB' }
                   }}
                   onClick={() => handleMessageClick(selectedCourseId, message.id)}
                 >

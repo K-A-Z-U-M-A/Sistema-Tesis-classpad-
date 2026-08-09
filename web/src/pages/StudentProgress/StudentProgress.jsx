@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Container,
@@ -135,18 +135,18 @@ const StudentProgress = () => {
 
     if (loading) {
         return (
-            <Container maxWidth="lg" sx={{ py: 4 }}>
+            <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
                 <Box display="flex" justifyContent="center" alignItems="center" py={12}>
                     <CircularProgress size={60} />
                 </Box>
-            </Container>
+            </Box>
         );
     }
 
     const promedioStatus = getPromedioStatus(progress?.promedio || 0);
 
     return (
-        <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -495,8 +495,9 @@ const StudentProgress = () => {
                     </CardContent>
                 </Card>
             </motion.div>
-        </Container>
+        </Box>
     );
 };
 
 export default StudentProgress;
+

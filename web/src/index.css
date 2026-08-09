@@ -1,151 +1,111 @@
-* {
+﻿/* ─── ClassPad Global Styles ───────────────────────────────────────────────── */
+
+/* Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
-html,
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
 body {
-  height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #F2F2F7;
+  background-color: #F5F6FA;
+  color: #1C1B1F;
+  line-height: 1.6;
+  overscroll-behavior-y: contain;
 }
 
 #root {
-  height: 100%;
+  min-height: 100vh;
+  width: 100%;
 }
 
-/* Scrollbar personalizada */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* Animaciones globales */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Clases de utilidad para animaciones */
-.fade-in {
-  animation: fadeIn 0.6s ease-out;
-}
-
-.slide-in {
-  animation: slideIn 0.6s ease-out;
-}
-
-.scale-in {
-  animation: scaleIn 0.6s ease-out;
-}
-
-/* Transiciones suaves para elementos interactivos */
-button, a, .clickable {
-  transition: all 0.2s ease;
-}
-
-/* Estilos para elementos de formulario */
-input, textarea, select {
-  font-family: inherit;
-}
-
-/* Estilos para enlaces */
+/* Links */
 a {
   text-decoration: none;
   color: inherit;
 }
 
-/* Estilos para listas */
-ul, ol {
-  list-style: none;
-}
-
-/* Estilos para imágenes */
+/* Images */
 img {
   max-width: 100%;
   height: auto;
+  display: block;
 }
 
-/* Estilos para el modo oscuro (futuro) */
-/* Comentado temporalmente para evitar el fondo negro */
-/*
-@media (prefers-color-scheme: dark) {
-  html,
-  body {
-    background-color: #000000;
-    color: #ffffff;
+/* Lists */
+ul, ol { list-style: none; }
+
+/* Form elements */
+input, textarea, select, button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D9DCE3; border-radius: 100px; }
+::-webkit-scrollbar-thumb:hover { background: #98979D; }
+
+/* Focus ring */
+:focus-visible {
+  outline: 3px solid #E8F1FF;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Tap highlight */
+* {
+  -webkit-tap-highlight-color: rgba(10, 122, 255, 0.08);
+}
+
+/* ─── Animations ────────────────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in    { animation: fadeIn    200ms ease-out both; }
+.slide-in   { animation: slideInLeft 200ms ease-out both; }
+.scale-in   { animation: scaleIn   180ms ease-out both; }
+.fade-in-up { animation: fadeInUp  220ms ease-out both; }
+
+/* ─── Reduced motion ─────────────────────────────────────────────────────────*/
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
-*/
 
-/* Estilos para dispositivos móviles */
-@media (max-width: 768px) {
-  html {
-    font-size: 14px;
-  }
-}
-
-/* Estilos para pantallas muy pequeñas */
-@media (max-width: 480px) {
-  html {
-    font-size: 12px;
-  }
-}
-
-/* Estilos para pantallas grandes */
-@media (min-width: 1200px) {
-  html {
-    font-size: 18px;
-  }
-}
-
-/* Estilos para impresión */
+/* ─── Print ──────────────────────────────────────────────────────────────────*/
 @media print {
   * {
     background: transparent !important;

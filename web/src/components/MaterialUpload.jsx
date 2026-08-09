@@ -1,92 +1,79 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from "react";
 import {
-  Box,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Tabs,
-  Tab,
-  Typography,
-  Alert,
-  LinearProgress,
-  Chip,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  Avatar
-} from '@mui/material';
+  Box, Button, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Tabs, Tab, Typography, LinearProgress, Alert,
+  CircularProgress,
+} from "@mui/material";
 import {
-  AttachFile,
-  Link,
-  YouTube,
-  Image,
-  VideoLibrary,
-  Audiotrack,
-  Description,
-  Delete,
-  Download,
-  CloudUpload
-} from '@mui/icons-material';
-import api from '../services/api';
-import toast from 'react-hot-toast';
+  AttachFile, Link, Image, VideoLibrary, Audiotrack,
+  Description, CloudUpload,
+} from "@mui/icons-material";
+import api from "../services/api";
+import toast from "react-hot-toast";
 
-const MaterialUpload = ({ 
-  open, 
-  onClose, 
-  unitId, 
-  onSuccess,
-  title = "Agregar Material"
-}) => {
-  const [activeTab, setActiveTab] = useState(0);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    url: '',
-    file: null
-  });
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const getFileIcon = (file) => {
+  if (!file) return <Description />;
+  if (file.type.startsWith("image/")) return <Image />;
+  if (file.type.startsWith("video/")) return <VideoLibrary />;
+  if (file.type.startsWith("audio/")) return <Audiotrack />;
+  return <AttachFile />;
+};
 
-  const handleTabChange = (event, newValue) => {
+const formatFileSize = (bytes) => {
+  if (!bytes) return "";
+  const k = 1024, sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+};
+
+const autoTitle = (file) => {
+  if (!file) return "";
+  const name = file.name || "";
+  const dot  = name.lastIndexOf(".");
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  return base.replace(/[-_]/g, " ").replace(/\s+/g, " ").trim();
+};
+
+const autoTitleFromUrl = (url) => {
+  try {
+    const u    = new URL(url);
+    const host = u.hostname.replace("www.", "");
+    return host.charAt(0).toUpperCase() + host.slice(1);
+  } catch {
+    return url.length > 40 ? url.slice(0, 40) + "..." : url || "Enlace";
+  }
+};
+
+// ─── MaterialUpload ───────────────────────────────────────────────────────────
+const MaterialUpload = ({ open, onClose, unitId, onSuccess, title = "Agregar Material" }) => {
+  const [activeTab,       setActiveTab]       = useState(0);
+  const [formData,        setFormData]        = useState({ description: "", url: "", file: null });
+  const [uploading,       setUploading]       = useState(false);
+  const [uploadProgress,  setUploadProgress]  = useState(0);
+
+  const handleTabChange = (_, newValue) => {
     setActiveTab(newValue);
-    setFormData(prev => ({ ...prev, file: null, url: '' }));
+    setFormData((p) => ({ ...p, file: null, url: "" }));
   };
 
-  const handleFileSelect = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      // Validate file size (100MB)
-      if (file.size > 100 * 1024 * 1024) {
-        toast.error('El archivo es demasiado grande. Tamaño máximo: 100MB');
-        return;
-      }
-      
-      setFormData(prev => ({ 
-        ...prev, 
-        file,
-        title: prev.title || file.name.split('.')[0]
-      }));
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error("El archivo es demasiado grande. Maximo: 100MB");
+      return;
     }
+    setFormData((p) => ({ ...p, file }));
   };
 
   const handleSubmit = async () => {
-    if (!formData.title.trim()) {
-      toast.error('El título es requerido');
-      return;
-    }
-
     if (activeTab === 0 && !formData.file) {
-      toast.error('Selecciona un archivo');
+      toast.error("Selecciona un archivo");
       return;
     }
-
     if (activeTab === 1 && !formData.url.trim()) {
-      toast.error('La URL es requerida');
+      toast.error("Ingresa una URL");
       return;
     }
 
@@ -95,61 +82,42 @@ const MaterialUpload = ({
       setUploadProgress(0);
 
       if (activeTab === 0) {
-        // File upload
-        const uploadFormData = new FormData();
-        uploadFormData.append('file', formData.file);
-        uploadFormData.append('title', formData.title);
-        uploadFormData.append('description', formData.description || '');
+        // ── File upload — title generated automatically ──
+        const computedTitle = autoTitle(formData.file) || formData.file.name;
+        const fd = new FormData();
+        fd.append("file", formData.file);
+        fd.append("title", computedTitle);
+        fd.append("description", formData.description || "");
 
-        // Simulate progress
-        const progressInterval = setInterval(() => {
-          setUploadProgress(prev => {
-            if (prev >= 90) {
-              clearInterval(progressInterval);
-              return 90;
-            }
-            return prev + 10;
-          });
+        const interval = setInterval(() => {
+          setUploadProgress((p) => { if (p >= 90) { clearInterval(interval); return 90; } return p + 10; });
         }, 200);
 
-        const response = await api.request(`/units/${unitId}/materials/upload`, {
-          method: 'POST',
-          body: uploadFormData
-        });
-
-        clearInterval(progressInterval);
+        const response = await api.request(`/units/${unitId}/materials/upload`, { method: "POST", body: fd });
+        clearInterval(interval);
         setUploadProgress(100);
 
-        if (response.success) {
-          toast.success('Material subido exitosamente');
-          onSuccess();
-          handleClose();
-        } else {
-          toast.error(response.error?.message || 'Error al subir el material');
-        }
-      } else {
-        // Link upload
-        const response = await api.request(`/units/${unitId}/materials`, {
-          method: 'POST',
-          body: JSON.stringify({
-            title: formData.title,
-            description: formData.description || '',
-            type: 'link',
-            url: formData.url
-          })
-        });
+        if (response.success) { toast.success("Material subido"); onSuccess(); handleClose(); }
+        else toast.error(response.error?.message || "Error al subir el material");
 
-        if (response.success) {
-          toast.success('Material agregado exitosamente');
-          onSuccess();
-          handleClose();
-        } else {
-          toast.error(response.error?.message || 'Error al agregar el material');
-        }
+      } else {
+        // ── Link — title generated from domain ──
+        const computedTitle = autoTitleFromUrl(formData.url.trim());
+        const response = await api.request(`/units/${unitId}/materials`, {
+          method: "POST",
+          body: JSON.stringify({
+            title: computedTitle,
+            description: formData.description || "",
+            type: "link",
+            url: formData.url.trim(),
+          }),
+        });
+        if (response.success) { toast.success("Material agregado"); onSuccess(); handleClose(); }
+        else toast.error(response.error?.message || "Error al agregar el material");
       }
     } catch (error) {
-      console.error('Error uploading material:', error);
-      toast.error('Error al procesar la solicitud');
+      console.error("Error uploading material:", error);
+      toast.error("Error al procesar la solicitud");
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -157,169 +125,139 @@ const MaterialUpload = ({
   };
 
   const handleClose = () => {
-    setFormData({ title: '', description: '', url: '', file: null });
+    setFormData({ description: "", url: "", file: null });
     setActiveTab(0);
     setUploadProgress(0);
     onClose();
   };
 
-  const getFileIcon = (file) => {
-    if (!file) return <Description />;
-    
-    const mimeType = file.type;
-    if (mimeType.startsWith('image/')) return <Image />;
-    if (mimeType.startsWith('video/')) return <VideoLibrary />;
-    if (mimeType.startsWith('audio/')) return <Audiotrack />;
-    if (mimeType === 'application/pdf') return <AttachFile />;
-    return <Description />;
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={uploading ? undefined : handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{title}</DialogTitle>
-      
+
       <DialogContent>
-        <Box sx={{ mb: 2 }}>
-          <Tabs value={activeTab} onChange={handleTabChange}>
-            <Tab 
-              icon={<AttachFile />} 
-              label="Archivo" 
-              iconPosition="start"
-            />
-            <Tab 
-              icon={<Link />} 
-              label="Enlace" 
-              iconPosition="start"
-            />
-            <Tab 
-              icon={<YouTube />} 
-              label="Video" 
-              iconPosition="start"
-            />
-          </Tabs>
-        </Box>
+        <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2.5 }}>
+          <Tab icon={<AttachFile sx={{ fontSize: 18 }} />} label="Archivo" iconPosition="start" sx={{ minHeight: 44 }} />
+          <Tab icon={<Link sx={{ fontSize: 18 }} />}       label="Enlace"  iconPosition="start" sx={{ minHeight: 44 }} />
+        </Tabs>
 
-        <Box sx={{ mt: 2 }}>
-          <TextField
-            fullWidth
-            label="Título"
-            value={formData.title}
-            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-            sx={{ mb: 2 }}
-            required
-          />
-
-          <TextField
-            fullWidth
-            label="Descripción"
-            value={formData.description}
-            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-            multiline
-            rows={3}
-            sx={{ mb: 2 }}
-          />
-
-          {activeTab === 0 && (
-            <Box>
+        {/* ── File tab ── */}
+        {activeTab === 0 && (
+          <Box>
+            <Box
+              component="label"
+              htmlFor="material-file-input"
+              sx={{
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                border: "1.5px dashed", borderColor: formData.file ? "#0A7AFF" : "#D9DCE3",
+                borderRadius: 3, p: 3, cursor: "pointer", mb: 2,
+                backgroundColor: formData.file ? "#E8F1FF" : "#F7F8FB",
+                transition: "all 150ms ease",
+                "&:hover": { borderColor: "#0A7AFF", backgroundColor: "#E8F1FF" },
+              }}
+            >
               <input
+                id="material-file-input"
                 type="file"
-                id="file-upload"
+                hidden
                 onChange={handleFileSelect}
-                style={{ display: 'none' }}
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.webp,.svg,.mp4,.avi,.mov,.wmv,.webm,.mp3,.wav,.ogg,.zip,.rar,.7z"
+                accept="*/*"
+                disabled={uploading}
               />
-              <label htmlFor="file-upload">
-                <Button
-                  variant="outlined"
-                  component="span"
-                  startIcon={<CloudUpload />}
-                  fullWidth
-                  sx={{ mb: 2 }}
-                >
-                  Seleccionar Archivo
-                </Button>
-              </label>
-
-              {formData.file && (
-                <Box sx={{ p: 2, border: '1px dashed #ccc', borderRadius: 1 }}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Avatar>
-                      {getFileIcon(formData.file)}
-                    </Avatar>
-                    <Box flex={1}>
-                      <Typography variant="subtitle2">{formData.file.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {formatFileSize(formData.file.size)}
-                      </Typography>
-                    </Box>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => setFormData(prev => ({ ...prev, file: null }))}
-                    >
-                      <Delete />
-                    </IconButton>
-                  </Box>
-                </Box>
+              {formData.file ? (
+                <>
+                  <Box sx={{ color: "#0A7AFF", mb: 1 }}>{getFileIcon(formData.file)}</Box>
+                  <Typography variant="body2" fontWeight={600} sx={{ color: "#0A7AFF", textAlign: "center" }}>
+                    {formData.file.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatFileSize(formData.file.size)}
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <CloudUpload sx={{ fontSize: 36, color: "#D9DCE3", mb: 1 }} />
+                  <Typography variant="body2" fontWeight={500} color="text.secondary">
+                    Haz clic para seleccionar un archivo
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Maximo 100MB
+                  </Typography>
+                </>
               )}
-
-              <Alert severity="info" sx={{ mt: 1 }}>
-                Tipos permitidos: PDF, Word, Excel, PowerPoint, imágenes, videos, audio, archivos comprimidos.
-                Tamaño máximo: 100MB
-              </Alert>
             </Box>
-          )}
 
-          {activeTab === 1 && (
+            {formData.file && (
+              <Alert severity="info" sx={{ mb: 2, py: 0.75 }}>
+                El titulo se generara automaticamente a partir del nombre del archivo.
+              </Alert>
+            )}
+
+            {uploading && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+                  Subiendo... {uploadProgress}%
+                </Typography>
+                <LinearProgress variant="determinate" value={uploadProgress} sx={{ borderRadius: 100 }} />
+              </Box>
+            )}
+
+            <TextField
+              fullWidth
+              multiline
+              rows={2}
+              label="Descripcion (opcional)"
+              value={formData.description}
+              onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+              disabled={uploading}
+            />
+          </Box>
+        )}
+
+        {/* ── Link tab ── */}
+        {activeTab === 1 && (
+          <Box>
             <TextField
               fullWidth
               label="URL del enlace"
+              placeholder="https://..."
               value={formData.url}
-              onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
-              placeholder="https://ejemplo.com"
-              required
+              onChange={(e) => setFormData((p) => ({ ...p, url: e.target.value }))}
+              disabled={uploading}
+              sx={{ mb: 2 }}
+              InputProps={{ startAdornment: <Link sx={{ mr: 1, fontSize: 18, color: "text.secondary" }} /> }}
             />
-          )}
 
-          {activeTab === 2 && (
+            {formData.url && (
+              <Alert severity="info" sx={{ mb: 2, py: 0.75 }}>
+                Titulo automatico: <strong>{autoTitleFromUrl(formData.url)}</strong>
+              </Alert>
+            )}
+
             <TextField
               fullWidth
-              label="URL del video"
-              value={formData.url}
-              onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
-              placeholder="https://youtube.com/watch?v=..."
-              required
+              multiline
+              rows={2}
+              label="Descripcion (opcional)"
+              value={formData.description}
+              onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+              disabled={uploading}
             />
-          )}
-
-          {uploading && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" gutterBottom>
-                Subiendo archivo...
-              </Typography>
-              <LinearProgress variant="determinate" value={uploadProgress} />
-            </Box>
-          )}
-        </Box>
+          </Box>
+        )}
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose} disabled={uploading}>
+        <Button variant="outlined" color="inherit" onClick={handleClose} disabled={uploading} sx={{ color: "#67666B", borderColor: "#D9DCE3" }}>
           Cancelar
         </Button>
-        <Button 
-          onClick={handleSubmit} 
-          variant="contained" 
-          disabled={uploading || !formData.title.trim()}
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={uploading || (activeTab === 0 && !formData.file) || (activeTab === 1 && !formData.url.trim())}
+          startIcon={uploading ? <CircularProgress size={16} color="inherit" /> : null}
         >
-          {uploading ? 'Subiendo...' : 'Agregar Material'}
+          {uploading ? "Subiendo..." : "Agregar"}
         </Button>
       </DialogActions>
     </Dialog>
