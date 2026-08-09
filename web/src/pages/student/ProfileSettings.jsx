@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ProfileSettings - Página de configuración de perfil (Student)
  * 
  * Secciones:
@@ -73,7 +73,7 @@ const ProfileSettings = () => {
     };
 
     return (
-        <Container maxWidth="lg">
+        <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
             <Box sx={{ py: 4 }}>
                 {/* Header */}
                 <motion.div
@@ -312,8 +312,9 @@ const ProfileSettings = () => {
                     )}
                 </motion.div>
             </Box>
-        </Container>
+        </Box>
     );
 };
 
 export default ProfileSettings;
+

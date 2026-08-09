@@ -1,627 +1,404 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from "react";
 import {
-  AppBar,
-  Box,
-  CssBaseline,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Toolbar,
-  Typography,
-  Avatar,
-  Menu,
-  MenuItem,
-  Divider,
-  Badge,
-  Chip,
-  Tooltip,
-  useTheme,
+  AppBar, Box, CssBaseline, Drawer, IconButton, List, ListItem,
+  ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography,
+  Avatar, Menu, MenuItem, Divider, Badge, Chip, Tooltip, useTheme,
   useMediaQuery,
-} from '@mui/material';
+} from "@mui/material";
 import {
-  Menu as MenuIcon,
-  Home,
-  School,
-  Assignment,
-  People,
-  Message,
-  Assessment,
-  Settings,
-  AccountCircle,
-  Notifications,
-  Logout,
-  Add,
-  Dashboard,
+  Menu as MenuIcon, Home, School, Assignment, People, Message,
+  Assessment, Settings, AccountCircle, Logout, Add, Dashboard,
   AdminPanelSettings,
-} from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext.tsx';
-import NotificationBell from '../Notifications/NotificationBell';
-import { useAssignmentCount } from '../../hooks/useAssignmentCount';
+} from "@mui/icons-material";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext.tsx";
+import NotificationBell from "../Notifications/NotificationBell";
+import { useAssignmentCount } from "../../hooks/useAssignmentCount";
 // @ts-ignore
-import createSessionManager from '../../services/sessionManager';
+import createSessionManager from "../../services/sessionManager";
 
-// Crear instancia del sessionManager para este componente
 const sessionManager = createSessionManager();
+const drawerWidth = 248;
 
-const drawerWidth = 280;
-
-// Responsive drawer width
-const getDrawerWidth = (isMobile) => {
-  return isMobile ? '100%' : drawerWidth;
+// ─── Page title mapping ──────────────────────────────────────────────────────
+const getPageTitle = (pathname) => {
+  if (pathname === "/dashboard") return "Inicio";
+  if (pathname === "/courses") return "Mis Cursos";
+  if (pathname === "/create-course") return "Crear Curso";
+  if (/\/courses\/[^/]+\/units\/new/.test(pathname)) return "Nueva Unidad";
+  if (/\/courses\/[^/]+\/assignments\/[^/]+\/edit/.test(pathname)) return "Editar Tarea";
+  if (/\/courses\/[^/]+\/assignments\/[^/]+/.test(pathname)) return "Detalle de Tarea";
+  if (/\/courses\/[^/]+\/manage/.test(pathname)) return "Administrar Curso";
+  if (/\/courses\/[^/]+\/progress/.test(pathname)) return "Mi Progreso";
+  if (/\/courses\/[^/]+/.test(pathname)) return "Detalle del Curso";
+  if (pathname === "/assignments") return "Tareas";
+  if (/\/assignments\/[^/]+\/edit/.test(pathname)) return "Editar Tarea";
+  if (/\/assignments\/[^/]+/.test(pathname)) return "Detalle de Tarea";
+  if (pathname === "/attendance") return "Asistencia";
+  if (pathname === "/messages") return "Mensajes";
+  if (pathname === "/people") return "Alumnos";
+  if (pathname === "/profile/complete") return "Completar Perfil";
+  if (pathname === "/profile") return "Mi Perfil";
+  if (pathname === "/settings") return "Configuracion";
+  if (pathname === "/administrar") return "Administrar";
+  if (pathname === "/admin/users") return "Usuarios";
+  if (pathname === "/admin/audit") return "Auditoria";
+  if (pathname === "/admin/reports") return "Reportes";
+  return "ClassPad";
 };
 
+const getRoleLabel = (role) => {
+  if (role === "admin") return "Administrador";
+  if (role === "teacher") return "Docente";
+  return "Estudiante";
+};
+
+// ─── Main menu items ─────────────────────────────────────────────────────────
 const menuItems = [
-  { text: 'Inicio', icon: <Home />, path: '/dashboard' },
-  { text: 'Mis Cursos', icon: <School />, path: '/courses' },
-  { text: 'Tareas', icon: <Assignment />, path: '/assignments', hasBadge: true },
-  { text: 'Asistencia', icon: <Assessment />, path: '/attendance' },
-  { text: 'Mensajes', icon: <Message />, path: '/messages' },
-  { text: 'Alumnos', icon: <People />, path: '/people' },
+  { text: "Inicio",     icon: <Home sx={{ fontSize: 20 }} />,       path: "/dashboard" },
+  { text: "Mis Cursos", icon: <School sx={{ fontSize: 20 }} />,     path: "/courses" },
+  { text: "Tareas",     icon: <Assignment sx={{ fontSize: 20 }} />, path: "/assignments", hasBadge: true },
+  { text: "Asistencia", icon: <Assessment sx={{ fontSize: 20 }} />, path: "/attendance" },
+  { text: "Mensajes",   icon: <Message sx={{ fontSize: 20 }} />,    path: "/messages" },
+  { text: "Alumnos",    icon: <People sx={{ fontSize: 20 }} />,     path: "/people" },
 ];
 
 const teacherMenuItems = [
-  { text: 'Crear Curso', icon: <Add />, path: '/create-course' },
-  { text: 'Administrar', icon: <Dashboard />, path: '/administrar' },
+  { text: "Crear Curso", icon: <Add sx={{ fontSize: 20 }} />,       path: "/create-course" },
+  { text: "Administrar", icon: <Dashboard sx={{ fontSize: 20 }} />, path: "/administrar" },
 ];
 
+const adminMenuItems = [
+  { text: "Usuarios",  icon: <AdminPanelSettings sx={{ fontSize: 20 }} />, path: "/admin/users" },
+  { text: "Auditoria", icon: <Assessment sx={{ fontSize: 20 }} />,          path: "/admin/audit" },
+  { text: "Reportes",  icon: <Dashboard sx={{ fontSize: 20 }} />,           path: "/admin/reports" },
+];
+
+// ─── NavItem ─────────────────────────────────────────────────────────────────
+const NavItem = ({ item, active, onClick, badge }) => (
+  <ListItem disablePadding sx={{ mb: 0.25 }}>
+    <ListItemButton
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      sx={{
+        borderRadius: "10px",
+        minHeight: 44,
+        px: 1.5,
+        py: 0.75,
+        backgroundColor: active ? "#E8F1FF" : "transparent",
+        color: active ? "#0A7AFF" : "#1C1B1F",
+        "&:hover": {
+          backgroundColor: active ? "#E8F1FF" : "rgba(10,122,255,0.06)",
+          color: active ? "#0A7AFF" : "#1C1B1F",
+        },
+        transition: "background-color 150ms ease, color 150ms ease",
+      }}
+    >
+      <ListItemIcon sx={{ minWidth: 36, color: active ? "#0A7AFF" : "#67666B" }}>
+        {badge ? <Badge badgeContent={badge} color="error">{item.icon}</Badge> : item.icon}
+      </ListItemIcon>
+      <ListItemText
+        primary={item.text}
+        primaryTypographyProps={{
+          fontSize: "0.9rem",
+          fontWeight: active ? 600 : 500,
+          lineHeight: 1,
+          fontFamily: "Inter, -apple-system, sans-serif",
+        }}
+      />
+    </ListItemButton>
+  </ListItem>
+);
+
+// ─── Nav Group Label ─────────────────────────────────────────────────────────
+const NavGroupLabel = ({ children }) => (
+  <Typography
+    variant="overline"
+    sx={{ px: 1.5, color: "#98979D", display: "block", mb: 0.5, mt: 0.5 }}
+  >
+    {children}
+  </Typography>
+);
+
+// ─── AppLayout ───────────────────────────────────────────────────────────────
 export default function AppLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [anchorEl, setAnchorEl]     = useState(null);
+  const theme      = useTheme();
+  const isMobile   = useMediaQuery(theme.breakpoints.down("md"));
+  const navigate   = useNavigate();
+  const location   = useLocation();
   const { userProfile, logout } = useAuth();
   const pendingAssignmentsCount = useAssignmentCount();
 
-  // Obtener información de la sesión actual
-  const sessionInfo = sessionManager.getSessionInfo();
-  const sessionRole = sessionInfo?.role || userProfile?.role;
-  const sessionIdShort = sessionManager.getSessionId()?.substring(0, 8) || 'N/A';
+  const sessionInfo  = sessionManager.getSessionInfo();
+  const sessionRole  = sessionInfo?.role || userProfile?.role;
+  const displayName  = userProfile?.displayName || userProfile?.display_name || "Usuario";
+  const photoURL     = userProfile?.photoURL || userProfile?.photo_url;
+  const roleLabel    = getRoleLabel(sessionRole || userProfile?.role);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleProfileMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleProfileMenuClose = () => {
-    setAnchorEl(null);
-  };
+  const handleDrawerToggle      = () => setMobileOpen(!mobileOpen);
+  const handleProfileMenuOpen   = (e) => setAnchorEl(e.currentTarget);
+  const handleProfileMenuClose  = () => setAnchorEl(null);
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Error logging out:', error);
-    }
+    try { await logout(); navigate("/login"); }
+    catch (error) { console.error("Error logging out:", error); }
   };
 
   const handleNavigation = (path) => {
     navigate(path);
-    if (isMobile) {
-      setMobileOpen(false);
-    }
+    if (isMobile) setMobileOpen(false);
   };
 
-  const isActive = (path) => {
-    return location.pathname === path || location.pathname.startsWith(path + '/');
-  };
+  const isActive = (path) =>
+    location.pathname === path || location.pathname.startsWith(path + "/");
 
+  // ─── Sidebar drawer ────────────────────────────────────────────────────────
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Header del drawer */}
-      <Box
-        sx={{
-          p: { xs: 2, sm: 3 },
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.paper,
-        }}
-      >
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column", backgroundColor: "#FFFFFF" }}>
+
+      {/* Logo */}
+      <Box sx={{
+        px: 3,
+        height: 64,
+        display: "flex",
+        alignItems: "center",
+        borderBottom: "1px solid #E7E9EF",
+        flexShrink: 0,
+      }}>
         <Typography
-          variant="h4"
-          component="h1"
+          component="span"
           sx={{
-            fontWeight: 700,
-            background: 'linear-gradient(135deg, #007AFF 0%, #34C759 100%)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            textAlign: 'center',
-            fontSize: { xs: '1.5rem', sm: '2.125rem' }
+            fontFamily: "Inter, -apple-system, sans-serif",
+            fontWeight: 800,
+            fontSize: "1.125rem",
+            color: "#0A7AFF",
+            letterSpacing: "-0.04em",
+            lineHeight: 1,
+            userSelect: "none",
           }}
         >
           ClassPad
         </Typography>
-        <Typography
-          variant="body2"
-          sx={{
-            textAlign: 'center',
-            color: theme.palette.text.secondary,
-            mt: 1,
-            fontSize: { xs: '0.9rem', sm: '0.875rem' }
-          }}
-        >
-          Plataforma Educativa
-        </Typography>
       </Box>
 
-      {/* Menú principal */}
-      <List sx={{ flex: 1, px: { xs: 1, sm: 2 }, py: 1 }}>
-        {/* Show only Dashboard for admin */}
-        {userProfile?.role === 'admin' ? (
-          <ListItem disablePadding sx={{ mb: 1 }}>
-            <ListItemButton
-              onClick={() => handleNavigation('/dashboard')}
-              sx={{
-                borderRadius: 2,
-                backgroundColor: isActive('/dashboard')
-                  ? theme.palette.primary.main
-                  : 'transparent',
-                color: isActive('/dashboard')
-                  ? theme.palette.primary.contrastText
-                  : theme.palette.text.primary,
-                '&:hover': {
-                  backgroundColor: isActive('/dashboard')
-                    ? theme.palette.primary.dark
-                    : theme.palette.action.hover,
-                },
-                py: { xs: 1.5, sm: 2 },
-                px: { xs: 1.5, sm: 2 }
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  color: isActive('/dashboard')
-                    ? theme.palette.primary.contrastText
-                    : theme.palette.text.secondary,
-                  minWidth: { xs: 48, sm: 56 }
-                }}
-              >
-                <Home />
-              </ListItemIcon>
-              <ListItemText
-                primary="Dashboard"
-                sx={{
-                  '& .MuiListItemText-primary': {
-                    fontWeight: isActive('/dashboard') ? 600 : 400,
-                    fontSize: { xs: '1rem', sm: '1rem' }
-                  },
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
+      {/* Navigation area */}
+      <Box sx={{ flex: 1, overflowY: "auto", px: 1.5, py: 2 }}>
+
+        {/* Admin: only Dashboard */}
+        {userProfile?.role === "admin" ? (
+          <List disablePadding>
+            <NavItem
+              item={{ text: "Dashboard", icon: <Home sx={{ fontSize: 20 }} />, path: "/dashboard" }}
+              active={isActive("/dashboard")}
+              onClick={() => handleNavigation("/dashboard")}
+            />
+          </List>
         ) : (
-          /* Show regular menu for non-admin users */
-          menuItems.filter(item => {
-            // Ocultar "Alumnos" para estudiantes
-            if (item.text === 'Alumnos' && userProfile?.role === 'student') {
-              return false;
-            }
-            return true;
-          }).map((item) => (
-            <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
-              <ListItemButton
-                onClick={() => handleNavigation(item.path)}
-                sx={{
-                  borderRadius: 2,
-                  backgroundColor: isActive(item.path)
-                    ? theme.palette.primary.main
-                    : 'transparent',
-                  color: isActive(item.path)
-                    ? theme.palette.primary.contrastText
-                    : theme.palette.text.primary,
-                  '&:hover': {
-                    backgroundColor: isActive(item.path)
-                      ? theme.palette.primary.dark
-                      : theme.palette.action.hover,
-                  },
-                  py: { xs: 1.5, sm: 2 },
-                  px: { xs: 1.5, sm: 2 }
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    color: isActive(item.path)
-                      ? theme.palette.primary.contrastText
-                      : theme.palette.text.secondary,
-                    minWidth: { xs: 40, sm: 56 }
-                  }}
-                >
-                  {item.hasBadge && pendingAssignmentsCount > 0 ? (
-                    <Badge badgeContent={pendingAssignmentsCount} color="error">
-                      {item.icon}
-                    </Badge>
-                  ) : (
-                    item.icon
-                  )}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  sx={{
-                    '& .MuiListItemText-primary': {
-                      fontWeight: isActive(item.path) ? 600 : 400,
-                      fontSize: { xs: '1.1rem', sm: '1rem' }
-                    },
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          ))
-        )}
-
-        {/* Separador para opciones de docente */}
-        {userProfile?.role === 'teacher' && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            <Typography
-              variant="overline"
-              sx={{
-                px: 2,
-                color: theme.palette.text.secondary,
-                fontWeight: 600,
-              }}
-            >
-              Docente
-            </Typography>
-            {teacherMenuItems.map((item) => (
-              <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
-                <ListItemButton
+          /* Teacher / Student: main items */
+          <List disablePadding>
+            {menuItems
+              .filter((item) => !(item.text === "Alumnos" && userProfile?.role === "student"))
+              .map((item) => (
+                <NavItem
+                  key={item.path}
+                  item={item}
+                  active={isActive(item.path)}
                   onClick={() => handleNavigation(item.path)}
-                  sx={{
-                    borderRadius: 2,
-                    backgroundColor: isActive(item.path)
-                      ? theme.palette.secondary.main
-                      : 'transparent',
-                    color: isActive(item.path)
-                      ? theme.palette.secondary.contrastText
-                      : theme.palette.text.primary,
-                    '&:hover': {
-                      backgroundColor: isActive(item.path)
-                        ? theme.palette.secondary.dark
-                        : theme.palette.action.hover,
-                    },
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      color: isActive(item.path)
-                        ? theme.palette.secondary.contrastText
-                        : theme.palette.text.secondary,
-                    }}
-                  >
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.text}
-                    sx={{
-                      '& .MuiListItemText-primary': {
-                        fontSize: { xs: '1.1rem', sm: '1rem' }
-                      }
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </>
+                  badge={item.hasBadge && pendingAssignmentsCount > 0 ? pendingAssignmentsCount : undefined}
+                />
+              ))}
+          </List>
         )}
 
-        {/* Separador para opciones de administrador */}
-        {userProfile?.role === 'admin' && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            <Typography
-              variant="overline"
-              sx={{
-                px: 2,
-                color: theme.palette.text.secondary,
-                fontWeight: 600,
-              }}
-            >
-              Administrador
-            </Typography>
-            <ListItem disablePadding sx={{ mb: 1 }}>
-              <ListItemButton
-                onClick={() => handleNavigation('/admin/users')}
-                sx={{
-                  borderRadius: 2,
-                  backgroundColor: isActive('/admin/users')
-                    ? theme.palette.error.main
-                    : 'transparent',
-                  color: isActive('/admin/users')
-                    ? theme.palette.error.contrastText
-                    : theme.palette.text.primary,
-                  '&:hover': {
-                    backgroundColor: isActive('/admin/users')
-                      ? theme.palette.error.dark
-                      : theme.palette.action.hover,
-                  },
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    color: isActive('/admin/users')
-                      ? theme.palette.error.contrastText
-                      : theme.palette.text.secondary,
-                  }}
-                >
-                  <AdminPanelSettings />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Usuarios"
-                  sx={{
-                    '& .MuiListItemText-primary': {
-                      fontSize: { xs: '1.1rem', sm: '1rem' }
-                    }
-                  }}
+        {/* Teacher section */}
+        {userProfile?.role === "teacher" && (
+          <Box sx={{ mt: 1.5 }}>
+            <Divider sx={{ mb: 1.5 }} />
+            <NavGroupLabel>Gestion</NavGroupLabel>
+            <List disablePadding>
+              {teacherMenuItems.map((item) => (
+                <NavItem
+                  key={item.path}
+                  item={item}
+                  active={isActive(item.path)}
+                  onClick={() => handleNavigation(item.path)}
                 />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding sx={{ mb: 1 }}>
-              <ListItemButton
-                onClick={() => handleNavigation('/admin/audit')}
-                sx={{
-                  borderRadius: 2,
-                  backgroundColor: isActive('/admin/audit')
-                    ? theme.palette.error.main
-                    : 'transparent',
-                  color: isActive('/admin/audit')
-                    ? theme.palette.error.contrastText
-                    : theme.palette.text.primary,
-                  '&:hover': {
-                    backgroundColor: isActive('/admin/audit')
-                      ? theme.palette.error.dark
-                      : theme.palette.action.hover,
-                  },
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    color: isActive('/admin/audit')
-                      ? theme.palette.error.contrastText
-                      : theme.palette.text.secondary,
-                  }}
-                >
-                  <Assessment />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Auditoría"
-                  sx={{
-                    '& .MuiListItemText-primary': {
-                      fontSize: { xs: '1.1rem', sm: '1rem' }
-                    }
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding sx={{ mb: 1 }}>
-              <ListItemButton
-                onClick={() => handleNavigation('/admin/reports')}
-                sx={{
-                  borderRadius: 2,
-                  backgroundColor: isActive('/admin/reports')
-                    ? theme.palette.error.main
-                    : 'transparent',
-                  color: isActive('/admin/reports')
-                    ? theme.palette.error.contrastText
-                    : theme.palette.text.primary,
-                  '&:hover': {
-                    backgroundColor: isActive('/admin/reports')
-                      ? theme.palette.error.dark
-                      : theme.palette.action.hover,
-                  },
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    color: isActive('/admin/reports')
-                      ? theme.palette.error.contrastText
-                      : theme.palette.text.secondary,
-                  }}
-                >
-                  <Dashboard />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Reportes"
-                  sx={{
-                    '& .MuiListItemText-primary': {
-                      fontSize: { xs: '1.1rem', sm: '1rem' }
-                    }
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          </>
-        )}
-      </List>
-
-      {/* Footer del drawer con información del usuario */}
-      <Box
-        sx={{
-          p: 2,
-          borderTop: `1px solid ${theme.palette.divider}`,
-          backgroundColor: theme.palette.background.paper,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <Avatar
-            src={userProfile?.photoURL || userProfile?.photo_url}
-            sx={{
-              width: { xs: 35, sm: 40 },
-              height: { xs: 35, sm: 40 },
-              mr: 2,
-              bgcolor: userProfile?.photoURL || userProfile?.photo_url ? 'transparent' : 'primary.main'
-            }}
-          >
-            {userProfile?.displayName?.charAt(0)?.toUpperCase() ||
-              userProfile?.display_name?.charAt(0)?.toUpperCase() ||
-              'U'}
-          </Avatar>
-          <Box>
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: 600,
-                fontSize: { xs: '1rem', sm: '0.875rem' }
-              }}
-            >
-              {userProfile?.displayName || userProfile?.display_name || 'Usuario'}
-            </Typography>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontSize: { xs: '0.8rem', sm: '0.75rem' } }}
-            >
-              {userProfile?.role === 'admin' ? 'Administrador' : userProfile?.role === 'teacher' ? 'Docente' : 'Estudiante'}
-            </Typography>
+              ))}
+            </List>
           </Box>
-        </Box>
+        )}
+
+        {/* Admin section */}
+        {userProfile?.role === "admin" && (
+          <Box sx={{ mt: 1.5 }}>
+            <Divider sx={{ mb: 1.5 }} />
+            <NavGroupLabel>Administracion</NavGroupLabel>
+            <List disablePadding>
+              {adminMenuItems.map((item) => (
+                <NavItem
+                  key={item.path}
+                  item={item}
+                  active={isActive(item.path)}
+                  onClick={() => handleNavigation(item.path)}
+                />
+              ))}
+            </List>
+          </Box>
+        )}
+      </Box>
+
+      {/* User footer */}
+      <Box sx={{ p: 1.5, borderTop: "1px solid #E7E9EF", flexShrink: 0 }}>
         <ListItemButton
-          onClick={handleProfileMenuOpen}
+          onClick={() => handleNavigation("/profile")}
+          aria-label="Ir a mi perfil"
           sx={{
-            borderRadius: 2,
-            '&:hover': {
-              backgroundColor: theme.palette.action.hover,
-            },
+            borderRadius: "10px",
+            p: 1,
+            gap: 1.5,
+            "&:hover": { backgroundColor: "#F0F2F7" },
           }}
         >
-          <ListItemIcon>
-            <Settings />
-          </ListItemIcon>
-          <ListItemText primary="Configuración" />
+          <Avatar src={photoURL} sx={{ width: 32, height: 32, fontSize: "0.875rem", flexShrink: 0 }}>
+            {displayName.charAt(0).toUpperCase()}
+          </Avatar>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              noWrap
+              sx={{ lineHeight: 1.3, fontFamily: "Inter, -apple-system, sans-serif" }}
+            >
+              {displayName}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+              {roleLabel}
+            </Typography>
+          </Box>
+          <Tooltip title="Configuracion" placement="top">
+            <IconButton
+              size="small"
+              onClick={(e) => { e.stopPropagation(); handleNavigation("/settings"); }}
+              aria-label="Configuracion"
+              sx={{ flexShrink: 0, color: "#98979D", "&:hover": { backgroundColor: "#E7E9EF", color: "#1C1B1F" } }}
+            >
+              <Settings sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
         </ListItemButton>
       </Box>
     </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: "flex" }}>
       <CssBaseline />
 
-      {/* AppBar */}
+      {/* ── Topbar ────────────────────────────────────────────────────────── */}
       <AppBar
         position="fixed"
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
-          zIndex: theme.zIndex.drawer + 1
+          zIndex: (t) => t.zIndex.drawer + 1,
         }}
       >
-        <Toolbar sx={{ px: { xs: 1, sm: 2 } }}>
+        <Toolbar sx={{ gap: 1 }}>
+          {/* Mobile hamburger */}
           <IconButton
-            color="inherit"
-            aria-label="open drawer"
             edge="start"
+            aria-label="Abrir menu de navegacion"
             onClick={handleDrawerToggle}
-            sx={{
-              mr: { xs: 1, sm: 2 },
-              display: { md: 'none' },
-              p: { xs: 1, sm: 1.5 }
-            }}
+            sx={{ display: { md: "none" }, color: "#1C1B1F" }}
           >
             <MenuIcon />
           </IconButton>
 
+          {/* Page title */}
           <Typography
             variant="h6"
             noWrap
-            component="div"
+            component="h1"
             sx={{
               flexGrow: 1,
-              fontSize: { xs: '1.25rem', sm: '1.25rem' },
-              fontWeight: 600
+              fontWeight: 600,
+              fontSize: { xs: "1rem", sm: "1.0625rem" },
+              color: "#1C1B1F",
+              fontFamily: "Inter, -apple-system, sans-serif",
             }}
           >
-            {menuItems.find(item => isActive(item.path))?.text || 'ClassPad'}
+            {getPageTitle(location.pathname)}
           </Typography>
 
-          {/* Indicador de sesión - Solo mostrar si hay múltiples sesiones posibles */}
+          {/* Role chip */}
           {sessionRole && (
-            <Tooltip title={`Sesión: ${sessionIdShort} | Rol: ${sessionRole === 'admin' ? 'Administrador' : sessionRole === 'teacher' ? 'Docente' : 'Estudiante'}`}>
+            <Tooltip title={`Rol: ${getRoleLabel(sessionRole)}`}>
               <Chip
-                label={sessionRole === 'admin' ? 'Administrador' : sessionRole === 'teacher' ? 'Docente' : 'Estudiante'}
+                label={getRoleLabel(sessionRole)}
                 size="small"
-                color={sessionRole === 'admin' ? 'error' : sessionRole === 'teacher' ? 'secondary' : 'primary'}
                 sx={{
-                  mr: { xs: 1, sm: 2 },
-                  display: { xs: 'none', sm: 'flex' }, // Ocultar en móviles
-                  height: '24px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600
+                  display: { xs: "none", sm: "flex" },
+                  height: 24,
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  backgroundColor: "#E8F1FF",
+                  color: "#0A7AFF",
+                  border: "none",
+                  cursor: "default",
                 }}
               />
             </Tooltip>
           )}
 
-          {/* Notificaciones */}
-          <Box sx={{ mr: { xs: 1, sm: 2 } }}>
-            <NotificationBell />
-          </Box>
+          {/* Notifications */}
+          <NotificationBell />
 
-          {/* Menú de perfil */}
-          <IconButton
-            color="inherit"
-            onClick={handleProfileMenuOpen}
-            sx={{
-              ml: { xs: 0.5, sm: 1 },
-              p: { xs: 0.5, sm: 1 }
-            }}
-          >
-            <Avatar
-              src={userProfile?.photoURL || userProfile?.photo_url}
-              sx={{
-                width: { xs: 28, sm: 32 },
-                height: { xs: 28, sm: 32 },
-                fontSize: { xs: '0.875rem', sm: '1rem' },
-                bgcolor: userProfile?.photoURL || userProfile?.photo_url ? 'transparent' : 'primary.main'
-              }}
+          {/* Avatar → profile menu */}
+          <Tooltip title="Mi cuenta">
+            <IconButton
+              onClick={handleProfileMenuOpen}
+              aria-label="Abrir menu de usuario"
+              aria-controls={Boolean(anchorEl) ? "user-menu" : undefined}
+              aria-haspopup="true"
+              aria-expanded={Boolean(anchorEl) ? "true" : undefined}
+              sx={{ p: 0.5 }}
             >
-              {userProfile?.displayName?.charAt(0)?.toUpperCase() ||
-                userProfile?.display_name?.charAt(0)?.toUpperCase() ||
-                'U'}
-            </Avatar>
-          </IconButton>
+              <Avatar src={photoURL} sx={{ width: 34, height: 34, fontSize: "0.9rem" }}>
+                {displayName.charAt(0).toUpperCase()}
+              </Avatar>
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
 
-      {/* Drawer */}
+      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
       <Box
         component="nav"
         sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
+        aria-label="Navegacion principal"
       >
+        {/* Mobile temporary drawer */}
         <Drawer
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Mejor rendimiento en móviles
-          }}
+          ModalProps={{ keepMounted: true }}
           sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-            },
+            display: { xs: "block", md: "none" },
+            "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
           }}
         >
           {drawer}
         </Drawer>
+
+        {/* Desktop permanent drawer */}
         <Drawer
           variant="permanent"
           sx={{
-            display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth,
-            },
+            display: { xs: "none", md: "block" },
+            "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
           }}
           open
         >
@@ -629,54 +406,53 @@ export default function AppLayout({ children }) {
         </Drawer>
       </Box>
 
-      {/* Contenido principal */}
+      {/* ── Main content ──────────────────────────────────────────────────── */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, sm: 3 },
           width: { md: `calc(100% - ${drawerWidth}px)` },
-          mt: { xs: '56px', sm: '64px' }, // Altura del AppBar responsive
-          minHeight: 'calc(100vh - 64px)',
-          backgroundColor: theme.palette.background.default,
-          overflowX: 'hidden'
+          mt: "64px",
+          minHeight: "calc(100vh - 64px)",
+          backgroundColor: "#F5F6FA",
+          overflowX: "hidden",
         }}
       >
         {children}
       </Box>
 
-      {/* Menú de perfil */}
+      {/* ── User menu ─────────────────────────────────────────────────────── */}
       <Menu
+        id="user-menu"
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleProfileMenuClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        sx={{ mt: 1 }}
+        slotProps={{ paper: { sx: { minWidth: 200 } } }}
       >
-        <MenuItem onClick={() => navigate('/profile')}>
-          <ListItemIcon>
-            <AccountCircle fontSize="small" />
-          </ListItemIcon>
-          Perfil
+        {/* User info header */}
+        <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid #E7E9EF", mb: 0.5 }}>
+          <Typography variant="body2" fontWeight={600} noWrap>{displayName}</Typography>
+          <Typography variant="caption" color="text.secondary">{roleLabel}</Typography>
+        </Box>
+
+        <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/profile"); }}>
+          <ListItemIcon><AccountCircle fontSize="small" /></ListItemIcon>
+          Mi Perfil
         </MenuItem>
-        <MenuItem onClick={() => navigate('/settings')}>
-          <ListItemIcon>
-            <Settings fontSize="small" />
-          </ListItemIcon>
-          Configuración
+        <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/settings"); }}>
+          <ListItemIcon><Settings fontSize="small" /></ListItemIcon>
+          Configuracion
         </MenuItem>
-        <Divider />
-        <MenuItem onClick={handleLogout}>
-          <ListItemIcon>
-            <Logout fontSize="small" />
-          </ListItemIcon>
-          Cerrar Sesión
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          onClick={() => { handleProfileMenuClose(); handleLogout(); }}
+          sx={{ color: "error.main" }}
+        >
+          <ListItemIcon><Logout fontSize="small" sx={{ color: "error.main" }} /></ListItemIcon>
+          Cerrar Sesion
         </MenuItem>
       </Menu>
     </Box>

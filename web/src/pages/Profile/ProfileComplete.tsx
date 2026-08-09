@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -168,7 +168,7 @@ const ProfileComplete: React.FC = () => {
   }, [profileComplete, user, navigate, checkProfileComplete]);
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
           Completar Perfil
@@ -268,9 +268,10 @@ const ProfileComplete: React.FC = () => {
           </Grid>
         </Box>
       </Paper>
-    </Container>
+    </Box>
   );
 };
 
 export default ProfileComplete;
+
 

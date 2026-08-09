@@ -171,21 +171,14 @@ const AssignmentDetail = () => {
 
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       {/* Header */}
       <Box sx={{ mb: { xs: 2, sm: 4 } }}>
         <Button 
+          size="small"
           startIcon={<ArrowBack />} 
           onClick={() => navigate(`/courses/${courseId}`)}
-          sx={{ 
-            mb: { xs: 2, sm: 3 },
-            color: 'text.secondary',
-            '&:hover': {
-              backgroundColor: 'action.hover',
-              color: 'text.primary'
-            },
-            fontSize: { xs: '0.875rem', sm: '1rem' }
-          }}
+          sx={{ mb: 2, color: '#67666B' }}
         >
           Volver al curso
         </Button>
@@ -204,15 +197,15 @@ const AssignmentDetail = () => {
           }}>
             <Box sx={{ flex: 1, width: '100%' }}>
               <Typography 
-                variant="h4" 
+                variant="h1" 
                 component="h1" 
                 gutterBottom
                 sx={{ 
-                  fontWeight: 600,
+                  fontWeight: 700,
                   mb: 2,
-                  color: 'text.primary',
-                  fontSize: { xs: '1.5rem', sm: '2.125rem' },
-                  lineHeight: { xs: 1.3, sm: 1.4 }
+                  color: '#1C1B1F',
+                  fontSize: { xs: '1.4rem', sm: '1.75rem' },
+                  lineHeight: 1.2
                 }}
               >
                 {assignment?.title || 'Cargando...'}
@@ -684,7 +677,7 @@ const AssignmentDetail = () => {
         onClose={() => setUploadDialogOpen(false)}
         onSuccess={handleMaterialUploadSuccess}
       />
-    </Container>
+    </Box>
   );
 };
 

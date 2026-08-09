@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext.tsx";
 import api from "../../services/api";
@@ -247,20 +247,20 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
           <CircularProgress />
           <Typography variant="h6" sx={{ ml: 2 }}>Cargando perfil...</Typography>
         </Box>
-      </Container>
+      </Box>
     );
   }
 
   if (!user) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
         <Alert severity="error">No se pudo cargar la información del perfil.</Alert>
-      </Container>
+      </Box>
     );
   }
 
@@ -274,7 +274,7 @@ export default function Profile() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       {/* Banner de notificación si el perfil no está completo - Solo para estudiantes */}
       {user.role === 'student' && profileComplete === false && (
         <Alert
@@ -648,7 +648,6 @@ export default function Profile() {
                       sx={{
                         p: { xs: 1.5, sm: 2.5 },
                         borderRadius: 2,
-                        bgcolor: 'primary.light',
                         bgcolor: 'rgba(25, 118, 210, 0.08)',
                         border: '1px solid',
                         borderColor: 'primary.main',
@@ -1140,6 +1139,6 @@ export default function Profile() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 }

@@ -826,33 +826,14 @@ export default function Attendance() {
   }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Tooltip title="Volver al dashboard">
-            <IconButton
-              onClick={() => navigate('/dashboard')}
-              sx={{
-                color: 'text.secondary',
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                  color: 'primary.main'
-                },
-                transition: 'all 0.2s'
-              }}
-            >
-              <ArrowBack />
-            </IconButton>
-          </Tooltip>
-          <Box>
-            <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
-              Control de Asistencia
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Gestiona las sesiones de asistencia con QR y geolocalización
-            </Typography>
-          </Box>
-        </Box>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: '#1C1B1F', mb: 0.25 }}>
+          Asistencia
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Gestiona las sesiones de asistencia con QR y geolocalizacion
+        </Typography>
       </Box>
 
       {/* Course Selector - Diseño similar a Mis Cursos */}
@@ -917,13 +898,12 @@ export default function Attendance() {
                       sx={{
                         height: '100%',
                         cursor: 'pointer',
-                        border: isSelected ? 2 : 0,
-                        borderColor: isSelected ? 'primary.main' : 'transparent',
+                        border: isSelected ? '2px solid #0A7AFF' : '1.5px solid #E7E9EF',
                         '&:hover': {
-                          transform: 'translateY(-4px)',
-                          boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
+                          borderColor: '#D9DCE3',
+                          boxShadow: '0px 4px 16px rgba(0,0,0,0.10)'
                         },
-                        transition: 'all 0.3s ease',
+                        transition: 'all 0.2s ease',
                         borderRadius: 3
                       }}
                     >
