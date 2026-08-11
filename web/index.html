@@ -1,57 +1,70 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="description" content="ClassPad - Plataforma educativa para docentes y estudiantes" />
-    <title>ClassPad - Plataforma Educativa</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;450;500;550;600;650;700;800&display=swap" rel="stylesheet" />
-    <style>
-      /* Mobile-first responsive improvements */
-      @media (max-width: 600px) {
-        html {
-          font-size: 16px; /* Increase base font size on mobile */
-        }
-        
-        body {
-          -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape */
-          -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1); /* Better tap feedback */
-        }
-        
-        /* Improve touch targets */
-        button, a, input, textarea, select {
-          min-height: 44px; /* Apple's recommended minimum touch target */
-          min-width: 44px;
-        }
-        
-        /* Better spacing for mobile */
-        * {
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
-        }
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="description" content="ClassPad - Plataforma educativa para docentes y estudiantes" />
+  <title>ClassPad - Plataforma Educativa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <style>
+    /* Mobile-first responsive improvements */
+    @media (max-width: 600px) {
+      html {
+        font-size: 16px;
+        /* Increase base font size on mobile */
       }
-      
-      /* Improve overall mobile experience */
+
       body {
-        margin: 0;
-        padding: 0;
-        overscroll-behavior-y: contain; /* Prevent pull-to-refresh interference */
+        -webkit-text-size-adjust: 100%;
+        /* Prevent font scaling in landscape */
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+        /* Better tap feedback */
       }
-      
-      #root {
-        min-height: 100vh;
-        width: 100%;
+
+      /* Improve touch targets */
+      button,
+      a,
+      input,
+      textarea,
+      select {
+        min-height: 44px;
+        /* Apple's recommended minimum touch target */
+        min-width: 44px;
       }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+      /* Better spacing for mobile */
+      * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+    }
+
+    /* Improve overall mobile experience */
+    body {
+      margin: 0;
+      padding: 0;
+      overscroll-behavior-y: contain;
+      /* Prevent pull-to-refresh interference */
+    }
+
+    #root {
+      min-height: 100vh;
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
 </html>

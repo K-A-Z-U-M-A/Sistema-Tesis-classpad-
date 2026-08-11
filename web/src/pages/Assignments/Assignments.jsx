@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Grid, Typography, Box, Card, CardContent, Button, Chip, IconButton,
@@ -16,19 +16,19 @@ import { PageContainer, PageHeader, EmptyState } from "../../components/ui";
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 const STATUS_CHIP = {
-  completed:        { label: "Completada",       bg: "#E5F6EA", color: "#0D4D25" },
-  overdue:          { label: "Vencida",           bg: "#FDE9E7", color: "#7D1C15" },
-  urgent:           { label: "Urgente",           bg: "#FFF2DC", color: "#6B3C00" },
-  pending:          { label: "Pendiente",         bg: "#F0F2F7", color: "#67666B" },
-  upcoming:         { label: "Proxima",           bg: "#E8F1FF", color: "#003B75" },
-  all_submitted:    { label: "Todas entregadas",  bg: "#E5F6EA", color: "#0D4D25" },
-  partial_submitted:{ label: "Parcial",           bg: "#FFF2DC", color: "#6B3C00" },
-  no_submissions:   { label: "Sin entregas",      bg: "#FDE9E7", color: "#7D1C15" },
-  no_students:      { label: "Sin estudiantes",   bg: "#F0F2F7", color: "#67666B" },
+  completed:        { label: "Completada",       bg: "#C6EFD1", color: "#002110" },
+  overdue:          { label: "Vencida",           bg: "#F9DEDC", color: "#410E0B" },
+  urgent:           { label: "Urgente",           bg: "#FFDDB0", color: "#2B1700" },
+  pending:          { label: "Pendiente",         bg: "#E7E0EC", color: "text.secondary" },
+  upcoming:         { label: "Proxima",           bg: "#EADDFF", color: "#21005D" },
+  all_submitted:    { label: "Todas entregadas",  bg: "#C6EFD1", color: "#002110" },
+  partial_submitted:{ label: "Parcial",           bg: "#FFDDB0", color: "#2B1700" },
+  no_submissions:   { label: "Sin entregas",      bg: "#F9DEDC", color: "#410E0B" },
+  no_students:      { label: "Sin estudiantes",   bg: "#E7E0EC", color: "text.secondary" },
 };
 
 const StatusChipInline = ({ status }) => {
-  const cfg = STATUS_CHIP[status] || { label: "Activa", bg: "#E8F1FF", color: "#003B75" };
+  const cfg = STATUS_CHIP[status] || { label: "Activa", bg: "#EADDFF", color: "#21005D" };
   return (
     <Chip
       label={cfg.label}
@@ -60,7 +60,7 @@ const AssignmentCard = ({ assignment, status, submissionStats, isTeacher, course
     <Card
       sx={{
         cursor: "pointer", height: "100%",
-        "&:hover": { borderColor: "#D9DCE3", boxShadow: "0px 4px 16px rgba(0,0,0,0.10)" },
+        "&:hover": { borderColor: "divider", boxShadow: "0px 4px 16px rgba(0,0,0,0.10)" },
         borderLeft: isOverdue ? "3px solid #D93025" : isUrgent ? "3px solid #E78000" : "none",
       }}
       onClick={onClick}
@@ -90,21 +90,21 @@ const AssignmentCard = ({ assignment, status, submissionStats, isTeacher, course
               icon={<School sx={{ fontSize: "12px !important" }} />}
               label={course.name}
               size="small"
-              sx={{ height: 22, fontSize: "0.7rem", fontWeight: 500, backgroundColor: "#F0F2F7" }}
+              sx={{ height: 22, fontSize: "0.7rem", fontWeight: 500, backgroundColor: "#E7E0EC" }}
             />
           )}
           <StatusChipInline status={status} />
           {!assignment.is_published && (
-            <Chip label="Borrador" size="small" sx={{ height: 22, fontSize: "0.7rem", backgroundColor: "#F7F8FB", color: "#67666B" }} />
+            <Chip label="Borrador" size="small" sx={{ height: 22, fontSize: "0.7rem", backgroundColor: "surfaceContainer", color: "text.secondary" }} />
           )}
         </Box>
 
         {/* Row 3: due date */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: isTeacher && submissionStats ? 1.5 : 0 }}>
-          <CalendarToday sx={{ fontSize: 13, color: isOverdue ? "#D93025" : isUrgent ? "#E78000" : "text.secondary" }} />
+          <CalendarToday sx={{ fontSize: 13, color: isOverdue ? "#B3261E" : isUrgent ? "#7E5700" : "text.secondary" }} />
           <Typography
             variant="caption"
-            sx={{ color: isOverdue ? "#D93025" : isUrgent ? "#E78000" : "text.secondary", fontWeight: isOverdue || isUrgent ? 600 : 400 }}
+            sx={{ color: isOverdue ? "#B3261E" : isUrgent ? "#7E5700" : "text.secondary", fontWeight: isOverdue || isUrgent ? 600 : 400 }}
           >
             {hasDueDate ? `${dueDateObj.toLocaleDateString("es-ES", { day: "2-digit", month: "short" })} · ${getDueText()}` : "Sin fecha"}
           </Typography>
@@ -120,7 +120,7 @@ const AssignmentCard = ({ assignment, status, submissionStats, isTeacher, course
               <Typography variant="caption" color="text.secondary">
                 {submissionStats.submitted}/{submissionStats.total} entregas
               </Typography>
-              <Typography variant="caption" fontWeight={600} sx={{ color: submissionStats.percentage === 100 ? "#24A148" : submissionStats.percentage > 0 ? "#E78000" : "#D93025" }}>
+              <Typography variant="caption" fontWeight={600} sx={{ color: submissionStats.percentage === 100 ? "#146C2E" : submissionStats.percentage > 0 ? "#7E5700" : "#B3261E" }}>
                 {submissionStats.percentage}%
               </Typography>
             </Box>
@@ -129,9 +129,9 @@ const AssignmentCard = ({ assignment, status, submissionStats, isTeacher, course
               value={submissionStats.percentage}
               sx={{
                 height: 4, borderRadius: 100,
-                backgroundColor: "#E7E9EF",
+                backgroundColor: "#CAC4D0",
                 "& .MuiLinearProgress-bar": {
-                  backgroundColor: submissionStats.percentage === 100 ? "#24A148" : submissionStats.percentage > 0 ? "#E78000" : "#D93025",
+                  backgroundColor: submissionStats.percentage === 100 ? "#146C2E" : submissionStats.percentage > 0 ? "#7E5700" : "#B3261E",
                   borderRadius: 100,
                 },
               }}
@@ -148,7 +148,7 @@ const AssignmentsSkeleton = () => (
   <Grid container spacing={2.5}>
     {[0,1,2,3,4,5].map((i) => (
       <Grid item xs={12} sm={6} lg={4} key={i}>
-        <Skeleton variant="rounded" height={160} sx={{ borderRadius: 3 }} />
+        <Skeleton variant="rounded" height={160} sx={{ borderRadius: "20px" }} />
       </Grid>
     ))}
   </Grid>

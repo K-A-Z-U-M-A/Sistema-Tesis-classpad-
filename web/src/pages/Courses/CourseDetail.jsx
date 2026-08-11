@@ -560,7 +560,7 @@ const CourseDetail = () => {
             size="small"
             startIcon={<ArrowBack />}
             onClick={() => navigate('/courses')}
-            sx={{ color: '#67666B' }}
+            sx={{ color: 'text.secondary' }}
           >
             Mis Cursos
           </Button>
@@ -576,7 +576,7 @@ const CourseDetail = () => {
             sx={{
               width: { xs: 50, sm: 60 },
               height: { xs: 50, sm: 60 },
-              borderRadius: 2,
+              borderRadius: "16px",
               backgroundColor: course.color,
               display: 'flex',
               alignItems: 'center',
@@ -589,7 +589,7 @@ const CourseDetail = () => {
             <Typography
               variant="h1"
               component="h1"
-              sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' }, fontWeight: 700, color: '#1C1B1F', lineHeight: 1.2 }}
+              sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' }, fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}
             >
               {course.name}
             </Typography>
@@ -652,23 +652,15 @@ const CourseDetail = () => {
               <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
                 <Button
                   variant="contained"
+                  color="primary"
                   startIcon={<Star />}
                   onClick={() => navigate(`/courses/${courseId}/manage`)}
-                  sx={{
-                    bgcolor: '#1976d2',
-                    '&:hover': { bgcolor: '#1565c0' },
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    px: 2.5,
-                    py: 1,
-                    borderRadius: 2,
-                    boxShadow: 2
-                  }}
                 >
                   Administrar Curso
                 </Button>
                 <Button
                   variant="contained"
+                  color="warning"
                   startIcon={<ArchiveIcon />}
                   onClick={async () => {
                     if (window.confirm('¿Estás seguro de que deseas archivar este curso? Todos los estudiantes serán removidos.')) {
@@ -681,16 +673,6 @@ const CourseDetail = () => {
                       }
                     }
                   }}
-                  sx={{
-                    bgcolor: '#ff9800',
-                    '&:hover': { bgcolor: '#f57c00' },
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    px: 2.5,
-                    py: 1,
-                    borderRadius: 2,
-                    boxShadow: 2
-                  }}
                 >
                   Archivar Curso
                 </Button>
@@ -702,18 +684,9 @@ const CourseDetail = () => {
               <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
                 <Button
                   variant="contained"
+                  color="secondary"
                   startIcon={<TrendingUp />}
                   onClick={() => navigate(`/courses/${courseId}/progress`)}
-                  sx={{
-                    bgcolor: '#9c27b0',
-                    '&:hover': { bgcolor: '#7b1fa2' },
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    px: 2.5,
-                    py: 1,
-                    borderRadius: 2,
-                    boxShadow: 2
-                  }}
                 >
                   Ver mi progreso
                 </Button>
@@ -733,7 +706,7 @@ const CourseDetail = () => {
       </motion.div>
 
       {/* Tabs */}
-      <Card sx={{ borderRadius: 3 }}>
+      <Card sx={{ borderRadius: "20px" }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
             value={activeTab}
@@ -787,7 +760,7 @@ const CourseDetail = () => {
                     startIcon={<Add />}
                     onClick={() => setNewUnitDialog(true)}
                     sx={{
-                      borderRadius: 2,
+                      borderRadius: "16px",
                       width: { xs: '100%', sm: 'auto' }
                     }}
                   >
@@ -806,7 +779,7 @@ const CourseDetail = () => {
                       sx={{
                         border: '1px solid',
                         borderColor: 'divider',
-                        borderRadius: 3,
+                        borderRadius: "20px",
                         '&:before': { display: 'none' },
                         boxShadow: 'none',
                         '&:hover': {
@@ -942,7 +915,7 @@ const CourseDetail = () => {
                                   variant="outlined"
                                   startIcon={<Add />}
                                   onClick={() => handleOpenMaterialUpload(unit.id)}
-                                  sx={{ borderRadius: 2 }}
+                                  sx={{ borderRadius: "16px" }}
                                 >
                                   Agregar Material
                                 </Button>
@@ -966,7 +939,7 @@ const CourseDetail = () => {
                           </Paper>
 
                           {/* Tareas de la unidad */}
-                          <Paper elevation={0} sx={{ p: 2, backgroundColor: 'grey.25', borderRadius: 2 }}>
+                          <Paper elevation={0} sx={{ p: 2, backgroundColor: 'grey.25', borderRadius: "16px" }}>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                               <Typography variant="subtitle1" fontWeight="bold" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Assignment color="primary" />
@@ -978,7 +951,7 @@ const CourseDetail = () => {
                                   variant="outlined"
                                   startIcon={<Add />}
                                   onClick={() => handleOpenNewTask(unit.id)}
-                                  sx={{ borderRadius: 2 }}
+                                  sx={{ borderRadius: "16px" }}
                                 >
                                   Nueva Tarea
                                 </Button>
@@ -1095,7 +1068,7 @@ const CourseDetail = () => {
                       startIcon={<Add />}
                       onClick={() => setNewUnitDialog(true)}
                       size="large"
-                      sx={{ borderRadius: 2 }}
+                      sx={{ borderRadius: "16px" }}
                     >
                       Crear Primera Unidad
                     </Button>
@@ -1188,15 +1161,15 @@ const CourseDetail = () => {
                     No hay tareas aún
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {isTeacher ? 'Crea la primera tarea para los estudiantes' : 'Las tareas aparecerán aquí cuando el profesor las publique'}
+                    {isTeacher ? 'Las tareas se crean desde cada unidad en la pestaña "Unidades"' : 'Las tareas aparecerán aquí cuando el profesor las publique'}
                   </Typography>
                   {isTeacher && (
                     <Button
                       variant="contained"
                       startIcon={<Add />}
-                      onClick={() => navigate(`/courses/${courseId}/assignments/new`)}
+                      onClick={() => setActiveTab(0)}
                     >
-                      Crear Primera Tarea
+                      Ir a Unidades para crear tarea
                     </Button>
                   )}
                 </Box>

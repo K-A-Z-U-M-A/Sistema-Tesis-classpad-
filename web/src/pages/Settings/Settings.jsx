@@ -71,7 +71,7 @@ export default function Settings() {
           <Typography
             variant="h1"
             component="h1"
-            sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: '#1C1B1F', mb: 0.25 }}
+            sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: 'text.primary', mb: 0.25 }}
           >
             Configuracion
           </Typography>
@@ -86,7 +86,7 @@ export default function Settings() {
               severity="warning"
               sx={{
                 mb: 3,
-                borderRadius: 3,
+                borderRadius: "20px",
                 border: '1px solid',
                 borderColor: 'warning.main',
                 boxShadow: '0 4px 16px rgba(255, 152, 0, 0.2)'
@@ -141,7 +141,7 @@ export default function Settings() {
                   <Box
                     sx={{
                       p: 1.25,
-                      borderRadius: 2,
+                      borderRadius: "16px",
                       background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15))',
                       display: 'flex',
                       alignItems: 'center',
@@ -200,7 +200,7 @@ export default function Settings() {
                   <Box
                     sx={{
                       p: 1.25,
-                      borderRadius: 2,
+                      borderRadius: "16px",
                       background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15))',
                       display: 'flex',
                       alignItems: 'center',

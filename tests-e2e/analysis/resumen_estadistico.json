@@ -1,0 +1,13 @@
+{
+  "fecha_analisis": "2026-07-23T20:56:28.776847",
+  "total_mediciones": 68,
+  "pasaron": 45,
+  "fallaron": 21,
+  "media_seg": 2.4605,
+  "mediana_seg": 1.5495,
+  "desv_std_seg": 3.465,
+  "minimo_seg": 0.018,
+  "maximo_seg": 15.022,
+  "sobre_umbral_3s": 13,
+  "pct_sobre_umbral": 19.7
+}

@@ -117,7 +117,7 @@ const Audit = () => {
             </Box>
 
             {/* Filters */}
-            <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+            <Paper sx={{ p: 2, mb: 3, borderRadius: "16px" }}>
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <FormControl size="small" sx={{ minWidth: 200 }}>
                         <InputLabel>Filtrar por Acción</InputLabel>
@@ -214,7 +214,7 @@ const Audit = () => {
                     <CircularProgress />
                 </Box>
             ) : (
-                <Paper sx={{ borderRadius: 2 }}>
+                <Paper sx={{ borderRadius: "16px" }}>
                     <TableContainer>
                         <Table>
                             <TableHead sx={{ bgcolor: 'background.default' }}>

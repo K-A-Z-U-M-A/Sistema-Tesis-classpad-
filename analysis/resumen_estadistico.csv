@@ -1,0 +1,2 @@
+fecha_analisis,total_mediciones,pasaron,fallaron,media_seg,mediana_seg,desv_std_seg,minimo_seg,maximo_seg,sobre_umbral_3s,pct_sobre_umbral
+2026-07-23T20:56:26.042267,35,35,0,1.3506,1.21,0.5537,0.64,2.87,0,0.0

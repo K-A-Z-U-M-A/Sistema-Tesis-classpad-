@@ -828,7 +828,7 @@ export default function Attendance() {
   return (
     <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: '#1C1B1F', mb: 0.25 }}>
+        <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>
           Asistencia
         </Typography>
         <Typography variant="body2" color="text.secondary">
@@ -872,7 +872,7 @@ export default function Attendance() {
             <CircularProgress />
           </Box>
         ) : filteredCourses.length === 0 ? (
-          <Alert severity="info" sx={{ borderRadius: 2 }}>
+          <Alert severity="info" sx={{ borderRadius: "16px" }}>
             {courseSearchTerm 
               ? 'No se encontraron cursos que coincidan con tu búsqueda' 
               : 'No hay cursos disponibles'}
@@ -900,7 +900,7 @@ export default function Attendance() {
                         cursor: 'pointer',
                         border: isSelected ? '2px solid #0A7AFF' : '1.5px solid #E7E9EF',
                         '&:hover': {
-                          borderColor: '#D9DCE3',
+                          borderColor: 'divider',
                           boxShadow: '0px 4px 16px rgba(0,0,0,0.10)'
                         },
                         transition: 'all 0.2s ease',
@@ -919,7 +919,7 @@ export default function Attendance() {
                             sx={{
                               width: { xs: 40, sm: 50 },
                               height: { xs: 40, sm: 50 },
-                              borderRadius: 2,
+                              borderRadius: "16px",
                               backgroundColor: course.color || '#007AFF',
                               display: 'flex',
                               alignItems: 'center',
@@ -1382,7 +1382,7 @@ export default function Attendance() {
                 <Box sx={{ textAlign: 'center' }}>
                   <Box 
                     ref={qrCodeRef}
-                    sx={{ p: 2, bgcolor: 'white', borderRadius: 2, display: 'inline-block', position: 'relative' }}
+                    sx={{ p: 2, bgcolor: 'white', borderRadius: "16px", display: 'inline-block', position: 'relative' }}
                   >
                     <QRCodeSVG
                       value={selectedSession.qr_token}
@@ -1727,7 +1727,7 @@ export default function Attendance() {
                     textAlign: 'center',
                     border: '2px solid',
                     borderColor: 'primary.main',
-                    borderRadius: 3,
+                    borderRadius: "20px",
                     transition: 'all 0.3s',
                     '&:hover': {
                       transform: 'translateY(-4px)',
@@ -1753,7 +1753,7 @@ export default function Attendance() {
                     textAlign: 'center',
                     border: '2px solid',
                     borderColor: 'secondary.main',
-                    borderRadius: 3,
+                    borderRadius: "20px",
                     transition: 'all 0.3s',
                     '&:hover': {
                       transform: 'translateY(-4px)',
@@ -1972,7 +1972,7 @@ export default function Attendance() {
 
           {/* Resumen de asistencia */}
           {students.length > 0 && (
-            <Box sx={{ mt: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ mt: 3, p: 2, backgroundColor: 'grey.50', borderRadius: "16px" }}>
               <Typography variant="subtitle2" gutterBottom>
                 Resumen:
               </Typography>

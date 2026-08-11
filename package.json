@@ -1,12 +1,23 @@
 {
   "name": "classpad-monorepo",
   "version": "1.0.0",
+  "type": "module",
   "description": "ClassPad system with React frontend and Express backend",
   "scripts": {
     "dev": "concurrently -n WEB,BACK -c auto \"npm --prefix web run dev\" \"npm --prefix backend run dev\"",
     "install:all": "npm install && npm --prefix web install && npm --prefix backend install",
     "build": "npm --prefix web run build",
-    "start": "npm --prefix backend run start"
+    "start": "npm --prefix backend run start",
+    "test:e2e": "npm --prefix tests-e2e run test",
+    "test:e2e:headed": "npm --prefix tests-e2e run test:headed",
+    "test:e2e:ui": "npm --prefix tests-e2e run test:ui",
+    "test:e2e:report": "npm --prefix tests-e2e run report",
+    "install:e2e": "npm --prefix tests-e2e install && npx --prefix tests-e2e playwright install chromium",
+    "analyze:e2e": "python tests-e2e/analysis/analyze_playwright_results.py --metrics tests-e2e/test-results/metrics/performance-metrics.json --results tests-e2e/playwright-report/results.json --output tests-e2e/analysis/",
+    "analyze:sus": "python tests-e2e/analysis/analyze_human_usability.py --input tests-e2e/usability/sus-responses.csv --output tests-e2e/analysis/",
+    "seed:usability": "node backend/seed-usability.js",
+    "seed:usability:reset": "node backend/seed-usability.js --reset",
+    "analyze:usability": "python tests-e2e/analysis/analyze_human_usability.py --input tests-e2e/usability/data --output tests-e2e/analysis/human-usability-results/"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

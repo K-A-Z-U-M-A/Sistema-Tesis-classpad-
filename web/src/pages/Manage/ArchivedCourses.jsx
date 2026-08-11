@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Container,
@@ -155,7 +155,7 @@ const ArchivedCourses = () => {
                                 <Card
                                     sx={{
                                         height: '100%',
-                                        borderRadius: 3,
+                                        borderRadius: "20px",
                                         transition: 'all 0.3s ease',
                                         '&:hover': {
                                             transform: 'translateY(-4px)',
@@ -169,7 +169,7 @@ const ArchivedCourses = () => {
                                                 sx={{
                                                     width: { xs: 40, sm: 50 },
                                                     height: { xs: 40, sm: 50 },
-                                                    borderRadius: 2,
+                                                    borderRadius: "16px",
                                                     backgroundColor: course.color || '#9E9E9E',
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -243,7 +243,7 @@ const ArchivedCourses = () => {
                                             color="success"
                                             startIcon={<Unarchive />}
                                             onClick={() => handleUnarchive(course.id)}
-                                            sx={{ mt: 2, borderRadius: 2 }}
+                                            sx={{ mt: 2, borderRadius: "16px" }}
                                         >
                                             Restaurar Curso
                                         </Button>

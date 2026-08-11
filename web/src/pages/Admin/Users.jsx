@@ -202,14 +202,14 @@ const Users = () => {
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={handleOpenCreate}
-                    sx={{ borderRadius: 2 }}
+                    sx={{ borderRadius: "16px" }}
                 >
                     Crear Profesor
                 </Button>
             </Box>
 
             {/* Filters and Search */}
-            <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+            <Paper sx={{ p: 2, mb: 3, borderRadius: "16px" }}>
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                     <TextField
                         label="Buscar por nombre o email"
@@ -266,7 +266,7 @@ const Users = () => {
                     <CircularProgress />
                 </Box>
             ) : (
-                <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+                <TableContainer component={Paper} sx={{ borderRadius: "16px" }}>
                     <Table>
                         <TableHead sx={{ bgcolor: 'background.default' }}>
                             <TableRow>

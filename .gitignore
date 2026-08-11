@@ -146,3 +146,14 @@ Thumbs.db
 node_modules
 
 backend/hashes-output.txt
+
+# ── Usabilidad: archivos con datos de participantes (NO subir al repo) ──────
+tests-e2e/usability/data/credenciales_moderador.csv
+tests-e2e/.env.usabilidad
+tests-e2e/usability/data/participantes_reales.csv
+tests-e2e/usability/data/observaciones_reales.csv
+tests-e2e/usability/data/sus_responses_reales.csv
+tests-e2e/usability/data/entrevista_final_reales.csv
+tests-e2e/analysis/human-usability-results/
+backend/verify-usability-data.js
+

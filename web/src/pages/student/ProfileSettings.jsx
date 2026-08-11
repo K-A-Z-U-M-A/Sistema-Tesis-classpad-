@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ProfileSettings - Página de configuración de perfil (Student)
  * 
  * Secciones:
@@ -86,7 +86,7 @@ const ProfileSettings = () => {
                             <Box
                                 sx={{
                                     p: 1.5,
-                                    borderRadius: 2,
+                                    borderRadius: "16px",
                                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -125,7 +125,7 @@ const ProfileSettings = () => {
                 >
                     <Paper
                         sx={{
-                            borderRadius: 3,
+                            borderRadius: "20px",
                             mb: 3,
                             overflow: 'hidden',
                             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -222,7 +222,7 @@ const ProfileSettings = () => {
                                         <Box
                                             sx={{
                                                 p: 1.25,
-                                                borderRadius: 2,
+                                                borderRadius: "16px",
                                                 background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15))',
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -281,7 +281,7 @@ const ProfileSettings = () => {
                                         <Box
                                             sx={{
                                                 p: 1.25,
-                                                borderRadius: 2,
+                                                borderRadius: "16px",
                                                 background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15))',
                                                 display: 'flex',
                                                 alignItems: 'center',

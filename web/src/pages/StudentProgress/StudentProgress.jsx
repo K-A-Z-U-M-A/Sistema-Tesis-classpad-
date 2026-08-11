@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Container,
@@ -157,7 +157,7 @@ const StudentProgress = () => {
                         variant="outlined"
                         startIcon={<ArrowBack />}
                         onClick={() => navigate(`/courses/${courseId}`)}
-                        sx={{ borderRadius: 2 }}
+                        sx={{ borderRadius: "16px" }}
                     >
                         Volver a Curso
                     </Button>
@@ -178,7 +178,7 @@ const StudentProgress = () => {
                             sx={{
                                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                 color: 'white',
-                                borderRadius: 3,
+                                borderRadius: "20px",
                                 boxShadow: 3
                             }}
                         >
@@ -206,7 +206,7 @@ const StudentProgress = () => {
                             sx={{
                                 background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
                                 color: 'white',
-                                borderRadius: 3,
+                                borderRadius: "20px",
                                 boxShadow: 3
                             }}
                         >
@@ -234,7 +234,7 @@ const StudentProgress = () => {
                             sx={{
                                 background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
                                 color: 'white',
-                                borderRadius: 3,
+                                borderRadius: "20px",
                                 boxShadow: 3
                             }}
                         >
@@ -262,7 +262,7 @@ const StudentProgress = () => {
                             sx={{
                                 background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
                                 color: 'white',
-                                borderRadius: 3,
+                                borderRadius: "20px",
                                 boxShadow: 3
                             }}
                         >
@@ -288,7 +288,7 @@ const StudentProgress = () => {
 
                 {/* Grades Section */}
                 {!grades ? (
-                    <Card sx={{ borderRadius: 3, boxShadow: 2, mb: 4 }}>
+                    <Card sx={{ borderRadius: "20px", boxShadow: 2, mb: 4 }}>
                         <CardContent sx={{ py: 8, textAlign: 'center' }}>
                             <Alert severity="info" sx={{ maxWidth: 600, mx: 'auto' }}>
                                 <Typography variant="body1">
@@ -298,7 +298,7 @@ const StudentProgress = () => {
                         </CardContent>
                     </Card>
                 ) : (
-                    <Card sx={{ borderRadius: 3, boxShadow: 2, mb: 4 }}>
+                    <Card sx={{ borderRadius: "20px", boxShadow: 2, mb: 4 }}>
                         <CardContent>
                             <Typography variant="h6" fontWeight="bold" mb={3}>
                                 Calificaciones
@@ -444,7 +444,7 @@ const StudentProgress = () => {
                 )}
 
                 {/* Tasks and Grades Table */}
-                <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+                <Card sx={{ borderRadius: "20px", boxShadow: 2 }}>
                     <CardContent>
                         <Typography variant="h6" fontWeight="bold" mb={3}>
                             Tareas y Calificaciones

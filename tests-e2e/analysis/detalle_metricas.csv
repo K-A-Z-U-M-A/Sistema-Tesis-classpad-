@@ -1,0 +1,69 @@
+timestamp,scenario,module,action,durationMs,durationSec,status
+2026-07-23T23:42:34.633Z,Login exitoso - admin,Autenticación,Clic en Ingresar,2029,2.029,pass
+2026-07-23T23:42:37.113Z,Login exitoso - teacher,Autenticación,Clic en Ingresar,2099,2.099,pass
+2026-07-23T23:42:39.829Z,Login exitoso - student,Autenticación,Clic en Ingresar,2393,2.393,pass
+2026-07-23T23:42:46.456Z,Login fallido - credenciales incorrectas,Autenticación,Clic en Ingresar (inválido),5092,5.092,pass
+2026-07-23T23:42:50.004Z,Redirección ruta protegida,Autenticación,Acceso a /dashboard sin sesión,3261,3.261,pass
+2026-07-23T23:42:53.423Z,Cierre de sesión - admin,Autenticación,Clic en Cerrar sesión,811,0.811,pass
+2026-07-23T23:42:57.866Z,Listar usuarios,Administración,Carga de tabla de usuarios,1749,1.749,pass
+2026-07-23T23:43:02.095Z,Listar usuarios - registros,Administración,Conteo de filas en tabla,20,0.02,pass
+2026-07-23T23:43:07.173Z,Buscar usuario,Administración,Búsqueda por nombre/email,872,0.872,pass
+2026-07-23T23:43:11.393Z,Ver detalle de usuario,Administración,Apertura de detalle/modal de usuario,99,0.099,fail
+2026-07-23T23:43:18.325Z,Listar cursos del profesor,Cursos,Carga de lista de cursos,1380,1.38,pass
+2026-07-23T23:43:22.250Z,Conteo de cursos,Cursos,Verificar existencia de cursos,18,0.018,pass
+2026-07-23T23:43:26.023Z,Detalle de curso,Cursos,Apertura de detalle de curso,107,0.107,fail
+2026-07-23T23:43:31.430Z,Sección alumnos en curso,Cursos,Visibilidad de lista de alumnos,47,0.047,fail
+2026-07-23T23:43:48.445Z,Listar tareas,Tareas,Carga de lista de tareas,13258,13.258,fail
+2026-07-23T23:43:53.083Z,Crear nueva tarea - apertura formulario,Tareas,Apertura de formulario / modal de nueva tarea,181,0.181,pass
+2026-07-23T23:44:02.258Z,Validación formulario tarea vacío,Tareas,Envío de formulario vacío,5075,5.075,fail
+2026-07-23T23:44:22.578Z,Ver entregas de tarea,Tareas,Apertura de entregas de alumnos,15022,15.022,fail
+2026-07-23T23:44:29.755Z,Ver cursos disponibles,Inscripciones,Carga de catálogo de cursos,2328,2.328,fail
+2026-07-23T23:44:36.531Z,Cursos disponibles - conteo,Inscripciones,Verificar existencia de cursos disponibles,28,0.028,pass
+2026-07-23T23:44:50.179Z,Mis inscripciones,Inscripciones,Carga de inscripciones del alumno,11070,11.07,fail
+2026-07-23T23:44:54.125Z,Dashboard alumno,Inscripciones,Carga de dashboard post-login,77,0.077,pass
+2026-07-23T23:44:59.652Z,Ver tareas pendientes,Entregas,Carga de tareas pendientes,2932,2.932,fail
+2026-07-23T23:45:07.644Z,Detalle de tarea,Entregas,Apertura de detalle de tarea,125,0.125,fail
+2026-07-23T23:45:32.480Z,Carga assignments sin errores JS,Entregas,Verificación de errores JavaScript,3911,3.911,pass
+2026-07-23T23:45:36.632Z,Carga módulo asistencia,Asistencia,Carga de página de asistencia,1528,1.528,pass
+2026-07-23T23:45:36.652Z,Carga módulo asistencia,Asistencia,Web Vitals,,,info
+2026-07-23T23:45:50.650Z,Lista alumnos asistencia,Asistencia,Visibilidad de lista de alumnos,10054,10.054,fail
+2026-07-23T23:45:56.218Z,Controles de asistencia,Asistencia,Visibilidad de controles presente/ausente,34,0.034,pass
+2026-07-23T23:46:00.938Z,Historial asistencia alumno,Asistencia,Carga de historial de asistencia del alumno,2187,2.187,pass
+2026-07-23T23:46:16.979Z,Libro de calificaciones - profesor,Calificaciones,Carga de libro de calificaciones,13390,13.39,fail
+2026-07-23T23:46:22.491Z,Filas de alumnos en calificaciones,Calificaciones,Conteo de alumnos en libro,33,0.033,fail
+2026-07-23T23:46:39.404Z,Calificaciones alumno,Calificaciones,Carga de calificaciones del alumno,13074,13.074,fail
+2026-07-23T23:46:45.599Z,Calificaciones - errores JS,Calificaciones,Verificación de errores JavaScript,2922,2.922,pass
+2026-07-23T23:46:49.646Z,Carga módulo mensajes - admin,Mensajes,Carga de página de mensajes,1549,1.549,pass
+2026-07-23T23:46:49.657Z,Carga mensajes admin,Mensajes,Web Vitals,,,info
+2026-07-23T23:46:53.794Z,Lista de conversaciones,Mensajes,Visibilidad de panel de conversaciones,38,0.038,fail
+2026-07-23T23:46:58.648Z,Carga módulo mensajes - profesor,Mensajes,Carga de página de mensajes (profesor),1306,1.306,pass
+2026-07-23T23:47:03.804Z,Carga módulo mensajes - alumno,Mensajes,Carga de página de mensajes (alumno),2588,2.588,pass
+2026-07-23T23:47:08.652Z,Área de redacción,Mensajes,Visibilidad de campo de redacción,686,0.686,fail
+2026-07-23T23:47:13.219Z,Badge de notificaciones,Mensajes,Visibilidad de badge de notificaciones no leídas,330,0.33,pass
+2026-07-23T23:47:17.014Z,Acceso auditoría - /audit,Reportes,Carga de /audit,1197,1.197,pass
+2026-07-23T23:47:21.173Z,Tabla de logs auditoría,Reportes,Visibilidad de tabla de logs,25,0.025,pass
+2026-07-23T23:47:24.803Z,Acceso restringido auditoría - alumno,Reportes,Verificación de acceso denegado,1104,1.104,fail
+2026-07-23T23:47:30.728Z,"Validación email inválido - ""noesuncorreo""",Validación,Envío de email inválido en login,3045,3.045,pass
+2026-07-23T23:47:34.782Z,"Validación email inválido - ""sindominio@""",Validación,Envío de email inválido en login,2523,2.523,pass
+2026-07-23T23:47:39.460Z,"Validación email inválido - ""@sincuenta.com""",Validación,Envío de email inválido en login,3036,3.036,pass
+2026-07-23T23:47:43.586Z,Validación contraseña vacía,Validación,Envío con contraseña vacía,2563,2.563,pass
+2026-07-23T23:47:48.822Z,Mensaje de error login fallido,Validación,Verificación de mensaje de error claro,3630,3.63,pass
+2026-07-23T23:47:53.128Z,Validación mensaje vacío,Validación,Intento de envío de mensaje vacío,38,0.038,pass
+2026-07-23T23:47:57.530Z,[Desktop] Dashboard,Responsividad,Carga de /dashboard en Desktop,1598,1.598,pass
+2026-07-23T23:48:01.770Z,[Desktop] Mensajes,Responsividad,Carga de /messages en Desktop,1574,1.574,pass
+2026-07-23T23:48:05.617Z,[Desktop] Cursos,Responsividad,Carga de /courses en Desktop,1593,1.593,pass
+2026-07-23T23:48:07.199Z,[Desktop] Login,Responsividad,Carga de página de login,1384,1.384,pass
+2026-07-23T23:48:10.983Z,[Tablet] Dashboard,Responsividad,Carga de /dashboard en Tablet,1635,1.635,pass
+2026-07-23T23:48:15.335Z,[Tablet] Mensajes,Responsividad,Carga de /messages en Tablet,1550,1.55,pass
+2026-07-23T23:48:19.546Z,[Tablet] Cursos,Responsividad,Carga de /courses en Tablet,1603,1.603,pass
+2026-07-23T23:48:21.049Z,[Tablet] Login,Responsividad,Carga de página de login,1273,1.273,pass
+2026-07-23T23:48:25.220Z,[Móvil] Dashboard,Responsividad,Carga de /dashboard en Móvil,1554,1.554,pass
+2026-07-23T23:48:29.449Z,[Móvil] Mensajes,Responsividad,Carga de /messages en Móvil,1577,1.577,pass
+2026-07-23T23:48:33.700Z,[Móvil] Cursos,Responsividad,Carga de /courses en Móvil,1615,1.615,pass
+2026-07-23T23:48:35.200Z,[Móvil] Login,Responsividad,Carga de página de login,1291,1.291,pass
+2026-07-23T23:48:43.685Z,Menú hamburguesa móvil,Responsividad,Verificación de menú móvil,31,0.031,pass
+2026-07-23T23:48:45.906Z,Accesibilidad - Login,Accesibilidad,Análisis axe-core,640,0.64,fail
+2026-07-23T23:48:55.643Z,Accesibilidad - Dashboard-Admin,Accesibilidad,Análisis axe-core,633,0.633,fail
+2026-07-23T23:49:00.679Z,Accesibilidad - Mensajes,Accesibilidad,Análisis axe-core,656,0.656,fail
+2026-07-23T23:49:06.846Z,Accesibilidad - Cursos-Profesor,Accesibilidad,Análisis axe-core,640,0.64,fail
+2026-07-23T23:49:11.630Z,Navegación teclado - Calificaciones,Accesibilidad,Tab x5 en Calificaciones,679,0.679,pass

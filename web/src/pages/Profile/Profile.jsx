@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext.tsx";
 import api from "../../services/api";
@@ -298,7 +298,7 @@ export default function Profile() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 }, mb: 4, borderRadius: 3 }}>
+        <Paper elevation={3} sx={{ p: { xs: 2, sm: 4 }, mb: 4, borderRadius: "20px" }}>
           <Grid container spacing={{ xs: 2, sm: 4 }} alignItems="center">
             <Grid item xs={12} sm="auto">
               <Box display="flex" justifyContent={{ xs: 'center', sm: 'flex-start' }}>
@@ -416,7 +416,7 @@ export default function Profile() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+            <Card sx={{ borderRadius: "20px", boxShadow: 2 }}>
               <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                   <Typography
@@ -444,7 +444,7 @@ export default function Profile() {
                       <Box
                         sx={{
                           p: 2,
-                          borderRadius: 2,
+                          borderRadius: "16px",
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -468,7 +468,7 @@ export default function Profile() {
                       <Box
                         sx={{
                           p: 2,
-                          borderRadius: 2,
+                          borderRadius: "16px",
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -492,7 +492,7 @@ export default function Profile() {
                       <Box
                         sx={{
                           p: 2,
-                          borderRadius: 2,
+                          borderRadius: "16px",
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -517,7 +517,7 @@ export default function Profile() {
                       <Box
                         sx={{
                           p: 2,
-                          borderRadius: 2,
+                          borderRadius: "16px",
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -541,7 +541,7 @@ export default function Profile() {
                       <Box
                         sx={{
                           p: 2,
-                          borderRadius: 2,
+                          borderRadius: "16px",
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -564,7 +564,7 @@ export default function Profile() {
                     <Box
                       sx={{
                         p: 2,
-                        borderRadius: 2,
+                        borderRadius: "16px",
                         bgcolor: 'background.default',
                         border: '1px solid',
                         borderColor: 'divider'
@@ -587,7 +587,7 @@ export default function Profile() {
                       <Box
                         sx={{
                           p: 2,
-                          borderRadius: 2,
+                          borderRadius: "16px",
                           bgcolor: 'background.default',
                           border: '1px solid',
                           borderColor: 'divider'
@@ -629,7 +629,7 @@ export default function Profile() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+            <Card sx={{ borderRadius: "20px", boxShadow: 2 }}>
               <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
                 <Typography
                   variant="h5"
@@ -647,7 +647,7 @@ export default function Profile() {
                       textAlign="center"
                       sx={{
                         p: { xs: 1.5, sm: 2.5 },
-                        borderRadius: 2,
+                        borderRadius: "16px",
                         bgcolor: 'rgba(25, 118, 210, 0.08)',
                         border: '1px solid',
                         borderColor: 'primary.main',
@@ -685,7 +685,7 @@ export default function Profile() {
                       textAlign="center"
                       sx={{
                         p: { xs: 1.5, sm: 2.5 },
-                        borderRadius: 2,
+                        borderRadius: "16px",
                         bgcolor: 'rgba(156, 39, 176, 0.08)',
                         border: '1px solid',
                         borderColor: 'secondary.main',
@@ -725,7 +725,7 @@ export default function Profile() {
                           textAlign="center"
                           sx={{
                             p: { xs: 1.5, sm: 2.5 },
-                            borderRadius: 2,
+                            borderRadius: "16px",
                             bgcolor: 'rgba(76, 175, 80, 0.08)',
                             border: '1px solid',
                             borderColor: 'success.main',
@@ -763,7 +763,7 @@ export default function Profile() {
                           textAlign="center"
                           sx={{
                             p: { xs: 1.5, sm: 2.5 },
-                            borderRadius: 2,
+                            borderRadius: "16px",
                             bgcolor: stats.pending_assignments > 0
                               ? 'rgba(255, 152, 0, 0.08)'
                               : 'rgba(158, 158, 158, 0.08)',
@@ -808,7 +808,7 @@ export default function Profile() {
                             textAlign="center"
                             sx={{
                               p: { xs: 1.5, sm: 2.5 },
-                              borderRadius: 2,
+                              borderRadius: "16px",
                               bgcolor: 'rgba(33, 150, 243, 0.08)',
                               border: '1px solid',
                               borderColor: 'info.main',
@@ -857,7 +857,7 @@ export default function Profile() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            <Card sx={{ borderRadius: 3, boxShadow: 2 }}>
+            <Card sx={{ borderRadius: "20px", boxShadow: 2 }}>
               <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
                 <Typography
                   variant="h5"
@@ -881,7 +881,7 @@ export default function Profile() {
                           <Card
                             sx={{
                               height: '100%',
-                              borderRadius: 2,
+                              borderRadius: "16px",
                               border: '1px solid',
                               borderColor: 'divider',
                               transition: 'all 0.3s ease',
@@ -965,7 +965,7 @@ export default function Profile() {
                     textAlign="center"
                     py={6}
                     sx={{
-                      borderRadius: 2,
+                      borderRadius: "16px",
                       bgcolor: 'background.default',
                       border: '2px dashed',
                       borderColor: 'divider'

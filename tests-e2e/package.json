@@ -1,15 +1,26 @@
 {
-  "name": "tests-e2e",
+  "name": "classpad-e2e-eval",
   "version": "1.0.0",
-  "description": "",
-  "main": "scenarios.js",
+  "description": "Módulo de evaluación integral de calidad, accesibilidad y usabilidad para ClassPad",
+  "main": "playwright.config.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "playwright test",
+    "test:e2e": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:e2e:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:e2e:ui": "playwright test --ui",
+    "report": "playwright show-report playwright-report",
+    "test:a11y": "playwright test tests/13-accessibility.spec.js",
+    "test:responsive": "playwright test tests/12-responsive.spec.js",
+    "install:browsers": "playwright install chromium",
+    "analyze": "python analysis/analyze_playwright_results.py",
+    "analyze:sus": "python analysis/analyze_human_usability.py"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "puppeteer": "^24.32.1"
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.61.1",
+    "dotenv": "^17.4.2"
   }
 }

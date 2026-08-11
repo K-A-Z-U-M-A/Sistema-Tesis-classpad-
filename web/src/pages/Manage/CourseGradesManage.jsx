@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Container,
@@ -226,7 +226,7 @@ const CourseGradesManage = () => {
                             variant="outlined"
                             startIcon={<ArrowBack />}
                             onClick={() => navigate(`/courses/${courseId}`)}
-                            sx={{ borderRadius: 2 }}
+                            sx={{ borderRadius: "16px" }}
                         >
                             Volver a Curso
                         </Button>
@@ -252,7 +252,7 @@ const CourseGradesManage = () => {
                         startIcon={<Save />}
                         onClick={handleSaveAll}
                         disabled={!hasChanges || saving}
-                        sx={{ borderRadius: 2 }}
+                        sx={{ borderRadius: "16px" }}
                     >
                         Guardar Todo
                     </Button>
@@ -262,7 +262,7 @@ const CourseGradesManage = () => {
                         startIcon={<CheckCircle />}
                         onClick={handlePublishAll}
                         disabled={saving}
-                        sx={{ borderRadius: 2 }}
+                        sx={{ borderRadius: "16px" }}
                     >
                         Publicar Todo
                     </Button>
@@ -270,7 +270,7 @@ const CourseGradesManage = () => {
                         variant="outlined"
                         startIcon={<Download />}
                         onClick={handleExportExcel}
-                        sx={{ borderRadius: 2 }}
+                        sx={{ borderRadius: "16px" }}
                     >
                         Exportar Excel
                     </Button>
@@ -278,7 +278,7 @@ const CourseGradesManage = () => {
                         variant="outlined"
                         startIcon={<Download />}
                         onClick={handleExportPDF}
-                        sx={{ borderRadius: 2 }}
+                        sx={{ borderRadius: "16px" }}
                     >
                         Exportar PDF
                     </Button>
@@ -288,7 +288,7 @@ const CourseGradesManage = () => {
                         startIcon={<Refresh />}
                         onClick={handleGenerateTP}
                         disabled={saving}
-                        sx={{ borderRadius: 2 }}
+                        sx={{ borderRadius: "16px" }}
                     >
                         Generar TP Automáticamente
                     </Button>
@@ -300,7 +300,7 @@ const CourseGradesManage = () => {
                     </Alert>
                 )}
 
-                <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: 3 }}>
+                <TableContainer component={Paper} sx={{ borderRadius: "20px", boxShadow: 3 }}>
                     <Table sx={{ minWidth: 1200 }}>
                         <TableHead>
                             <TableRow sx={{ bgcolor: 'primary.main' }}>

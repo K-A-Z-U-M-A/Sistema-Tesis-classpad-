@@ -22,9 +22,9 @@ import { WarningAmber } from "@mui/icons-material";
  */
 
 const SEVERITY_ICON_COLOR = {
-  error:   "#D93025",
-  warning: "#E78000",
-  info:    "#0A7AFF",
+  error:   "#B3261E",
+  warning: "#7E5700",
+  info:    "#6750A4",
 };
 
 export default function ConfirmDialog({
@@ -62,7 +62,7 @@ export default function ConfirmDialog({
           color="inherit"
           onClick={onClose}
           disabled={loading}
-          sx={{ color: "#67666B", borderColor: "#D9DCE3" }}
+          sx={{ color: "#49454F", borderColor: "#CAC4D0" }}
         >
           {cancelLabel}
         </Button>
