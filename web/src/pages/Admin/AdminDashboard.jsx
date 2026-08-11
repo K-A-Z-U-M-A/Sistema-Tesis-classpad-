@@ -51,7 +51,7 @@ const AdminDashboard = () => {
     }
 
     const StatCard = ({ title, value, icon, color, subtitle }) => (
-        <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 3 }}>
+        <Card sx={{ height: '100%', borderRadius: "16px", boxShadow: 3 }}>
             <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box>
@@ -144,7 +144,7 @@ const AdminDashboard = () => {
 
                 {/* Users by Role */}
                 <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3, height: '100%' }}>
+                    <Paper sx={{ p: 3, borderRadius: "16px", boxShadow: 3, height: '100%' }}>
                         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 3 }}>
                             Usuarios por Rol
                         </Typography>
@@ -176,7 +176,7 @@ const AdminDashboard = () => {
 
                 {/* Quick Actions */}
                 <Grid item xs={12} md={8}>
-                    <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3, height: '100%' }}>
+                    <Paper sx={{ p: 3, borderRadius: "16px", boxShadow: 3, height: '100%' }}>
                         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 3 }}>
                             Accesos Rápidos
                         </Typography>

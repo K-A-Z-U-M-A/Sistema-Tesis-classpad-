@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -351,7 +351,7 @@ export default function People() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
         >
-          <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2 }}>
+          <Paper sx={{ p: 2.5, mb: 3, borderRadius: "16px" }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={8} md={6}>
                 <TextField
@@ -404,7 +404,7 @@ export default function People() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
+            <Paper sx={{ p: 6, textAlign: 'center', borderRadius: "20px" }}>
               <Avatar sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: 'primary.light' }}>
                 <School sx={{ fontSize: 40 }} />
               </Avatar>
@@ -432,7 +432,7 @@ export default function People() {
                       height: '100%',
                       cursor: 'pointer',
                       transition: 'all 0.3s ease',
-                      borderRadius: 3,
+                      borderRadius: "20px",
                       border: '1px solid',
                       borderColor: 'divider',
                       '&:hover': {
@@ -450,7 +450,7 @@ export default function People() {
                           sx={{
                             width: 50,
                             height: 50,
-                            borderRadius: 2,
+                            borderRadius: "16px",
                             backgroundColor: course.color || 'primary.main',
                             display: 'flex',
                             alignItems: 'center',
@@ -526,17 +526,17 @@ export default function People() {
           <Button
             startIcon={<ArrowBack />}
             onClick={handleBackToCourses}
-            sx={{ mb: 1.5, color: '#67666B' }}
+            sx={{ mb: 1.5, color: 'text.secondary' }}
             size="small"
           >
             Volver a cursos
           </Button>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-            <Box sx={{ width: 48, height: 48, borderRadius: '12px', backgroundColor: selectedCourse.color || '#0A7AFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ width: 48, height: 48, borderRadius: '12px', backgroundColor: selectedCourse.color || '#6750A4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <School sx={{ color: 'white', fontSize: 24 }} />
             </Box>
             <Box>
-              <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.4rem', sm: '1.6rem' }, fontWeight: 700, color: '#1C1B1F', lineHeight: 1.2 }}>
+              <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.4rem', sm: '1.6rem' }, fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}>
                 {selectedCourse.name}
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -556,7 +556,7 @@ export default function People() {
       >
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: "16px" }}>
               <Typography variant="h4" color="primary" fontWeight="bold">
                 {filteredAndSortedStudents.length}
               </Typography>
@@ -566,7 +566,7 @@ export default function People() {
             </Paper>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: "16px" }}>
               <Typography variant="h4" color="success.main" fontWeight="bold">
                 {students.filter(s => s.status === 'active').length}
               </Typography>
@@ -576,7 +576,7 @@ export default function People() {
             </Paper>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: "16px" }}>
               <Typography variant="h4" color="warning.main" fontWeight="bold">
                 {students.filter(s => s.status !== 'active').length}
               </Typography>
@@ -586,7 +586,7 @@ export default function People() {
             </Paper>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: "16px" }}>
               <Typography variant="h4" color="info.main" fontWeight="bold">
                 {students.length}
               </Typography>
@@ -604,7 +604,7 @@ export default function People() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
       >
-        <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2 }}>
+        <Paper sx={{ p: 2.5, mb: 3, borderRadius: "16px" }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={4}>
               <TextField
@@ -662,7 +662,7 @@ export default function People() {
                 onClick={() => setEnrollDialogOpen(true)}
                 disabled={loading}
                 fullWidth
-                sx={{ borderRadius: 2 }}
+                sx={{ borderRadius: "16px" }}
               >
                 Matricular
               </Button>
@@ -682,7 +682,7 @@ export default function People() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
+          <Paper sx={{ p: 6, textAlign: 'center', borderRadius: "20px" }}>
             <Avatar sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: 'primary.light' }}>
               <Badge sx={{ fontSize: 40 }} />
             </Avatar>
@@ -699,7 +699,7 @@ export default function People() {
                 variant="contained"
                 startIcon={<PersonAdd />}
                 onClick={() => setEnrollDialogOpen(true)}
-                sx={{ borderRadius: 2 }}
+                sx={{ borderRadius: "16px" }}
               >
                 Matricular Primer Alumno
               </Button>
@@ -712,7 +712,7 @@ export default function People() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
+          <TableContainer component={Paper} sx={{ borderRadius: "20px" }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'action.hover' }}>
@@ -839,7 +839,7 @@ export default function People() {
         onClose={() => setEnrollDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: "20px" } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="h5" fontWeight="bold">Matricular Nuevo Alumno</Typography>
@@ -883,7 +883,7 @@ export default function People() {
                 )
               }}
             />
-            <Alert severity="info" sx={{ borderRadius: 2 }}>
+            <Alert severity="info" sx={{ borderRadius: "16px" }}>
               Si el alumno no existe en el sistema, se creará automáticamente con la cédula como contraseña.
             </Alert>
           </Box>
@@ -896,7 +896,7 @@ export default function People() {
             variant="contained"
             onClick={handleEnroll}
             disabled={enrollLoading}
-            sx={{ borderRadius: 2, minWidth: 120 }}
+            sx={{ borderRadius: "16px", minWidth: 120 }}
           >
             {enrollLoading ? <CircularProgress size={24} /> : 'Matricular'}
           </Button>
@@ -908,7 +908,7 @@ export default function People() {
         onClose={() => setEditDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: "20px" } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="h5" fontWeight="bold">Editar Alumno</Typography>
@@ -972,7 +972,7 @@ export default function People() {
             variant="contained"
             onClick={handleEditStudent}
             disabled={editLoading}
-            sx={{ borderRadius: 2, minWidth: 120 }}
+            sx={{ borderRadius: "16px", minWidth: 120 }}
           >
             {editLoading ? <CircularProgress size={24} /> : 'Guardar Cambios'}
           </Button>
@@ -984,14 +984,14 @@ export default function People() {
         onClose={() => setUnenrollDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: "20px" } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="h5" fontWeight="bold">Desmatricular Alumno</Typography>
         </DialogTitle>
         <DialogContent>
           {studentToUnenroll && (
-            <Alert severity="warning" sx={{ mt: 1, borderRadius: 2 }}>
+            <Alert severity="warning" sx={{ mt: 1, borderRadius: "16px" }}>
               ¿Estás seguro de que deseas desmatricular a <strong>{studentToUnenroll.display_name}</strong> del curso "{selectedCourse.name}"?
               <Typography variant="body2" sx={{ mt: 1 }}>
                 Esta acción no se puede deshacer fácilmente.
@@ -1008,7 +1008,7 @@ export default function People() {
             color="error"
             onClick={handleUnenroll}
             disabled={enrollLoading}
-            sx={{ borderRadius: 2, minWidth: 120 }}
+            sx={{ borderRadius: "16px", minWidth: 120 }}
           >
             {enrollLoading ? <CircularProgress size={24} /> : 'Desmatricular'}
           </Button>
@@ -1024,7 +1024,7 @@ export default function People() {
         }}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: "20px" } }}
       >
         <DialogTitle sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Box display="flex" alignItems="center" gap={2}>
@@ -1231,7 +1231,7 @@ export default function People() {
               setSelectedStudentProgress(null);
             }}
             variant="contained"
-            sx={{ borderRadius: 2 }}
+            sx={{ borderRadius: "16px" }}
           >
             Cerrar
           </Button>

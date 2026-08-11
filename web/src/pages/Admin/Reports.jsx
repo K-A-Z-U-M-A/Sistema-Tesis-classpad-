@@ -132,7 +132,7 @@ const Reports = () => {
                 </Typography>
             </Box>
 
-            <Paper sx={{ borderRadius: 2 }}>
+            <Paper sx={{ borderRadius: "16px" }}>
                 <Tabs value={activeTab} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider' }}>
                     <Tab label="Reporte de Usuarios" />
                     <Tab label="Reporte de Cursos" />

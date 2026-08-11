@@ -97,156 +97,15 @@ async function isCourseStudent(userId, courseId) {
   return result.rows.length > 0;
 }
 
-// GET /api/assignments/:courseId - Get assignments for a course
+// Helper functions for ID validation
 function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
 }
 function isIntegerString(value) { return /^\d+$/.test(String(value)); }
 
-// GET /api/assignments/:id - Get assignment details
-router.get('/:id', authMiddleware, async (req, res) => {
-  try {
-    const assignmentId = req.params.id;
-
-    if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
-      return res.status(400).json({
-        error: {
-          message: 'ID de tarea inválido',
-          code: 'INVALID_ASSIGNMENT_ID'
-        }
-      });
-    }
-
-    // Get assignment with course info
-    const assignmentResult = await pool.query(
-      `SELECT a.*, 
-              c.name as course_name,
-              u.display_name as created_by_name
-       FROM assignments a
-       LEFT JOIN courses c ON a.course_id = c.id
-       LEFT JOIN users u ON a.created_by = u.id
-       WHERE a.id = $1`,
-      [assignmentId]
-    );
-
-    if (assignmentResult.rows.length === 0) {
-      return res.status(404).json({
-        error: {
-          message: 'Tarea no encontrada',
-          code: 'ASSIGNMENT_NOT_FOUND'
-        }
-      });
-    }
-
-    const assignment = assignmentResult.rows[0];
-
-    // Check if user has access to course
-    console.log(`🔍 User ${req.user.id} trying to access assignment ${assignmentId} in course ${assignment.course_id}`);
-    console.log(`🔍 User details:`, {
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role
-    });
-
-    const hasAccess = await hasCourseAccess(req.user.id, assignment.course_id);
-    console.log(`🔍 hasAccess result:`, hasAccess);
-
-    if (!hasAccess) {
-      console.log(`❌ Access denied for user ${req.user.id} to course ${assignment.course_id}`);
-
-      // Let's also check if the user is the owner or a teacher
-      const isOwner = assignment.course_id && await pool.query(
-        `SELECT 1 FROM courses WHERE id = $1 AND owner_id = $2`,
-        [assignment.course_id, req.user.id]
-      );
-
-      const isTeacher = assignment.course_id && await pool.query(
-        `SELECT 1 FROM course_teachers WHERE course_id = $1 AND teacher_id = $2`,
-        [assignment.course_id, req.user.id]
-      );
-
-      console.log(`🔍 Is owner: ${isOwner.rows.length > 0}, Is teacher: ${isTeacher.rows.length > 0}`);
-      console.log(`🔍 Owner query result:`, isOwner.rows);
-      console.log(`🔍 Teacher query result:`, isTeacher.rows);
-
-      // If user is neither owner nor teacher, deny access
-      if (isOwner.rows.length === 0 && isTeacher.rows.length === 0) {
-        return res.status(403).json({
-          error: {
-            message: 'No tienes acceso a este curso',
-            code: 'ACCESS_DENIED'
-          }
-        });
-      }
-    }
-
-    // Get attachments
-    const attachmentsResult = await pool.query(
-      `SELECT * FROM assignment_attachments 
-       WHERE assignment_id = $1 
-       ORDER BY order_index, created_at`,
-      [assignmentId]
-    );
-
-    // Get submissions (only for teachers or student's own submission)
-    let submissions = [];
-    if (req.user.role === 'teacher') {
-      const submissionsResult = await pool.query(
-        `SELECT s.*, 
-                u.display_name as student_name,
-                u.email as student_email
-         FROM submissions s
-         JOIN users u ON s.student_id = u.id
-         WHERE s.assignment_id = $1
-         ORDER BY s.submitted_at`,
-        [assignmentId]
-      );
-      submissions = submissionsResult.rows;
-    } else {
-      const submissionResult = await pool.query(
-        `SELECT * FROM submissions 
-         WHERE assignment_id = $1 AND student_id = $2`,
-        [assignmentId, req.user.id]
-      );
-      submissions = submissionResult.rows;
-    }
-
-    // Parse rubric safely
-    let parsedRubric = [];
-    if (assignment.rubric) {
-      try {
-        parsedRubric = JSON.parse(assignment.rubric);
-      } catch (error) {
-        console.warn('Error parsing rubric JSON:', error.message);
-        console.warn('Raw rubric value:', assignment.rubric);
-        parsedRubric = [];
-      }
-    }
-
-    res.json({
-      success: true,
-      data: {
-        assignment: {
-          ...assignment,
-          status: assignment.is_published ? 'published' : 'draft',
-          rubric: parsedRubric
-        },
-        attachments: attachmentsResult.rows,
-        submissions
-      }
-    });
-  } catch (error) {
-    console.error('Error getting assignment details:', error);
-    res.status(500).json({
-      error: {
-        message: 'Error interno del servidor',
-        code: 'GET_ASSIGNMENT_DETAILS_FAILED'
-      }
-    });
-  }
-});
-
 // GET /api/assignments/course/:courseId - Get assignments for a course
+// IMPORTANT: This must be defined BEFORE GET /:id to prevent Express from
+// matching 'course' as the :id parameter.
 router.get('/course/:courseId', authMiddleware, async (req, res) => {
   try {
     const courseId = req.params.courseId;
@@ -406,6 +265,151 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
       error: {
         message: 'Error interno del servidor',
         code: 'GET_ASSIGNMENTS_FAILED'
+      }
+    });
+  }
+});
+
+// GET /api/assignments/:id - Get assignment details
+// IMPORTANT: This must be defined AFTER all routes with fixed path segments
+// like /course/:courseId to avoid capturing those segment names as :id.
+router.get('/:id', authMiddleware, async (req, res) => {
+  try {
+    const assignmentId = req.params.id;
+
+    if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
+      return res.status(400).json({
+        error: {
+          message: 'ID de tarea inválido',
+          code: 'INVALID_ASSIGNMENT_ID'
+        }
+      });
+    }
+
+    // Get assignment with course info
+    const assignmentResult = await pool.query(
+      `SELECT a.*, 
+              c.name as course_name,
+              u.display_name as created_by_name
+       FROM assignments a
+       LEFT JOIN courses c ON a.course_id = c.id
+       LEFT JOIN users u ON a.created_by = u.id
+       WHERE a.id = $1`,
+      [assignmentId]
+    );
+
+    if (assignmentResult.rows.length === 0) {
+      return res.status(404).json({
+        error: {
+          message: 'Tarea no encontrada',
+          code: 'ASSIGNMENT_NOT_FOUND'
+        }
+      });
+    }
+
+    const assignment = assignmentResult.rows[0];
+
+    // Check if user has access to course
+    console.log(`🔍 User ${req.user.id} trying to access assignment ${assignmentId} in course ${assignment.course_id}`);
+    console.log(`🔍 User details:`, {
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role
+    });
+
+    const hasAccess = await hasCourseAccess(req.user.id, assignment.course_id);
+    console.log(`🔍 hasAccess result:`, hasAccess);
+
+    if (!hasAccess) {
+      console.log(`❌ Access denied for user ${req.user.id} to course ${assignment.course_id}`);
+
+      // Let's also check if the user is the owner or a teacher
+      const isOwner = assignment.course_id && await pool.query(
+        `SELECT 1 FROM courses WHERE id = $1 AND owner_id = $2`,
+        [assignment.course_id, req.user.id]
+      );
+
+      const isTeacher = assignment.course_id && await pool.query(
+        `SELECT 1 FROM course_teachers WHERE course_id = $1 AND teacher_id = $2`,
+        [assignment.course_id, req.user.id]
+      );
+
+      console.log(`🔍 Is owner: ${isOwner.rows.length > 0}, Is teacher: ${isTeacher.rows.length > 0}`);
+      console.log(`🔍 Owner query result:`, isOwner.rows);
+      console.log(`🔍 Teacher query result:`, isTeacher.rows);
+
+      // If user is neither owner nor teacher, deny access
+      if (isOwner.rows.length === 0 && isTeacher.rows.length === 0) {
+        return res.status(403).json({
+          error: {
+            message: 'No tienes acceso a este curso',
+            code: 'ACCESS_DENIED'
+          }
+        });
+      }
+    }
+
+    // Get attachments
+    const attachmentsResult = await pool.query(
+      `SELECT * FROM assignment_attachments 
+       WHERE assignment_id = $1 
+       ORDER BY order_index, created_at`,
+      [assignmentId]
+    );
+
+    // Get submissions (only for teachers or student's own submission)
+    let submissions = [];
+    if (req.user.role === 'teacher') {
+      const submissionsResult = await pool.query(
+        `SELECT s.*, 
+                u.display_name as student_name,
+                u.email as student_email
+         FROM submissions s
+         JOIN users u ON s.student_id = u.id
+         WHERE s.assignment_id = $1
+         ORDER BY s.submitted_at`,
+        [assignmentId]
+      );
+      submissions = submissionsResult.rows;
+    } else {
+      const submissionResult = await pool.query(
+        `SELECT * FROM submissions 
+         WHERE assignment_id = $1 AND student_id = $2`,
+        [assignmentId, req.user.id]
+      );
+      submissions = submissionResult.rows;
+    }
+
+    // Parse rubric safely
+    let parsedRubric = [];
+    if (assignment.rubric) {
+      try {
+        parsedRubric = JSON.parse(assignment.rubric);
+      } catch (error) {
+        console.warn('Error parsing rubric JSON:', error.message);
+        console.warn('Raw rubric value:', assignment.rubric);
+        parsedRubric = [];
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        assignment: {
+          ...assignment,
+          status: assignment.is_published ? 'published' : 'draft',
+          rubric: parsedRubric
+        },
+        attachments: attachmentsResult.rows,
+        submissions
+      }
+    });
+  } catch (error) {
+    console.error('Error getting assignment details:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
+        code: 'GET_ASSIGNMENT_DETAILS_FAILED'
       }
     });
   }
@@ -670,6 +674,62 @@ router.put('/:id', authMiddleware, async (req, res) => {
         code: 'UPDATE_ASSIGNMENT_FAILED',
         detail: process.env.NODE_ENV === 'development' ? error.message : undefined
       }
+    });
+  }
+});
+
+// DELETE /api/assignments/materials/:materialId - Delete a material from assignment
+// IMPORTANT: Must be defined BEFORE DELETE /:id to prevent Express from
+// matching 'materials' as the :id parameter.
+router.delete('/materials/:materialId', authMiddleware, async (req, res) => {
+  try {
+    const materialId = req.params.materialId;
+
+    if (!(isIntegerString(materialId) || isUuid(materialId))) {
+      return res.status(400).json({
+        error: { message: 'ID de material inválido', code: 'INVALID_MATERIAL_ID' }
+      });
+    }
+
+    // Get material with assignment and course info
+    const materialResult = await pool.query(
+      `SELECT m.*, a.course_id, c.owner_id
+       FROM materials m
+       JOIN assignments a ON m.assignment_id = a.id
+       JOIN courses c ON a.course_id = c.id
+       WHERE m.id = $1`,
+      [materialId]
+    );
+
+    if (materialResult.rows.length === 0) {
+      return res.status(404).json({
+        error: { message: 'Material no encontrado', code: 'MATERIAL_NOT_FOUND' }
+      });
+    }
+
+    const material = materialResult.rows[0];
+
+    // Check if user has access (owner or teacher)
+    const isOwner = material.owner_id === req.user.id;
+    const isTeacher = await isCourseTeacher(req.user.id, material.course_id);
+
+    if (!isOwner && !isTeacher) {
+      return res.status(403).json({
+        error: { message: 'No tienes permisos para eliminar este material', code: 'ACCESS_DENIED' }
+      });
+    }
+
+    // Delete material
+    await pool.query('DELETE FROM materials WHERE id = $1', [materialId]);
+
+    res.json({
+      success: true,
+      message: 'Material eliminado exitosamente'
+    });
+  } catch (error) {
+    console.error('Error deleting assignment material:', error);
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'DELETE_ASSIGNMENT_MATERIAL_FAILED' }
     });
   }
 });
@@ -1199,6 +1259,9 @@ router.delete('/:id/attachments/:attachmentId', authMiddleware, async (req, res)
 });
 
 // GET /api/units/:unitId/assignments - Get assignments for a specific unit
+// IMPORTANT: Defined after /:id but this path won't conflict because it's
+// registered on the /assignments router which is mounted separately. However,
+// keeping it here with a fixed-segment path is correct.
 router.get('/units/:unitId/assignments', authMiddleware, async (req, res) => {
   try {
     const unitId = req.params.unitId;
@@ -1447,142 +1510,6 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
     console.error('Error getting assignment materials:', error);
     return res.status(500).json({
       error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_MATERIALS_FAILED' }
-    });
-  }
-});
-
-// DELETE /api/assignments/materials/:materialId - Delete a material from assignment
-router.delete('/materials/:materialId', authMiddleware, async (req, res) => {
-  try {
-    const materialId = req.params.materialId;
-
-    if (!(isIntegerString(materialId) || isUuid(materialId))) {
-      return res.status(400).json({
-        error: { message: 'ID de material inválido', code: 'INVALID_MATERIAL_ID' }
-      });
-    }
-
-    // Get material with assignment and course info
-    const materialResult = await pool.query(
-      `SELECT m.*, a.course_id, c.owner_id
-       FROM materials m
-       JOIN assignments a ON m.assignment_id = a.id
-       JOIN courses c ON a.course_id = c.id
-       WHERE m.id = $1`,
-      [materialId]
-    );
-
-    if (materialResult.rows.length === 0) {
-      return res.status(404).json({
-        error: { message: 'Material no encontrado', code: 'MATERIAL_NOT_FOUND' }
-      });
-    }
-
-    const material = materialResult.rows[0];
-
-    // Check if user has access (owner or teacher)
-    const isOwner = material.owner_id === req.user.id;
-    const isTeacher = await isCourseTeacher(req.user.id, material.course_id);
-
-    if (!isOwner && !isTeacher) {
-      return res.status(403).json({
-        error: { message: 'No tienes permisos para eliminar este material', code: 'ACCESS_DENIED' }
-      });
-    }
-
-    // Delete material
-    await pool.query('DELETE FROM materials WHERE id = $1', [materialId]);
-
-    res.json({
-      success: true,
-      message: 'Material eliminado exitosamente'
-    });
-  } catch (error) {
-    console.error('Error deleting assignment material:', error);
-    res.status(500).json({
-      error: { message: 'Error interno del servidor', code: 'DELETE_ASSIGNMENT_MATERIAL_FAILED' }
-    });
-  }
-});
-
-// GET /api/assignments/:assignmentId - Get a specific assignment by ID
-router.get('/:assignmentId', authMiddleware, async (req, res) => {
-  try {
-    const assignmentId = req.params.assignmentId;
-
-    if (!(isIntegerString(assignmentId) || isUuid(assignmentId))) {
-      return res.status(400).json({ error: { message: 'ID de tarea inválido', code: 'INVALID_ASSIGNMENT_ID' } });
-    }
-
-    // Get assignment with course information
-    const cast = isUuid(assignmentId) ? '::uuid' : '';
-    const assignmentResult = await pool.query(`
-      SELECT a.*, u.name as unit_name, c.id as course_id, c.name as course_name, c.turn as course_subject,
-             owner.display_name as owner_name, owner.photo_url as owner_photo
-      FROM assignments a
-      JOIN units u ON a.unit_id = u.id
-      JOIN courses c ON u.course_id = c.id
-      JOIN users owner ON c.owner_id = owner.id
-      WHERE a.id = $1${cast}
-    `, [assignmentId]);
-
-    if (assignmentResult.rows.length === 0) {
-      return res.status(404).json({
-        error: { message: 'Tarea no encontrada', code: 'ASSIGNMENT_NOT_FOUND' }
-      });
-    }
-
-    const assignment = assignmentResult.rows[0];
-    const courseId = assignment.course_id;
-
-    // Check if user has access to this course
-    const hasAccess = await hasCourseAccess(req.user.id, courseId);
-    if (!hasAccess) {
-      return res.status(403).json({
-        error: { message: 'No tienes acceso a esta tarea', code: 'ACCESS_DENIED' }
-      });
-    }
-
-    // Get attachments
-    const attachmentsResult = await pool.query(`
-      SELECT * FROM assignment_attachments 
-      WHERE assignment_id = $1${cast}
-      ORDER BY created_at
-    `, [assignmentId]);
-
-    // Get submissions
-    const submissionsResult = await pool.query(`
-      SELECT s.*, u.display_name as student_name, u.email as student_email
-      FROM submissions s
-      JOIN users u ON s.student_id = u.id
-      WHERE s.assignment_id = $1${cast}
-      ORDER BY s.submitted_at DESC
-    `, [assignmentId]);
-
-    res.json({
-      success: true,
-      data: {
-        assignment: {
-          ...assignment,
-          courseId: courseId,
-          courseName: assignment.course_name,
-          courseSubject: assignment.course_subject,
-          unitName: assignment.unit_name,
-          teacher: {
-            id: assignment.owner_id,
-            display_name: assignment.owner_name,
-            photo_url: assignment.owner_photo
-          }
-        },
-        attachments: attachmentsResult.rows,
-        submissions: submissionsResult.rows
-      }
-    });
-
-  } catch (error) {
-    console.error('Error getting assignment:', error);
-    res.status(500).json({
-      error: { message: 'Error interno del servidor', code: 'GET_ASSIGNMENT_FAILED' }
     });
   }
 });

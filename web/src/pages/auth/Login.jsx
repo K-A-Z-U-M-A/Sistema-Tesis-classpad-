@@ -380,7 +380,7 @@ export default function Login() {
           elevation={0}
           sx={{
             p: 4,
-            borderRadius: 4,
+            borderRadius: "28px",
             width: { xs: '100%', sm: 400 },
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(20px)',
@@ -529,7 +529,7 @@ export default function Login() {
                 sx={{
                   py: 1.5,
                   mb: 3,
-                  borderRadius: 2,
+                  borderRadius: "16px",
                   fontSize: '1.1rem',
                   fontWeight: 600,
                   background: 'linear-gradient(135deg, #FF9500 0%, #FF6B00 100%)',
@@ -552,7 +552,7 @@ export default function Login() {
                 sx={{
                   py: { xs: 2, sm: 1.5 },
                   mb: 3,
-                  borderRadius: 2,
+                  borderRadius: "16px",
                   fontSize: { xs: '1.1rem', sm: '1.1rem' },
                   fontWeight: 600,
                   background: 'linear-gradient(135deg, #007AFF 0%, #0056CC 100%)',
@@ -601,7 +601,7 @@ export default function Login() {
               disabled={loading}
               sx={{
                 py: 1.5,
-                borderRadius: 2,
+                borderRadius: "16px",
                 borderColor: 'rgba(0, 0, 0, 0.23)',
                 color: 'text.primary',
                 '&:hover': {
@@ -680,7 +680,7 @@ export default function Login() {
         open={showQR}
         onClose={() => setShowQR(false)}
         PaperProps={{
-          sx: { borderRadius: 3, maxWidth: 350 }
+          sx: { borderRadius: "20px", maxWidth: 350 }
         }}
       >
         <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
@@ -693,7 +693,7 @@ export default function Login() {
             Escanea este código QR para acceder a ClassPad desde tu celular o tablet en la misma red Wi-Fi.
           </Typography>
 
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: "16px" }}>
             <QRCodeSVG
               value={`https://${qrHost}:${window.location.port || '5173'}/login`}
               size={200}

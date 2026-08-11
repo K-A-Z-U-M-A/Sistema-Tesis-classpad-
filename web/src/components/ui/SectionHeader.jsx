@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Box, Typography, Stack } from "@mui/material";
 
 /**
@@ -15,7 +15,7 @@ export default function SectionHeader({ title, action, sx = {} }) {
       <Typography
         variant="h3"
         component="h2"
-        sx={{ flex: 1, fontWeight: 650, fontSize: "1.0625rem", color: "#1C1B1F" }}
+        sx={{ flex: 1, fontWeight: 700, fontSize: "1.0625rem", color: "text.primary" }}
       >
         {title}
       </Typography>

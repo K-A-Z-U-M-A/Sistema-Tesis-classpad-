@@ -1,10 +1,11 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Grid, Typography, Box, Card, CardContent, Button, Chip,
   IconButton, Menu, MenuItem, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, FormControl, InputLabel, Select,
   CircularProgress, LinearProgress, InputAdornment, Skeleton, Stack,
+  Fab, Tooltip, Zoom,
 } from "@mui/material";
 import {
   School, Add, MoreVert, People, Assignment, Search,
@@ -19,7 +20,7 @@ import { PageContainer, PageHeader, EmptyState, StatusChip } from "../../compone
 const CourseDot = ({ color, size = 40 }) => (
   <Box sx={{
     width: size, height: size, borderRadius: "12px",
-    backgroundColor: color || "#0A7AFF",
+    backgroundColor: color || "primary.main",
     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
   }}>
     <School sx={{ color: "white", fontSize: size * 0.45 }} />
@@ -33,10 +34,7 @@ const CourseCard = ({ course, isTeacher, onMenuOpen, onNavigate }) => {
 
   return (
     <Card
-      sx={{
-        height: "100%", cursor: "pointer",
-        "&:hover": { borderColor: "#D9DCE3", boxShadow: "0px 4px 16px rgba(0,0,0,0.10)" },
-      }}
+      sx={{ height: "100%", cursor: "pointer" }}
       onClick={() => onNavigate(course)}
     >
       <CardContent>
@@ -94,21 +92,10 @@ const CourseCard = ({ course, isTeacher, onMenuOpen, onNavigate }) => {
           <Chip
             label={isActive ? "Activo" : "Inactivo"}
             size="small"
-            sx={{
-              height: 20, fontSize: "0.7rem", fontWeight: 600,
-              backgroundColor: isActive ? "#E5F6EA" : "#F0F2F7",
-              color: isActive ? "#0D4D25" : "#67666B",
-            }}
+            color={isActive ? "success" : "default"}
           />
         </Box>
-        <LinearProgress
-          variant="determinate"
-          value={progress}
-          sx={{
-            height: 5, borderRadius: 100, backgroundColor: "#E7E9EF",
-            "& .MuiLinearProgress-bar": { backgroundColor: course.color || "#0A7AFF", borderRadius: 100 },
-          }}
-        />
+        <LinearProgress variant="determinate" value={progress} />
       </CardContent>
     </Card>
   );
@@ -119,7 +106,7 @@ const CoursesSkeleton = () => (
   <Grid container spacing={2.5}>
     {[0, 1, 2, 3, 4, 5].map((i) => (
       <Grid item xs={12} sm={6} lg={4} key={i}>
-        <Skeleton variant="rounded" height={180} sx={{ borderRadius: 3 }} />
+        <Skeleton variant="rounded" height={180} sx={{ borderRadius: "20px" }} />
       </Grid>
     ))}
   </Grid>
@@ -327,6 +314,37 @@ const Courses = () => {
         </MenuItem>
       </Menu>
 
+      {/* ─── Floating Action Button ─────────────────────────────────────── */}
+      <Zoom in={!loading}>
+        <Tooltip
+          title={isTeacher ? "Crear nuevo curso" : "Matricularse en un curso"}
+          placement="left"
+        >
+          <Fab
+            color="primary"
+            aria-label={isTeacher ? "Crear curso" : "Matricularse"}
+            onClick={() =>
+              isTeacher ? navigate("/create-course") : setEnrollDialogOpen(true)
+            }
+            sx={{
+              position: "fixed",
+              bottom: { xs: 80, sm: 32 },
+              right: { xs: 20, sm: 32 },
+              width: { xs: 52, sm: 60 },
+              height: { xs: 52, sm: 60 },
+              boxShadow: "0 6px 24px rgba(0,0,0,0.18)",
+              transition: "transform 0.2s ease, box-shadow 0.2s ease",
+              "&:hover": {
+                transform: "scale(1.08)",
+                boxShadow: "0 10px 32px rgba(0,0,0,0.25)",
+              },
+            }}
+          >
+            <Add sx={{ fontSize: { xs: 24, sm: 28 } }} />
+          </Fab>
+        </Tooltip>
+      </Zoom>
+
       {/* Enroll dialog — students */}
       <Dialog open={enrollDialogOpen} onClose={() => setEnrollDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Matricularse en un Curso</DialogTitle>
@@ -346,7 +364,7 @@ const Courses = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button variant="outlined" color="inherit" onClick={() => setEnrollDialogOpen(false)} sx={{ color: "#67666B", borderColor: "#D9DCE3" }}>
+          <Button variant="outlined" color="inherit" onClick={() => setEnrollDialogOpen(false)} sx={{ color: "#49454F", borderColor: "#CAC4D0" }}>
             Cancelar
           </Button>
           <Button variant="contained" onClick={handleEnrollCourse}>

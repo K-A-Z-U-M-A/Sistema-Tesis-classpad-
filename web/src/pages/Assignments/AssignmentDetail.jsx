@@ -178,14 +178,14 @@ const AssignmentDetail = () => {
           size="small"
           startIcon={<ArrowBack />} 
           onClick={() => navigate(`/courses/${courseId}`)}
-          sx={{ mb: 2, color: '#67666B' }}
+          sx={{ mb: 2, color: 'text.secondary' }}
         >
           Volver al curso
         </Button>
         
         <Paper elevation={1} sx={{ 
           p: { xs: 2, sm: 3 }, 
-          borderRadius: 3,
+          borderRadius: "20px",
           mb: 3
         }}>
           <Box sx={{ 
@@ -203,7 +203,7 @@ const AssignmentDetail = () => {
                 sx={{ 
                   fontWeight: 700,
                   mb: 2,
-                  color: '#1C1B1F',
+                  color: 'text.primary',
                   fontSize: { xs: '1.4rem', sm: '1.75rem' },
                   lineHeight: 1.2
                 }}
@@ -288,7 +288,7 @@ const AssignmentDetail = () => {
 
 
       {/* Información general de la tarea */}
-      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3 }}>
+      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: "20px" }}>
         <Typography 
           variant="h6" 
           sx={{ 
@@ -313,7 +313,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -343,7 +343,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -377,7 +377,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -407,7 +407,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -437,7 +437,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -465,7 +465,7 @@ const AssignmentDetail = () => {
       </Paper>
 
       {/* Descripción e Instrucciones */}
-      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3 }}>
+      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: "20px" }}>
         <Typography 
           variant="h6" 
           sx={{ 
@@ -520,7 +520,7 @@ const AssignmentDetail = () => {
       </Paper>
 
       {/* Materiales */}
-      <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3 }}>
+      <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: "20px" }}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 

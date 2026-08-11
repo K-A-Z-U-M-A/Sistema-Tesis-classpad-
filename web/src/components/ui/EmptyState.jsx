@@ -1,18 +1,10 @@
-﻿import React from "react";
-import { Box, Typography, Button } from "@mui/material";
+import React from "react";
+import { Box, Typography } from "@mui/material";
 
 /**
- * EmptyState — compact empty state display.
- *
- * Props:
- *   icon         {node}      — MUI icon (auto-sized to 36px)
- *   title        {string}    — required
- *   description  {string}    — optional
- *   action       {node}      — optional CTA button or any node
- *   compact      {bool}      — reduce vertical spacing (default false)
- *   sx           {object}
+ * EmptyState — M3 Expressive empty state with tonal icon container.
  */
-export default function EmptyState({ icon, title, description, action, compact = false, sx = {} }) {
+export default function EmptyState({ icon, title, description, action }) {
   return (
     <Box
       sx={{
@@ -20,41 +12,49 @@ export default function EmptyState({ icon, title, description, action, compact =
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        py: 8,
+        px: 4,
         textAlign: "center",
-        py: compact ? 3 : 5,
-        px: 3,
-        ...sx,
+        gap: 2,
       }}
     >
       {icon && (
         <Box
           sx={{
-            mb: 1.5,
-            color: "#D9DCE3",
-            "& svg": { fontSize: compact ? 36 : 44 },
+            width: 80,
+            height: 80,
+            borderRadius: "28px",
+            backgroundColor: "primaryContainer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "onPrimaryContainer",
+            mb: 1,
           }}
         >
-          {icon}
+          {React.cloneElement(icon, { sx: { fontSize: 40, ...icon.props?.sx } })}
         </Box>
       )}
-      <Typography
-        variant={compact ? "body2" : "h5"}
-        fontWeight={600}
-        color="text.primary"
-        sx={{ mb: description ? 0.5 : 0 }}
-      >
-        {title}
-      </Typography>
-      {description && (
+      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
         <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ maxWidth: 320, lineHeight: 1.5 }}
+          variant="h6"
+          component="h3"
+          sx={{ color: "text.primary", fontWeight: 700 }}
         >
-          {description}
+          {title}
         </Typography>
-      )}
-      {action && <Box sx={{ mt: 2.5 }}>{action}</Box>}
+        {description && (
+          <Typography
+            variant="body2"
+            component="p"
+            color="text.secondary"
+            sx={{ maxWidth: 360, m: 0 }}
+          >
+            {description}
+          </Typography>
+        )}
+      </Box>
+      {action && <Box sx={{ mt: 1 }}>{action}</Box>}
     </Box>
   );
 }

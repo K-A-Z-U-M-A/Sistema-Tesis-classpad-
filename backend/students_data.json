@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Juan Pérez",
+    "email": "juan.perez@test.com",
+    "cedula": "12345678",
+    "password": "test123"
+  },
+  {
+    "name": "María González",
+    "email": "maria.gonzalez@test.com",
+    "cedula": "23456789",
+    "password": "test123"
+  },
+  {
+    "name": "Carlos Rodríguez",
+    "email": "carlos.rodriguez@test.com",
+    "cedula": "34567890",
+    "password": "test123"
+  },
+  {
+    "name": "Ana Martínez",
+    "email": "ana.martinez@test.com",
+    "cedula": "45678901",
+    "password": "test123"
+  },
+  {
+    "name": "Luis Fernández",
+    "email": "luis.fernandez@test.com",
+    "cedula": "56789012",
+    "password": "test123"
+  },
+  {
+    "name": "Laura Sánchez",
+    "email": "laura.sanchez@test.com",
+    "cedula": "67890123",
+    "password": "test123"
+  },
+  {
+    "name": "Diego López",
+    "email": "diego.lopez@test.com",
+    "cedula": "78901234",
+    "password": "test123"
+  },
+  {
+    "name": "Sofía Ramírez",
+    "email": "sofia.ramirez@test.com",
+    "cedula": "89012345",
+    "password": "test123"
+  },
+  {
+    "name": "Miguel Torres",
+    "email": "miguel.torres@test.com",
+    "cedula": "90123456",
+    "password": "test123"
+  },
+  {
+    "name": "Valentina Morales",
+    "email": "valentina.morales@test.com",
+    "cedula": "01234567",
+    "password": "test123"
+  }
+]

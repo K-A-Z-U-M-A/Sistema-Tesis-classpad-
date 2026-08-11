@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import {
   AppBar, Box, CssBaseline, Drawer, IconButton, List, ListItem,
   ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography,
@@ -18,7 +18,7 @@ import { useAssignmentCount } from "../../hooks/useAssignmentCount";
 import createSessionManager from "../../services/sessionManager";
 
 const sessionManager = createSessionManager();
-const drawerWidth = 248;
+const drawerWidth = 256;
 
 // ─── Page title mapping ──────────────────────────────────────────────────────
 const getPageTitle = (pathname) => {
@@ -39,10 +39,10 @@ const getPageTitle = (pathname) => {
   if (pathname === "/people") return "Alumnos";
   if (pathname === "/profile/complete") return "Completar Perfil";
   if (pathname === "/profile") return "Mi Perfil";
-  if (pathname === "/settings") return "Configuracion";
+  if (pathname === "/settings") return "Configuración";
   if (pathname === "/administrar") return "Administrar";
   if (pathname === "/admin/users") return "Usuarios";
-  if (pathname === "/admin/audit") return "Auditoria";
+  if (pathname === "/admin/audit") return "Auditoría";
   if (pathname === "/admin/reports") return "Reportes";
   return "ClassPad";
 };
@@ -55,66 +55,83 @@ const getRoleLabel = (role) => {
 
 // ─── Main menu items ─────────────────────────────────────────────────────────
 const menuItems = [
-  { text: "Inicio",     icon: <Home sx={{ fontSize: 20 }} />,       path: "/dashboard" },
-  { text: "Mis Cursos", icon: <School sx={{ fontSize: 20 }} />,     path: "/courses" },
-  { text: "Tareas",     icon: <Assignment sx={{ fontSize: 20 }} />, path: "/assignments", hasBadge: true },
-  { text: "Asistencia", icon: <Assessment sx={{ fontSize: 20 }} />, path: "/attendance" },
-  { text: "Mensajes",   icon: <Message sx={{ fontSize: 20 }} />,    path: "/messages" },
-  { text: "Alumnos",    icon: <People sx={{ fontSize: 20 }} />,     path: "/people" },
+  { text: "Inicio",      icon: <Home sx={{ fontSize: 22 }} />,       path: "/dashboard" },
+  { text: "Mis Cursos",  icon: <School sx={{ fontSize: 22 }} />,     path: "/courses" },
+  { text: "Tareas",      icon: <Assignment sx={{ fontSize: 22 }} />, path: "/assignments", hasBadge: true },
+  { text: "Asistencia",  icon: <Assessment sx={{ fontSize: 22 }} />, path: "/attendance" },
+  { text: "Mensajes",    icon: <Message sx={{ fontSize: 22 }} />,    path: "/messages" },
+  { text: "Alumnos",     icon: <People sx={{ fontSize: 22 }} />,     path: "/people" },
 ];
 
 const teacherMenuItems = [
-  { text: "Crear Curso", icon: <Add sx={{ fontSize: 20 }} />,       path: "/create-course" },
-  { text: "Administrar", icon: <Dashboard sx={{ fontSize: 20 }} />, path: "/administrar" },
+  { text: "Crear Curso", icon: <Add sx={{ fontSize: 22 }} />,       path: "/create-course" },
+  { text: "Administrar", icon: <Dashboard sx={{ fontSize: 22 }} />, path: "/administrar" },
 ];
 
 const adminMenuItems = [
-  { text: "Usuarios",  icon: <AdminPanelSettings sx={{ fontSize: 20 }} />, path: "/admin/users" },
-  { text: "Auditoria", icon: <Assessment sx={{ fontSize: 20 }} />,          path: "/admin/audit" },
-  { text: "Reportes",  icon: <Dashboard sx={{ fontSize: 20 }} />,           path: "/admin/reports" },
+  { text: "Usuarios",   icon: <AdminPanelSettings sx={{ fontSize: 22 }} />, path: "/admin/users" },
+  { text: "Auditoría",  icon: <Assessment sx={{ fontSize: 22 }} />,          path: "/admin/audit" },
+  { text: "Reportes",   icon: <Dashboard sx={{ fontSize: 22 }} />,           path: "/admin/reports" },
 ];
 
-// ─── NavItem ─────────────────────────────────────────────────────────────────
+// ─── M3 Navigation Drawer Item (Stadium Pill indicator) ──────────────────────
 const NavItem = ({ item, active, onClick, badge }) => (
-  <ListItem disablePadding sx={{ mb: 0.25 }}>
+  <ListItem disablePadding sx={{ mb: 0.5, px: 1 }}>
     <ListItemButton
       onClick={onClick}
       aria-current={active ? "page" : undefined}
       sx={{
-        borderRadius: "10px",
-        minHeight: 44,
-        px: 1.5,
-        py: 0.75,
-        backgroundColor: active ? "#E8F1FF" : "transparent",
-        color: active ? "#0A7AFF" : "#1C1B1F",
+        borderRadius: "100px",          // M3 Stadium Pill
+        minHeight: 56,
+        px: 2,
+        py: 0,
+        backgroundColor: active ? "primaryContainer" : "transparent",
+        color: active ? "onPrimaryContainer" : "text.secondary",
         "&:hover": {
-          backgroundColor: active ? "#E8F1FF" : "rgba(10,122,255,0.06)",
-          color: active ? "#0A7AFF" : "#1C1B1F",
+          backgroundColor: active
+            ? "primaryContainer"
+            : "rgba(103,80,164,0.08)",
+          color: active ? "onPrimaryContainer" : "text.primary",
         },
-        transition: "background-color 150ms ease, color 150ms ease",
+        transition: "background-color 200ms, color 200ms",
       }}
     >
-      <ListItemIcon sx={{ minWidth: 36, color: active ? "#0A7AFF" : "#67666B" }}>
-        {badge ? <Badge badgeContent={badge} color="error">{item.icon}</Badge> : item.icon}
+      <ListItemIcon
+        sx={{
+          minWidth: 40,
+          color: active ? "onPrimaryContainer" : "text.secondary",
+        }}
+      >
+        {badge
+          ? <Badge badgeContent={badge} color="error">{item.icon}</Badge>
+          : item.icon}
       </ListItemIcon>
       <ListItemText
         primary={item.text}
         primaryTypographyProps={{
-          fontSize: "0.9rem",
-          fontWeight: active ? 600 : 500,
+          fontSize: "0.875rem",
+          fontWeight: active ? 700 : 500,
           lineHeight: 1,
-          fontFamily: "Inter, -apple-system, sans-serif",
         }}
       />
     </ListItemButton>
   </ListItem>
 );
 
-// ─── Nav Group Label ─────────────────────────────────────────────────────────
+// ─── Nav Section Label ────────────────────────────────────────────────────────
 const NavGroupLabel = ({ children }) => (
   <Typography
-    variant="overline"
-    sx={{ px: 1.5, color: "#98979D", display: "block", mb: 0.5, mt: 0.5 }}
+    variant="labelSmall"
+    sx={{
+      px: 3,
+      py: 0.5,
+      color: "text.secondary",
+      display: "block",
+      textTransform: "uppercase",
+      letterSpacing: "0.08em",
+      fontSize: "0.6875rem",
+      fontWeight: 600,
+    }}
   >
     {children}
   </Typography>
@@ -156,25 +173,25 @@ export default function AppLayout({ children }) {
 
   // ─── Sidebar drawer ────────────────────────────────────────────────────────
   const drawer = (
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column", backgroundColor: "#FFFFFF" }}>
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
 
-      {/* Logo */}
+      {/* Logo / Brand */}
       <Box sx={{
         px: 3,
         height: 64,
         display: "flex",
         alignItems: "center",
-        borderBottom: "1px solid #E7E9EF",
+        borderBottom: "1px solid",
+        borderColor: "divider",
         flexShrink: 0,
       }}>
         <Typography
           component="span"
           sx={{
-            fontFamily: "Inter, -apple-system, sans-serif",
             fontWeight: 800,
-            fontSize: "1.125rem",
-            color: "#0A7AFF",
-            letterSpacing: "-0.04em",
+            fontSize: "1.25rem",
+            color: "primary.main",
+            letterSpacing: "-0.03em",
             lineHeight: 1,
             userSelect: "none",
           }}
@@ -184,13 +201,13 @@ export default function AppLayout({ children }) {
       </Box>
 
       {/* Navigation area */}
-      <Box sx={{ flex: 1, overflowY: "auto", px: 1.5, py: 2 }}>
+      <Box sx={{ flex: 1, overflowY: "auto", py: 1.5 }}>
 
         {/* Admin: only Dashboard */}
         {userProfile?.role === "admin" ? (
           <List disablePadding>
             <NavItem
-              item={{ text: "Dashboard", icon: <Home sx={{ fontSize: 20 }} />, path: "/dashboard" }}
+              item={{ text: "Dashboard", icon: <Home sx={{ fontSize: 22 }} />, path: "/dashboard" }}
               active={isActive("/dashboard")}
               onClick={() => handleNavigation("/dashboard")}
             />
@@ -214,10 +231,10 @@ export default function AppLayout({ children }) {
 
         {/* Teacher section */}
         {userProfile?.role === "teacher" && (
-          <Box sx={{ mt: 1.5 }}>
-            <Divider sx={{ mb: 1.5 }} />
-            <NavGroupLabel>Gestion</NavGroupLabel>
-            <List disablePadding>
+          <Box sx={{ mt: 2 }}>
+            <Divider sx={{ mb: 1.5, mx: 2 }} />
+            <NavGroupLabel>Gestión</NavGroupLabel>
+            <List disablePadding sx={{ mt: 0.5 }}>
               {teacherMenuItems.map((item) => (
                 <NavItem
                   key={item.path}
@@ -232,10 +249,10 @@ export default function AppLayout({ children }) {
 
         {/* Admin section */}
         {userProfile?.role === "admin" && (
-          <Box sx={{ mt: 1.5 }}>
-            <Divider sx={{ mb: 1.5 }} />
-            <NavGroupLabel>Administracion</NavGroupLabel>
-            <List disablePadding>
+          <Box sx={{ mt: 2 }}>
+            <Divider sx={{ mb: 1.5, mx: 2 }} />
+            <NavGroupLabel>Administración</NavGroupLabel>
+            <List disablePadding sx={{ mt: 0.5 }}>
               {adminMenuItems.map((item) => (
                 <NavItem
                   key={item.path}
@@ -250,39 +267,37 @@ export default function AppLayout({ children }) {
       </Box>
 
       {/* User footer */}
-      <Box sx={{ p: 1.5, borderTop: "1px solid #E7E9EF", flexShrink: 0 }}>
+      <Box sx={{ p: 1.5, borderTop: "1px solid", borderColor: "divider", flexShrink: 0 }}>
         <ListItemButton
           onClick={() => handleNavigation("/profile")}
           aria-label="Ir a mi perfil"
           sx={{
-            borderRadius: "10px",
-            p: 1,
+            borderRadius: "16px",
+            p: 1.5,
             gap: 1.5,
-            "&:hover": { backgroundColor: "#F0F2F7" },
+            "&:hover": { backgroundColor: "action.hover" },
           }}
         >
-          <Avatar src={photoURL} sx={{ width: 32, height: 32, fontSize: "0.875rem", flexShrink: 0 }}>
+          <Avatar
+            src={photoURL}
+            sx={{ width: 36, height: 36, fontSize: "0.9rem", flexShrink: 0 }}
+          >
             {displayName.charAt(0).toUpperCase()}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography
-              variant="body2"
-              fontWeight={600}
-              noWrap
-              sx={{ lineHeight: 1.3, fontFamily: "Inter, -apple-system, sans-serif" }}
-            >
+            <Typography variant="body2" fontWeight={600} noWrap sx={{ lineHeight: 1.3 }}>
               {displayName}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
               {roleLabel}
             </Typography>
           </Box>
-          <Tooltip title="Configuracion" placement="top">
+          <Tooltip title="Configuración" placement="top">
             <IconButton
               size="small"
               onClick={(e) => { e.stopPropagation(); handleNavigation("/settings"); }}
-              aria-label="Configuracion"
-              sx={{ flexShrink: 0, color: "#98979D", "&:hover": { backgroundColor: "#E7E9EF", color: "#1C1B1F" } }}
+              aria-label="Configuración"
+              sx={{ flexShrink: 0, color: "text.secondary" }}
             >
               <Settings sx={{ fontSize: 18 }} />
             </IconButton>
@@ -296,7 +311,7 @@ export default function AppLayout({ children }) {
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
 
-      {/* ── Topbar ────────────────────────────────────────────────────────── */}
+      {/* ── Topbar ──────────────────────────────────────────────────────────── */}
       <AppBar
         position="fixed"
         sx={{
@@ -309,9 +324,9 @@ export default function AppLayout({ children }) {
           {/* Mobile hamburger */}
           <IconButton
             edge="start"
-            aria-label="Abrir menu de navegacion"
+            aria-label="Abrir menu de navegación"
             onClick={handleDrawerToggle}
-            sx={{ display: { md: "none" }, color: "#1C1B1F" }}
+            sx={{ display: { md: "none" }, color: "text.primary" }}
           >
             <MenuIcon />
           </IconButton>
@@ -325,8 +340,7 @@ export default function AppLayout({ children }) {
               flexGrow: 1,
               fontWeight: 600,
               fontSize: { xs: "1rem", sm: "1.0625rem" },
-              color: "#1C1B1F",
-              fontFamily: "Inter, -apple-system, sans-serif",
+              color: "text.primary",
             }}
           >
             {getPageTitle(location.pathname)}
@@ -338,14 +352,9 @@ export default function AppLayout({ children }) {
               <Chip
                 label={getRoleLabel(sessionRole)}
                 size="small"
+                color="secondary"
                 sx={{
                   display: { xs: "none", sm: "flex" },
-                  height: 24,
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  backgroundColor: "#E8F1FF",
-                  color: "#0A7AFF",
-                  border: "none",
                   cursor: "default",
                 }}
               />
@@ -373,11 +382,11 @@ export default function AppLayout({ children }) {
         </Toolbar>
       </AppBar>
 
-      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
+      {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <Box
         component="nav"
         sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
-        aria-label="Navegacion principal"
+        aria-label="Navegación principal"
       >
         {/* Mobile temporary drawer */}
         <Drawer
@@ -406,7 +415,7 @@ export default function AppLayout({ children }) {
         </Drawer>
       </Box>
 
-      {/* ── Main content ──────────────────────────────────────────────────── */}
+      {/* ── Main content ────────────────────────────────────────────────────── */}
       <Box
         component="main"
         sx={{
@@ -414,14 +423,14 @@ export default function AppLayout({ children }) {
           width: { md: `calc(100% - ${drawerWidth}px)` },
           mt: "64px",
           minHeight: "calc(100vh - 64px)",
-          backgroundColor: "#F5F6FA",
+          backgroundColor: "background.default",
           overflowX: "hidden",
         }}
       >
         {children}
       </Box>
 
-      {/* ── User menu ─────────────────────────────────────────────────────── */}
+      {/* ── User menu ───────────────────────────────────────────────────────── */}
       <Menu
         id="user-menu"
         anchorEl={anchorEl}
@@ -430,10 +439,10 @@ export default function AppLayout({ children }) {
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
         sx={{ mt: 1 }}
-        slotProps={{ paper: { sx: { minWidth: 200 } } }}
+        slotProps={{ paper: { sx: { minWidth: 220 } } }}
       >
         {/* User info header */}
-        <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid #E7E9EF", mb: 0.5 }}>
+        <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider", mb: 0.5 }}>
           <Typography variant="body2" fontWeight={600} noWrap>{displayName}</Typography>
           <Typography variant="caption" color="text.secondary">{roleLabel}</Typography>
         </Box>
@@ -444,7 +453,7 @@ export default function AppLayout({ children }) {
         </MenuItem>
         <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/settings"); }}>
           <ListItemIcon><Settings fontSize="small" /></ListItemIcon>
-          Configuracion
+          Configuración
         </MenuItem>
         <Divider sx={{ my: 0.5 }} />
         <MenuItem
@@ -452,7 +461,7 @@ export default function AppLayout({ children }) {
           sx={{ color: "error.main" }}
         >
           <ListItemIcon><Logout fontSize="small" sx={{ color: "error.main" }} /></ListItemIcon>
-          Cerrar Sesion
+          Cerrar Sesión
         </MenuItem>
       </Menu>
     </Box>

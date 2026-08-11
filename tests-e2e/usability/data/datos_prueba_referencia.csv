@@ -1,0 +1,27 @@
+tipo,campo,valor_ejemplo
+usuario_alumno,email,alumno.usabilidad01@usab.test
+usuario_alumno,display_name,Alumno Usabilidad 01
+usuario_alumno,role,student
+usuario_alumno,password,Usab2026!
+usuario_docente,email,docente.usabilidad01@usab.test
+usuario_docente,display_name,Docente Usabilidad 01
+usuario_docente,role,teacher
+usuario_docente,password,Usab2026!
+usuario_admin,email,admin.usabilidad01@usab.test
+usuario_admin,display_name,Admin Usabilidad 01
+usuario_admin,role,admin
+usuario_admin,password,Usab2026!
+curso,nombre,Programación – USAB
+curso,descripcion,Curso de prueba para evaluación de usabilidad
+curso,semestre,2S-2026
+curso,year,2026
+tarea,titulo,Ejercicio de Prueba: Algoritmos Básicos
+tarea,descripcion,Resuelva los ejercicios del capítulo 3 y suba su archivo antes de la fecha límite.
+tarea,instrucciones,"1. Descargue el enunciado adjunto. 2. Resuelva los 5 ejercicios. 3. Guarde en PDF y suba aquí."
+tarea,max_points,10
+calificacion,parcial_1,7.5
+calificacion,parcial_2,8.0
+calificacion,final,0
+calificacion,trabajos_practicos,9.0
+mensaje,contenido,"Recuerden que la fecha de entrega del trabajo práctico es el viernes a las 23:59. Cualquier duda, escriban aquí."
+mensaje,titulo,Recordatorio de entrega

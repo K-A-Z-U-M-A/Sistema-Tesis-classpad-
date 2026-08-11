@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Grid, Typography, Box, Card, CardContent, LinearProgress, Chip,
   CircularProgress, Alert, AlertTitle, Button, Skeleton, Stack,
@@ -18,7 +18,7 @@ import {
 import { PageContainer, StatCard, EmptyState } from "../../components/ui";
 
 // ─── Mini stat card (inline, no icon container) ────────────────────────────────
-const MiniStat = ({ label, value, color = "#0A7AFF" }) => (
+const MiniStat = ({ label, value, color = "primary.main" }) => (
   <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", p: 2 }}>
     <Typography variant="h4" fontWeight={700} sx={{ color, lineHeight: 1 }}>
       {value ?? "—"}
@@ -34,25 +34,21 @@ const CourseCard = ({ course }) => {
   const navigate = useNavigate();
   const progress = course.progress || 0;
   const isActive = course.is_active !== undefined ? course.is_active : (course.isActive !== undefined ? course.isActive : true);
-  const colorDot = course.color || "#0A7AFF";
+  const colorDot = course.color || "primary.main";
 
   return (
     <Card
-      sx={{
-        height: "100%",
-        cursor: "pointer",
-        "&:hover": { borderColor: "#D9DCE3", boxShadow: "0px 2px 8px rgba(0,0,0,0.08)" },
-      }}
+      sx={{ height: "100%", cursor: "pointer" }}
       onClick={() => navigate(`/courses/${course.id}`)}
     >
       <CardContent sx={{ p: "16px !important" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
           <Box sx={{
-            width: 36, height: 36, borderRadius: "10px",
+            width: 40, height: 40, borderRadius: "12px",
             backgroundColor: colorDot, display: "flex", alignItems: "center",
             justifyContent: "center", flexShrink: 0,
           }}>
-            <School sx={{ color: "white", fontSize: 18 }} />
+            <School sx={{ color: "white", fontSize: 20 }} />
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" fontWeight={600} noWrap sx={{ lineHeight: 1.3 }}>
@@ -65,11 +61,7 @@ const CourseCard = ({ course }) => {
           <Chip
             label={isActive ? "Activo" : "Inactivo"}
             size="small"
-            sx={{
-              height: 22, fontSize: "0.7rem", fontWeight: 600, flexShrink: 0,
-              backgroundColor: isActive ? "#E5F6EA" : "#F0F2F7",
-              color: isActive ? "#0D4D25" : "#67666B",
-            }}
+            color={isActive ? "success" : "default"}
           />
         </Box>
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
@@ -80,14 +72,7 @@ const CourseCard = ({ course }) => {
             {Math.round(progress)}%
           </Typography>
         </Box>
-        <LinearProgress
-          variant="determinate"
-          value={progress}
-          sx={{
-            height: 5, borderRadius: 100, backgroundColor: "#E7E9EF",
-            "& .MuiLinearProgress-bar": { backgroundColor: colorDot, borderRadius: 100 },
-          }}
-        />
+        <LinearProgress variant="determinate" value={progress} />
       </CardContent>
     </Card>
   );
@@ -106,16 +91,12 @@ const PendingTaskRow = ({ assignment }) => {
   const getDueLabel = () => {
     if (!hasDueDate) return "Sin fecha";
     if (daysLeft === 0) return "Hoy";
-    if (daysLeft === 1) return "Manana";
+    if (daysLeft === 1) return "Mañana";
     if (isOverdue) return "Vencida";
     return `${daysLeft}d`;
   };
 
-  const chipSx = {
-    height: 22, fontSize: "0.7rem", fontWeight: 600, flexShrink: 0,
-    backgroundColor: isOverdue ? "#FDE9E7" : daysLeft !== null && daysLeft <= 3 ? "#FFF2DC" : "#E8F1FF",
-    color: isOverdue ? "#7D1C15" : daysLeft !== null && daysLeft <= 3 ? "#6B3C00" : "#003B75",
-  };
+  const chipColor = isOverdue ? "error" : (daysLeft !== null && daysLeft <= 3 ? "warning" : "primary");
 
   return (
     <Box
@@ -123,16 +104,16 @@ const PendingTaskRow = ({ assignment }) => {
       onClick={() => navigate(`/assignments/${assignmentId}`)}
       sx={{
         width: "100%", display: "flex", alignItems: "center", gap: 2,
-        p: "12px 0", borderBottom: "1px solid #E7E9EF", border: "none",
-        backgroundColor: "transparent", cursor: "pointer", textAlign: "left",
+        p: "12px 0", borderBottom: "1px solid", borderColor: "divider",
+        border: "none", backgroundColor: "transparent", cursor: "pointer", textAlign: "left",
         "&:last-child": { borderBottom: "none" },
-        "&:hover": { "& .task-title": { color: "#0A7AFF" } },
+        "&:hover": { "& .task-title": { color: "primary.main" } },
         transition: "all 150ms ease",
       }}
     >
       <Box sx={{
         width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-        backgroundColor: isOverdue ? "#D93025" : daysLeft !== null && daysLeft <= 3 ? "#E78000" : "#0A7AFF",
+        backgroundColor: isOverdue ? "error.main" : daysLeft !== null && daysLeft <= 3 ? "warning.main" : "primary.main",
       }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography
@@ -140,7 +121,7 @@ const PendingTaskRow = ({ assignment }) => {
           variant="body2"
           fontWeight={500}
           noWrap
-          sx={{ lineHeight: 1.3, color: "#1C1B1F", transition: "color 150ms ease" }}
+          sx={{ lineHeight: 1.3, color: "text.primary", transition: "color 150ms ease" }}
         >
           {assignment.title}
         </Typography>
@@ -148,7 +129,7 @@ const PendingTaskRow = ({ assignment }) => {
           {assignment.course_name || assignment.subject_name || "Curso"}
         </Typography>
       </Box>
-      <Chip label={getDueLabel()} size="small" sx={chipSx} />
+      <Chip label={getDueLabel()} size="small" color={chipColor} />
     </Box>
   );
 };
@@ -165,20 +146,20 @@ const PerformanceChart = ({ data }) => {
   return (
     <ResponsiveContainer width="100%" height={260}>
       <RechartsBarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 80 }} barGap={4}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E7E9EF" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#E7E0EC" vertical={false} />
         <XAxis
           dataKey="name" angle={-40} textAnchor="end" height={90}
-          tick={{ fontSize: 11, fill: "#67666B" }} interval={0} tickLine={false} axisLine={false}
+          tick={{ fontSize: 11, fill: "#49454F" }} interval={0} tickLine={false} axisLine={false}
         />
-        <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#67666B" }} tickLine={false} axisLine={false} />
+        <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#49454F" }} tickLine={false} axisLine={false} />
         <RechartsTooltip
-          contentStyle={{ borderRadius: 12, border: "1px solid #E7E9EF", boxShadow: "0px 4px 12px rgba(0,0,0,0.08)", fontSize: 13 }}
+          contentStyle={{ borderRadius: 12, border: "1px solid #CAC4D0", boxShadow: "0px 4px 8px 3px rgba(0,0,0,0.15)", fontSize: 13 }}
           formatter={(value, name) => [`${Number(value).toFixed(1)}%`, name]}
         />
         <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-        <Bar dataKey="averageGrade"    name="Promedio"     fill="#0A7AFF" radius={[6, 6, 0, 0]} maxBarSize={24} />
-        <Bar dataKey="attendanceRate"  name="Asistencia"   fill="#24A148" radius={[6, 6, 0, 0]} maxBarSize={24} />
-        <Bar dataKey="participationRate" name="Participacion" fill="#E78000" radius={[6, 6, 0, 0]} maxBarSize={24} />
+        <Bar dataKey="averageGrade"    name="Promedio"      fill="#6750A4" radius={[6, 6, 0, 0]} maxBarSize={24} />
+        <Bar dataKey="attendanceRate"  name="Asistencia"    fill="#146C2E" radius={[6, 6, 0, 0]} maxBarSize={24} />
+        <Bar dataKey="participationRate" name="Participación" fill="#7D5260" radius={[6, 6, 0, 0]} maxBarSize={24} />
       </RechartsBarChart>
     </ResponsiveContainer>
   );
@@ -301,7 +282,7 @@ const Dashboard = () => {
         <Typography
           variant="h1"
           component="h1"
-          sx={{ fontSize: { xs: "1.5rem", sm: "1.75rem" }, fontWeight: 700, color: "#1C1B1F", mb: 0.25 }}
+          sx={{ fontSize: { xs: "1.5rem", sm: "1.75rem" }, fontWeight: 700, color: "text.primary", mb: 0.25 }}
         >
           Hola, {displayName} 👋
         </Typography>
@@ -438,17 +419,17 @@ const Dashboard = () => {
                   <Grid container>
                     {isTeacher ? (
                       <>
-                        <Grid item xs={6}><MiniStat label="Tareas totales" value={totalAssignments} color="#0A7AFF" /></Grid>
-                        <Grid item xs={6}><MiniStat label="Por revisar" value={assignmentsPendingReview} color={assignmentsPendingReview > 0 ? "#E78000" : "#24A148"} /></Grid>
-                        <Grid item xs={6}><MiniStat label="Activos (7d)" value={totalActiveStudents} color="#24A148" /></Grid>
-                        <Grid item xs={6}><MiniStat label="Participacion" value={`${averageParticipationRate.toFixed(0)}%`} color="#0A7AFF" /></Grid>
+                        <Grid item xs={6}><MiniStat label="Tareas totales" value={totalAssignments} color="primary.main" /></Grid>
+                        <Grid item xs={6}><MiniStat label="Por revisar" value={assignmentsPendingReview} color={assignmentsPendingReview > 0 ? "warning.main" : "success.main"} /></Grid>
+                        <Grid item xs={6}><MiniStat label="Activos (7d)" value={totalActiveStudents} color="success.main" /></Grid>
+                        <Grid item xs={6}><MiniStat label="Participación" value={`${averageParticipationRate.toFixed(0)}%`} color="primary.main" /></Grid>
                       </>
                     ) : (
                       <>
-                        <Grid item xs={6}><MiniStat label="Total tareas" value={assignments.length} color="#0A7AFF" /></Grid>
-                        <Grid item xs={6}><MiniStat label="Entregadas" value={completedAssignments} color="#24A148" /></Grid>
-                        <Grid item xs={6}><MiniStat label="Pendientes" value={pendingAssignmentsCount} color="#E78000" /></Grid>
-                        <Grid item xs={6}><MiniStat label="Vencidas" value={overdueAssignments} color={overdueAssignments > 0 ? "#D93025" : "#98979D"} /></Grid>
+                        <Grid item xs={6}><MiniStat label="Total tareas" value={assignments.length} color="primary.main" /></Grid>
+                        <Grid item xs={6}><MiniStat label="Entregadas" value={completedAssignments} color="success.main" /></Grid>
+                        <Grid item xs={6}><MiniStat label="Pendientes" value={pendingAssignmentsCount} color="warning.main" /></Grid>
+                        <Grid item xs={6}><MiniStat label="Vencidas" value={overdueAssignments} color={overdueAssignments > 0 ? "error.main" : "text.disabled"} /></Grid>
                       </>
                     )}
                   </Grid>

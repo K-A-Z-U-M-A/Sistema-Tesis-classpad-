@@ -145,7 +145,7 @@ const CreateCourse = () => {
         transition={{ duration: 0.6 }}
       >
         <Box mb={4}>
-          <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: '#1C1B1F', mb: 0.5 }}>
+          <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: 'text.primary', mb: 0.5 }}>
             Crear Nuevo Curso
           </Typography>
           <Typography variant="body2" color="text.secondary">

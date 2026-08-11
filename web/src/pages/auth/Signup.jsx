@@ -147,7 +147,7 @@ export default function Signup() {
           elevation={0}
           sx={{
             p: 4,
-            borderRadius: 4,
+            borderRadius: "28px",
             width: { xs: '100%', sm: 450 },
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(20px)',
@@ -209,7 +209,7 @@ export default function Signup() {
             {/* Nota informativa: solo estudiantes pueden autorregistrarse */}
             <Alert
               severity="info"
-              sx={{ mb: 3, borderRadius: 2 }}
+              sx={{ mb: 3, borderRadius: "16px" }}
             >
               Este formulario es exclusivo para <strong>estudiantes</strong>. Si eres docente, solicita tu acceso a un administrador del sistema.
             </Alert>
@@ -219,7 +219,7 @@ export default function Signup() {
                 severity="error"
                 sx={{
                   mb: 3,
-                  borderRadius: 2,
+                  borderRadius: "16px",
                   fontWeight: 500,
                   boxShadow: '0 2px 10px rgba(211, 47, 47, 0.15)'
                 }}
@@ -323,7 +323,7 @@ export default function Signup() {
               sx={{
                 py: 1.5,
                 mb: 3,
-                borderRadius: 2,
+                borderRadius: "16px",
                 fontSize: '1.1rem',
                 fontWeight: 600,
                 background: 'linear-gradient(135deg, #007AFF 0%, #0056CC 100%)',
@@ -363,7 +363,7 @@ export default function Signup() {
               sx={{
                 py: 1.5,
                 mb: 3,
-                borderRadius: 2,
+                borderRadius: "16px",
                 borderWidth: 2,
                 fontSize: '1rem',
                 fontWeight: 600,
