@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 import {
   School, Add, MoreVert, People, Assignment, Search,
-  Delete, Edit, ContentCopy,
+  Delete, Edit, ContentCopy, Visibility, MeetingRoom,
 } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext.tsx";
 import api from "../../services/api";
@@ -62,7 +62,7 @@ const CourseCard = ({ course, isTeacher, onMenuOpen, onNavigate }) => {
         </Box>
 
         {/* Meta row */}
-        <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+        <Box sx={{ display: "flex", gap: 1.5, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <People sx={{ fontSize: 14, color: "text.secondary" }} />
             <Typography variant="caption" color="text.secondary">
@@ -73,6 +73,14 @@ const CourseCard = ({ course, isTeacher, onMenuOpen, onNavigate }) => {
             <Typography variant="caption" color="text.secondary">
               {course.turn}
             </Typography>
+          )}
+          {course.classroom_pavilion && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <MeetingRoom sx={{ fontSize: 14, color: "primary.main" }} />
+              <Typography variant="caption" color="primary.main" fontWeight={500}>
+                Pab. {course.classroom_pavilion} ({course.classroom_floor === 'PB' ? 'PB' : `P.${course.classroom_floor}`}) Aula {course.classroom_number}
+              </Typography>
+            </Box>
           )}
           {isTeacher && course.assignment_count !== undefined && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -302,8 +310,12 @@ const Courses = () => {
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
         <MenuItem onClick={() => { navigate(`/courses/${selectedCourse?.id}`); handleMenuClose(); }}>
-          <Edit fontSize="small" sx={{ mr: 1.5, fontSize: 18 }} />
+          <Visibility fontSize="small" sx={{ mr: 1.5, fontSize: 18 }} />
           Ver detalle
+        </MenuItem>
+        <MenuItem onClick={() => { navigate(`/courses/${selectedCourse?.id}/edit`); handleMenuClose(); }}>
+          <Edit fontSize="small" sx={{ mr: 1.5, fontSize: 18, color: 'primary.main' }} />
+          Editar curso
         </MenuItem>
         <MenuItem
           onClick={() => { if (selectedCourse) handleDeleteCourse(selectedCourse); }}

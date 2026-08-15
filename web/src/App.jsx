@@ -23,6 +23,7 @@ import VerifyResetCode from './pages/auth/VerifyResetCode.jsx';
 import ResetPassword from './pages/auth/ResetPassword.jsx';
 import Dashboard from './pages/Dashboard/Dashboard';
 import CreateCourse from './pages/Courses/CreateCourse';
+import EditCourse from './pages/Courses/EditCourse';
 import Courses from './pages/Courses/Courses';
 import CourseDetail from './pages/Courses/CourseDetail';
 import CreateUnit from './pages/Courses/CreateUnit';
@@ -163,6 +164,14 @@ function AppRoutes() {
         <ProtectedRoute>
           <AppLayout>
             <CreateCourse />
+          </AppLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/courses/:courseId/edit" element={
+        <ProtectedRoute requiredRole="teacher">
+          <AppLayout>
+            <EditCourse />
           </AppLayout>
         </ProtectedRoute>
       } />

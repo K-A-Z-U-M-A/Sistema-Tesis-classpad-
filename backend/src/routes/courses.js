@@ -184,6 +184,55 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/courses/available-classrooms - Lista aulas disponibles para un turno/año/semestre
+// IMPORTANTE: Esta ruta debe estar ANTES de /:id para evitar colisiones de nombre
+router.get('/available-classrooms', authMiddleware, async (req, res) => {
+  try {
+    const { turn, year, semester, exclude_course_id } = req.query;
+
+    // Aulas ocupadas en ese turno/año/semestre (cursos activos)
+    const available = await pool.query(
+      `SELECT cl.pavilion, cl.floor, cl.number, cl.label,
+              EXISTS (
+                SELECT 1 FROM courses c
+                WHERE c.classroom_pavilion = cl.pavilion
+                  AND c.classroom_floor    = cl.floor
+                  AND c.classroom_number   = cl.number
+                  AND ($1::text IS NULL OR c.turn = $1)
+                  AND ($2::integer IS NULL OR c.year = $2)
+                  AND ($3::text IS NULL OR c.semester = $3)
+                  AND ($4::text IS NULL OR c.id::text <> $4)
+                  AND c.archived = false
+              ) AS is_taken
+       FROM classrooms cl
+       ORDER BY cl.pavilion, cl.floor, cl.number`,
+      [turn || null, year ? parseInt(year, 10) : null, semester || null, exclude_course_id || null]
+    );
+
+    const allClassrooms   = available.rows;
+    const freeClassrooms  = allClassrooms.filter(c => !c.is_taken);
+    const takenClassrooms = allClassrooms.filter(c => c.is_taken);
+
+    res.json({
+      success: true,
+      data: {
+        available: freeClassrooms,
+        taken:     takenClassrooms,
+        total:     allClassrooms.length,
+        free_count: freeClassrooms.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching available classrooms:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
+        code: 'GET_AVAILABLE_CLASSROOMS_FAILED'
+      }
+    });
+  }
+});
+
 // POST /api/courses - Create new course (teachers only)
 router.post('/', authMiddleware, async (req, res) => {
   try {
@@ -198,9 +247,12 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
-    const { name, description, turn, grade, semester, year, color, image_url } = req.body;
+    const {
+      name, description, turn, grade, semester, year, color, image_url,
+      classroom_pavilion, classroom_floor, classroom_number
+    } = req.body;
 
-    // Validate required fields
+    // Validate required fields (name, turn + classroom fields)
     if (!name || !turn) {
       return res.status(400).json({
         error: {
@@ -210,17 +262,111 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
+    // Validate classroom fields are provided
+    if (!classroom_pavilion || !classroom_floor || !classroom_number) {
+      return res.status(400).json({
+        error: {
+          message: 'Debes especificar el pabellón, piso y número de aula',
+          code: 'MISSING_CLASSROOM_FIELDS'
+        }
+      });
+    }
+
+    // Validate classroom field values
+    const validPavilions = [1, 2];
+    const validFloors = ['PB', '1', '2', '3', '4', '5'];
+    const pavilionNum = parseInt(classroom_pavilion, 10);
+    const classroomNum = parseInt(classroom_number, 10);
+
+    if (!validPavilions.includes(pavilionNum)) {
+      return res.status(400).json({
+        error: { message: 'El pabellón debe ser 1 o 2', code: 'INVALID_CLASSROOM_PAVILION' }
+      });
+    }
+    if (!validFloors.includes(String(classroom_floor))) {
+      return res.status(400).json({
+        error: { message: 'El piso debe ser PB, 1, 2, 3, 4 o 5', code: 'INVALID_CLASSROOM_FLOOR' }
+      });
+    }
+    if (isNaN(classroomNum) || classroomNum < 1 || classroomNum > 10) {
+      return res.status(400).json({
+        error: { message: 'El número de aula debe estar entre 1 y 10', code: 'INVALID_CLASSROOM_NUMBER' }
+      });
+    }
+
+    // ── Verificar conflicto de aula ──────────────────────────────────────────
+    // Conflicto: mismo pabellón + piso + aula + turno + año + semestre (curso activo)
+    const conflictCheck = await pool.query(
+      `SELECT c.id, c.name, c.turn, c.semester, c.year,
+              u.display_name AS owner_name
+       FROM courses c
+       LEFT JOIN users u ON c.owner_id = u.id
+       WHERE c.classroom_pavilion = $1
+         AND c.classroom_floor    = $2
+         AND c.classroom_number   = $3
+         AND c.turn               = $4
+         AND c.year               = $5
+         AND ($6::text IS NULL OR c.semester = $6)
+         AND c.archived = false`,
+      [pavilionNum, String(classroom_floor), classroomNum, turn, year || null, semester || null]
+    );
+
+    if (conflictCheck.rows.length > 0) {
+      // Obtener aulas disponibles para este turno/año/semestre
+      const availableResult = await pool.query(
+        `SELECT cl.pavilion, cl.floor, cl.number, cl.label
+         FROM classrooms cl
+         WHERE NOT EXISTS (
+           SELECT 1 FROM courses c
+           WHERE c.classroom_pavilion = cl.pavilion
+             AND c.classroom_floor    = cl.floor
+             AND c.classroom_number   = cl.number
+             AND c.turn               = $1
+             AND c.year               = $2
+             AND ($3::text IS NULL OR c.semester = $3)
+             AND c.archived = false
+         )
+         ORDER BY cl.pavilion, cl.floor, cl.number`,
+        [turn, year || null, semester || null]
+      );
+
+      const conflictingCourse = conflictCheck.rows[0];
+      return res.status(409).json({
+        error: {
+          message: `El aula Pab. ${pavilionNum} – ${classroom_floor === 'PB' ? 'Planta Baja' : 'Piso ' + classroom_floor} – Aula ${classroomNum} ya está asignada al curso "${conflictingCourse.name}" en el turno ${conflictingCourse.turn} (${conflictingCourse.semester || ''} ${conflictingCourse.year || ''})`,
+          code: 'CLASSROOM_ALREADY_TAKEN'
+        },
+        conflict: {
+          course_id: conflictingCourse.id,
+          course_name: conflictingCourse.name,
+          owner_name: conflictingCourse.owner_name,
+          turn: conflictingCourse.turn,
+          semester: conflictingCourse.semester,
+          year: conflictingCourse.year
+        },
+        available_classrooms: availableResult.rows
+      });
+    }
+    // ── Fin verificación conflicto ────────────────────────────────────────────
+
     // Generate unique course code
     console.log('🔑 Generating course code...');
     const courseCode = await generateUniqueCourseCode(pool);
     console.log('🔑 Generated course code:', courseCode);
 
-    // Create course
+    // Create course (with classroom fields)
     const result = await pool.query(
-      `INSERT INTO courses (name, description, turn, grade, semester, year, color, image_url, owner_id, course_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO courses
+         (name, description, turn, grade, semester, year, color, image_url,
+          owner_id, course_code,
+          classroom_pavilion, classroom_floor, classroom_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
-      [name, description, turn, grade, semester, year, color, image_url, req.user.id, courseCode]
+      [
+        name, description, turn, grade, semester, year, color, image_url,
+        req.user.id, courseCode,
+        pavilionNum, String(classroom_floor), classroomNum
+      ]
     );
 
     const course = result.rows[0];
@@ -238,7 +384,11 @@ router.post('/', authMiddleware, async (req, res) => {
       action: 'CREATE_COURSE',
       entity: 'Course',
       entityId: course.id,
-      details: { name: course.name, code: course.course_code },
+      details: {
+        name: course.name,
+        code: course.course_code,
+        classroom: `Pab.${pavilionNum} ${classroom_floor} Aula${classroomNum}`
+      },
       ipAddress: req.ip || req.connection.remoteAddress
     });
 
@@ -256,6 +406,7 @@ router.post('/', authMiddleware, async (req, res) => {
     });
   }
 });
+
 
 // GET /api/courses/my-courses - Get student's enrolled courses
 router.get('/my-courses', authMiddleware, async (req, res) => {
@@ -488,6 +639,158 @@ router.get('/:id', authMiddleware, async (req, res) => {
         message: 'Error interno del servidor',
         code: 'GET_COURSE_DETAILS_FAILED'
       }
+    });
+  }
+});
+
+// PUT /api/courses/:id - Edit an existing course (owner/teacher only)
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const courseId = req.params.id;
+
+    if (!(isIntegerString(courseId) || isUuid(courseId))) {
+      return res.status(400).json({ error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' } });
+    }
+
+    // Only the owner or an admin can edit the course
+    const isOwner = await isCourseTeacher(req.user.id, courseId);
+    if (!isOwner && req.user.role !== 'admin') {
+      return res.status(403).json({
+        error: { message: 'Solo el propietario del curso puede editarlo', code: 'INSUFFICIENT_PERMISSIONS' }
+      });
+    }
+
+    const {
+      name, description, turn, grade, semester, year, color, image_url,
+      classroom_pavilion, classroom_floor, classroom_number
+    } = req.body;
+
+    if (!name || !turn) {
+      return res.status(400).json({
+        error: { message: 'El nombre y el turno son requeridos', code: 'MISSING_REQUIRED_FIELDS' }
+      });
+    }
+
+    if (!classroom_pavilion || !classroom_floor || !classroom_number) {
+      return res.status(400).json({
+        error: { message: 'Debes especificar el pabellón, piso y número de aula', code: 'MISSING_CLASSROOM_FIELDS' }
+      });
+    }
+
+    const validPavilions = [1, 2];
+    const validFloors = ['PB', '1', '2', '3', '4', '5'];
+    const pavilionNum   = parseInt(classroom_pavilion, 10);
+    const classroomNum  = parseInt(classroom_number, 10);
+
+    if (!validPavilions.includes(pavilionNum)) {
+      return res.status(400).json({ error: { message: 'El pabellón debe ser 1 o 2', code: 'INVALID_CLASSROOM_PAVILION' } });
+    }
+    if (!validFloors.includes(String(classroom_floor))) {
+      return res.status(400).json({ error: { message: 'El piso debe ser PB, 1, 2, 3, 4 o 5', code: 'INVALID_CLASSROOM_FLOOR' } });
+    }
+    if (isNaN(classroomNum) || classroomNum < 1 || classroomNum > 10) {
+      return res.status(400).json({ error: { message: 'El número de aula debe estar entre 1 y 10', code: 'INVALID_CLASSROOM_NUMBER' } });
+    }
+
+    // Check classroom conflict (exclude current course from conflict check)
+    const cast = isUuid(courseId) ? '::uuid' : '';
+    const conflictCheck = await pool.query(
+      `SELECT c.id, c.name, c.turn, c.semester, c.year,
+              u.display_name AS owner_name
+       FROM courses c
+       LEFT JOIN users u ON c.owner_id = u.id
+       WHERE c.classroom_pavilion = $1
+         AND c.classroom_floor    = $2
+         AND c.classroom_number   = $3
+         AND c.turn               = $4
+         AND c.year               = $5
+         AND ($6::text IS NULL OR c.semester = $6)
+         AND c.archived = false
+         AND c.id != $7${cast}`,
+      [pavilionNum, String(classroom_floor), classroomNum, turn, year || null, semester || null, courseId]
+    );
+
+    if (conflictCheck.rows.length > 0) {
+      const availableResult = await pool.query(
+        `SELECT cl.pavilion, cl.floor, cl.number, cl.label
+         FROM classrooms cl
+         WHERE NOT EXISTS (
+           SELECT 1 FROM courses c
+           WHERE c.classroom_pavilion = cl.pavilion
+             AND c.classroom_floor    = cl.floor
+             AND c.classroom_number   = cl.number
+             AND c.turn               = $1
+             AND c.year               = $2
+             AND ($3::text IS NULL OR c.semester = $3)
+             AND c.archived = false
+             AND c.id != $4${cast}
+         )
+         ORDER BY cl.pavilion, cl.floor, cl.number`,
+        [turn, year || null, semester || null, courseId]
+      );
+
+      const conflicting = conflictCheck.rows[0];
+      return res.status(409).json({
+        error: {
+          message: `El aula Pab. ${pavilionNum} – ${classroom_floor === 'PB' ? 'Planta Baja' : 'Piso ' + classroom_floor} – Aula ${classroomNum} ya está asignada al curso "${conflicting.name}"`,
+          code: 'CLASSROOM_ALREADY_TAKEN'
+        },
+        conflict: {
+          course_id:   conflicting.id,
+          course_name: conflicting.name,
+          owner_name:  conflicting.owner_name,
+          turn:        conflicting.turn,
+          semester:    conflicting.semester,
+          year:        conflicting.year,
+        },
+        available_classrooms: availableResult.rows
+      });
+    }
+
+    const yearNumber = year ? parseInt(year, 10) : null;
+
+    const result = await pool.query(
+      `UPDATE courses
+       SET name               = $1,
+           description        = $2,
+           turn               = $3,
+           grade              = $4,
+           semester           = $5,
+           year               = $6,
+           color              = $7,
+           image_url          = $8,
+           classroom_pavilion = $9,
+           classroom_floor    = $10,
+           classroom_number   = $11,
+           updated_at         = CURRENT_TIMESTAMP
+       WHERE id = $12${cast}
+       RETURNING *`,
+      [
+        name, description, turn, grade, semester, yearNumber, color, image_url,
+        pavilionNum, String(classroom_floor), classroomNum,
+        courseId
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'Curso no encontrado', code: 'COURSE_NOT_FOUND' } });
+    }
+
+    await logAction({
+      userId: req.user.id,
+      action: 'UPDATE_COURSE',
+      entity: 'Course',
+      entityId: courseId,
+      details: { name, classroom: `Pab.${pavilionNum} ${classroom_floor} Aula${classroomNum}` },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
+    res.json({ success: true, data: result.rows[0] });
+
+  } catch (error) {
+    console.error('Error updating course:', error);
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'UPDATE_COURSE_FAILED' }
     });
   }
 });

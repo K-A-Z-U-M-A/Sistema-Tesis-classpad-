@@ -250,72 +250,94 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ loading: true });
 
     try {
-      // Obtener el sessionId actual para logging
       const currentSessionId = sessionManager.getSessionId();
       if (process.env.NODE_ENV === 'development') {
         console.log(`🔐 Inicializando auth para sesión: ${currentSessionId.substring(0, 12)}...`);
       }
 
-      // Verificar si hay token y usuario guardados en esta sesión ESPECÍFICA
-      const token = apiService.getToken();
-      const savedUser = sessionManager.getItem('user');
+      // Primer intento: lectura normal con sessionManager (valida sessionId + tabFingerprint)
+      let token = apiService.getToken();
+      let savedUser = sessionManager.getItem('user');
 
-      // VERIFICACIÓN ADICIONAL: Asegurar que los datos pertenecen a esta sesión
+      // ─────────────────────────────────────────────────────────────────────────
+      // FALLBACK TRAS RECARGA: si el sessionManager bloquea por tabFingerprint
+      // incorrecto, buscamos directamente en localStorage con el sessionId actual.
+      // Esto ocurre porque performance.now() cambia en cada recarga y el
+      // tabFingerprint almacenado puede no coincidir en el primer ciclo.
+      // ─────────────────────────────────────────────────────────────────────────
+      if (!token || !savedUser) {
+        const prefix = `session_${currentSessionId}_`;
+        try {
+          const rawToken = localStorage.getItem(`${prefix}authToken`);
+          const rawUser  = localStorage.getItem(`${prefix}user`);
+
+          if (rawToken) {
+            const parsed = JSON.parse(rawToken);
+            // Aceptar si el sessionId coincide (ignorar tabFingerprint tras recarga)
+            if (parsed.sessionId === currentSessionId && parsed.value) {
+              token = parsed.value;
+              if (process.env.NODE_ENV === 'development') {
+                console.log('🔄 Token recuperado por fallback tras recarga');
+              }
+            }
+          }
+
+          if (rawUser) {
+            const parsed = JSON.parse(rawUser);
+            if (parsed.sessionId === currentSessionId && parsed.value) {
+              savedUser = parsed.value;
+              if (process.env.NODE_ENV === 'development') {
+                console.log('🔄 Usuario recuperado por fallback tras recarga');
+              }
+            }
+          }
+
+          // Re-escribir con tabFingerprint actualizado para que las lecturas
+          // normales vuelvan a funcionar sin necesitar el fallback
+          if (token) {
+            apiService.setToken(typeof token === 'string' ? token : JSON.stringify(token));
+          }
+          if (savedUser) {
+            const userObj = typeof savedUser === 'string' ? JSON.parse(savedUser) : savedUser;
+            sessionManager.setItem('user', JSON.stringify(userObj));
+          }
+        } catch (fbErr) {
+          console.warn('Error en fallback de recarga:', fbErr);
+        }
+      }
+
       if (token && savedUser) {
         try {
-          // Parsear el usuario (sessionManager.getItem ya devuelve el valor parseado o string)
           let user;
           if (typeof savedUser === 'string') {
-            try {
-              user = JSON.parse(savedUser);
-            } catch (e) {
-              // Si no es JSON válido, tratar como error
-              throw new Error('Datos de usuario no son JSON válido');
-            }
+            try { user = JSON.parse(savedUser); }
+            catch (e) { throw new Error('Datos de usuario no son JSON válido'); }
           } else {
             user = savedUser;
           }
 
-          // Verificación adicional: asegurar que sessionManager confirma que es de esta sesión
-          // Esta verificación es crítica para prevenir leer datos de otras pestañas
-          const isMySession = sessionManager.isMySession('user');
-          if (!isMySession) {
-            // Los datos no pertenecen a esta sesión - limpiar inmediatamente
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('⚠️ Datos de usuario no pertenecen a esta sesión, limpiando...');
-              console.warn(`   SessionId actual: ${currentSessionId.substring(0, 20)}...`);
-            }
-            // Limpiar datos de esta sesión
-            apiService.logout();
-            set({ user: null, loading: false, error: null, profileComplete: null });
-            return;
-          }
-
-          // Los datos son válidos y pertenecen a esta sesión
+          // Los datos son válidos para esta sesión
           set({ user, loading: false, error: null });
 
-          // Actualizar información de sesión
           sessionManager.updateSessionInfo({
             role: user.role,
             userId: user.id
           });
 
           if (process.env.NODE_ENV === 'development') {
-            console.log(`✅ Usuario cargado para sesión: ${currentSessionId.substring(0, 12)}..., Rol: ${user.role}`);
+            console.log(`✅ Usuario cargado: ${user.email}, Rol: ${user.role}`);
           }
 
-          // Verificar si el perfil está completo de forma asíncrona
+          // Verificar perfil completo de forma asíncrona
           get().checkProfileComplete().catch(console.error);
         } catch (error) {
-          // Datos corruptos, limpiar
           console.error('Error parseando datos de usuario:', error);
           apiService.logout();
           set({ user: null, loading: false, error: null, profileComplete: null });
         }
       } else {
-        // No hay datos para esta sesión - esto es normal para nuevas pestañas
         if (process.env.NODE_ENV === 'development') {
-          console.log(`ℹ️ No hay datos de usuario para sesión: ${currentSessionId.substring(0, 12)}...`);
+          console.log('ℹ️ No hay sesión activa.');
         }
         set({ user: null, loading: false, error: null, profileComplete: null });
       }
@@ -324,9 +346,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       set({ user: null, loading: false, error: null, profileComplete: null });
     }
 
-    // Retornar función de limpieza (no-op para compatibilidad)
     return () => { };
   },
+
 
   // Limpiar manualmente el flag de cambio de contraseña (se llama tras cambio exitoso en frontend)
   clearMustChangePassword: () => {

@@ -5,11 +5,9 @@ export async function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
-    console.log('🔍 Auth middleware - Full headers:', req.headers);
-    console.log('🔍 Auth middleware - Auth header:', authHeader);
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ Auth middleware - Missing or invalid auth header:', authHeader);
+
       return res.status(401).json({
         error: {
           message: 'Access token required',
@@ -19,11 +17,8 @@ export async function authMiddleware(req, res, next) {
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    console.log('🔍 Auth middleware - Token preview:', token.substring(0, 20) + '...');
-
     // Verify JWT token
     const decoded = verifyToken(token);
-    console.log('✅ Auth middleware - Decoded token:', decoded);
 
     // Get fresh user data from database
     const result = await pool.query(
@@ -67,7 +62,7 @@ export async function authMiddleware(req, res, next) {
     next();
   } catch (error) {
     console.error('❌ Auth middleware error:', error.message);
-    console.error('❌ Auth middleware error stack:', error.stack);
+
     return res.status(401).json({
       error: {
         message: 'Invalid token',

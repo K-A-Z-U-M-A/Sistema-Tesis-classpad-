@@ -5,6 +5,10 @@
   "description": "ClassPad system with React frontend and Express backend",
   "scripts": {
     "dev": "concurrently -n WEB,BACK -c auto \"npm --prefix web run dev\" \"npm --prefix backend run dev\"",
+    "dev:ngrok": "concurrently -n WEB,BACK,NGROK -c auto \"npm --prefix web run dev\" \"npm --prefix backend run dev\" \"npx wait-on https-get://localhost:5173 --timeout 30000 && ngrok http https://localhost:5173\"",
+    "dev:open": "concurrently -n WEB,BACK -c auto \"npm --prefix web run dev\" \"npm --prefix backend run dev\" && start http://localhost:5173",
+    "ip": "ipconfig | findstr /R /C:\"IPv4 Address\" /C:\"Dirección IPv4\"",
+    "check:attendance": "powershell -ExecutionPolicy Bypass -File ./iniciar-sistema-asistencia.ps1",
     "install:all": "npm install && npm --prefix web install && npm --prefix backend install",
     "build": "npm --prefix web run build",
     "start": "npm --prefix backend run start",
@@ -20,7 +24,8 @@
     "analyze:usability": "python tests-e2e/analysis/analyze_human_usability.py --input tests-e2e/usability/data --output tests-e2e/analysis/human-usability-results/"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "wait-on": "^9.1.0"
   },
   "dependencies": {
     "react-hot-toast": "^2.6.0"

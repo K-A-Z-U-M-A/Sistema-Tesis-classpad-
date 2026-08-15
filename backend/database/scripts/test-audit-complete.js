@@ -1,4 +1,4 @@
-import pool from './src/config/database.js';
+import pool from '../../src/config/database.js';
 import { logAction } from './src/utils/auditLogger.js';
 
 const testAudit = async () => {
