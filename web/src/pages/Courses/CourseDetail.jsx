@@ -49,6 +49,7 @@ import {
 } from '@mui/material';
 import {
   School,
+  MeetingRoom,
   People,
   Assignment,
   Message,
@@ -598,14 +599,32 @@ const CourseDetail = () => {
               color="text.secondary"
               sx={{ mt: 0.5 }}
             >
-              {course.turn} {course.grade && `· ${course.grade}`}
+              {[course.turn, course.grade, course.semester, course.year ? `Año ${course.year}` : null].filter(Boolean).join(' · ')}
             </Typography>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-            >
-              {course.description}
-            </Typography>
+            {course.description && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mt: 0.5 }}
+              >
+                {course.description}
+              </Typography>
+            )}
+            {course.classroom_pavilion && (
+              <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Chip
+                  icon={<MeetingRoom fontSize="small" />}
+                  label={`Pabellón ${course.classroom_pavilion} · ${course.classroom_floor === 'PB' ? 'Planta Baja' : `Piso ${course.classroom_floor}`} · Aula ${course.classroom_number}`}
+                  color="primary"
+                  variant="outlined"
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    backgroundColor: 'primary.50'
+                  }}
+                />
+              </Box>
+            )}
             {course.course_code && (
               <Box sx={{
                 mt: 2,

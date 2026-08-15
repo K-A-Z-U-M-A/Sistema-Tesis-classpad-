@@ -3,7 +3,7 @@
  * Ejecuta la migración directamente desde Node.js
  */
 
-import pool from './src/config/database.js';
+import pool from '../../src/config/database.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';

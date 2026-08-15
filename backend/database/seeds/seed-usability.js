@@ -10,7 +10,7 @@
  * ============================================================
  */
 
-import pool from './src/config/database.js';
+import pool from '../../src/config/database.js';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -19,8 +19,8 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-dotenv.config({ path: join(__dirname, '.env') });
-dotenv.config({ path: join(__dirname, '../tests-e2e/.env') });
+dotenv.config({ path: join(__dirname, '../../.env') });
+dotenv.config({ path: join(__dirname, '../../../tests-e2e/.env') });
 
 // ─── GUARDIA DE SEGURIDAD ──────────────────────────────────────────────────────
 const DB_HOST = process.env.DB_HOST || 'localhost';

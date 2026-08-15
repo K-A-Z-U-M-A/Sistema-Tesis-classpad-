@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import pool from './src/config/database.js';
+import pool from '../../src/config/database.js';
 import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);

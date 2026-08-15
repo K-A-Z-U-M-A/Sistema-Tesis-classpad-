@@ -1,4 +1,4 @@
-import pool from './src/config/database.js';
+import pool from '../../src/config/database.js';
 import bcrypt from 'bcryptjs';
 
 async function setupTeacherManual() {

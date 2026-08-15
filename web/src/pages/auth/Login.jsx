@@ -103,6 +103,8 @@ export default function Login() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [showQR, setShowQR] = useState(false);
   const [qrHost, setQrHost] = useState(window.location.hostname);
+  const [qrMode, setQrMode] = useState('local'); // 'local' | 'ngrok'
+  const [ngrokUrl, setNgrokUrl] = useState('');
 
   // ============================================================================
   // EFFECT: Load failed attempts from localStorage on mount
@@ -139,18 +141,19 @@ export default function Login() {
     }
   }, [formData.email]);
 
-  // Load Network Config for Bonjour
+  // Auto-detectar ngrok al abrir el modal
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         const config = await api.get('/config');
-        if (config && config.bonjurHostname) {
-          setQrHost(config.bonjurHostname);
-          console.log('📡 Bonjour Hostname detected:', config.bonjurHostname);
+        if (config?.ipv4) setQrHost(config.ipv4);
+        if (config?.ngrokUrl) {
+          setNgrokUrl(config.ngrokUrl);
+          setQrMode('ngrok'); // Si hay ngrok activo, abrimos en modo ngrok
+          console.log('🌐 ngrok detectado:', config.ngrokUrl);
         }
       } catch (e) {
-        console.log('⚠️ Could not auto-detect network config:', e);
-        // Fallback is already window.location.hostname
+        console.log('⚠️ No se pudo detectar la config de red');
       }
     };
     fetchConfig();
@@ -680,40 +683,91 @@ export default function Login() {
         open={showQR}
         onClose={() => setShowQR(false)}
         PaperProps={{
-          sx: { borderRadius: "20px", maxWidth: 350 }
+          sx: { borderRadius: "20px", maxWidth: 380 }
         }}
       >
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', pb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
             <DevicesIcon color="primary" /> Acceso Móvil
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            Escanea este código QR para acceder a ClassPad desde tu celular o tablet en la misma red Wi-Fi.
-          </Typography>
-
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: "16px" }}>
-            <QRCodeSVG
-              value={`https://${qrHost}:${window.location.port || '5173'}/login`}
-              size={200}
-              level="M"
-              includeMargin={true}
-            />
+          {/* Mode selector */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <Button
+              fullWidth
+              size="small"
+              variant={qrMode === 'local' ? 'contained' : 'outlined'}
+              onClick={() => setQrMode('local')}
+              sx={{ borderRadius: 20, textTransform: 'none', fontSize: '0.75rem' }}
+            >
+              📶 Red local (Wi-Fi)
+            </Button>
+            <Button
+              fullWidth
+              size="small"
+              variant={qrMode === 'ngrok' ? 'contained' : 'outlined'}
+              onClick={() => setQrMode('ngrok')}
+              sx={{ borderRadius: 20, textTransform: 'none', fontSize: '0.75rem' }}
+            >
+              🌐 ngrok (cualquier red)
+            </Button>
           </Box>
 
-          <TextField
-            fullWidth
-            size="small"
-            label="IP o Nombre del PC"
-            value={qrHost}
-            onChange={(e) => setQrHost(e.target.value)}
-            helperText={`URL: https://${qrHost}:${window.location.port || '5173'}`}
-            sx={{ mt: 1 }}
-          />
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2, textAlign: 'center', fontStyle: 'italic' }}>
-            Asegúrate de que ambos dispositivos estén conectados a la misma red Wi-Fi.
-          </Typography>
+          {qrMode === 'local' ? (
+            <>
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                Escanea el QR desde la misma red Wi-Fi.
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: "16px" }}>
+                <QRCodeSVG
+                  value={`https://${qrHost}:${window.location.port || '5173'}/login`}
+                  size={190}
+                  level="M"
+                  includeMargin={true}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                size="small"
+                label="IP o Nombre del PC"
+                value={qrHost}
+                onChange={(e) => setQrHost(e.target.value)}
+                helperText={`URL: https://${qrHost}:${window.location.port || '5173'}`}
+                sx={{ mt: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, textAlign: 'center', fontStyle: 'italic' }}>
+                Ambos dispositivos deben estar en la misma red Wi-Fi.
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                Usá la URL de ngrok para acceder desde cualquier red sin advertencias de seguridad.
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: "16px" }}>
+                <QRCodeSVG
+                  value={ngrokUrl ? `${ngrokUrl.replace(/\/$/, '')}/login` : 'https://ngrok-url-aqui'}
+                  size={190}
+                  level="M"
+                  includeMargin={true}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                size="small"
+                label="URL de ngrok"
+                placeholder="https://xxxx.ngrok-free.app"
+                value={ngrokUrl}
+                onChange={(e) => setNgrokUrl(e.target.value)}
+                helperText={ngrokUrl ? `URL: ${ngrokUrl.replace(/\/$/, '')}/login` : 'Pegá la URL que te da ngrok'}
+                sx={{ mt: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, textAlign: 'center', fontStyle: 'italic' }}>
+                Funciona desde cualquier red. La URL cambia cada vez que reiniciás ngrok.
+              </Typography>
+            </>
+          )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
           <Button onClick={() => setShowQR(false)} variant="outlined" sx={{ borderRadius: 20 }}>
