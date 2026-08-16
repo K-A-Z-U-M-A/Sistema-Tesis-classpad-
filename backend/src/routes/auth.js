@@ -1,5 +1,6 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import pool from '../config/database.js';
 import { signToken } from '../utils/jwt.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
@@ -7,6 +8,15 @@ import passport from '../config/passport.js';
 import { logAction } from '../utils/auditLogger.js';
 
 const router = express.Router();
+
+// Rate limiter para el endpoint de login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10,                   // máx 10 intentos por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { message: 'Demasiados intentos de inicio de sesión. Intentá de nuevo en 15 minutos.', code: 'TOO_MANY_REQUESTS' } }
+});
 
 // Register endpoint
 router.post('/register', async (req, res) => {
@@ -112,7 +122,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login endpoint
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 

@@ -4,56 +4,9 @@ import { authMiddleware } from '../middleware/authMiddleware.js';
 import { generateUniqueCourseCode } from '../utils/courseCodeGenerator.js';
 import { logAction } from '../utils/auditLogger.js';
 
+import { isUuid, isIntegerString, isCourseTeacher, isCourseStudent, hasCourseAccess } from '../utils/uuid.js';
+
 const router = express.Router();
-
-function isUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
-}
-
-function isIntegerString(value) {
-  return /^\d+$/.test(String(value));
-}
-
-// Helper function to check if user is teacher of course
-async function isCourseTeacher(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     WHERE c.id = $1${cast} AND (c.owner_id = $2 OR ct.teacher_id = $2)`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
-
-// Helper function to check if user is student of course
-async function isCourseStudent(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM course_students WHERE course_id = $1${cast} AND student_id = $2 AND status = 'active'`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
-
-// Helper function to check if user has access to course
-async function hasCourseAccess(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     LEFT JOIN course_students cs ON c.id = cs.course_id
-     LEFT JOIN enrollments e ON c.id = e.course_id
-     WHERE c.id = $1${cast} AND (
-       c.owner_id = $2 OR 
-       ct.teacher_id = $2 OR 
-       (cs.student_id = $2 AND cs.status = 'active') OR
-       (e.student_id = $2 AND e.status = 'active')
-     )`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
 
 // GET /api/courses - Get user's courses (ONLY ACTIVE)
 router.get('/', authMiddleware, async (req, res) => {
