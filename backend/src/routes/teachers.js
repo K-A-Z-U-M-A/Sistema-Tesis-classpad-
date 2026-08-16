@@ -8,11 +8,6 @@ const router = express.Router();
 router.get('/:id/courses', authMiddleware, async (req, res) => {
   try {
     // Debug logging (can be removed in production)
-    console.log('🔍 TEACHERS DEBUG - Request details:', {
-      'req.params.id': req.params.id,
-      'req.user.id': req.user.id,
-      'req.user.role': req.user.role
-    });
 
     // Handle both UUID strings and numeric IDs
     const teacherIdParam = req.params.id;
@@ -47,13 +42,10 @@ router.get('/:id/courses', authMiddleware, async (req, res) => {
       });
     }
 
-    console.log('🔍 TEACHERS DEBUG - Authorization passed, proceeding with query');
-
     // Obtener cursos donde el usuario es owner o teacher
     // Primero intentar consulta con tabla course_teachers si existe
     let coursesResult;
     try {
-      console.log('🔍 TEACHERS DEBUG - Attempting course_teachers query');
       // Intentar consulta con course_teachers (estructura más nueva)
       coursesResult = await pool.query(
         `SELECT 
@@ -79,9 +71,7 @@ router.get('/:id/courses', authMiddleware, async (req, res) => {
          ORDER BY c.created_at DESC`,
         [teacherId]
       );
-      console.log('🔍 TEACHERS DEBUG - course_teachers query successful, rows:', coursesResult.rows.length);
     } catch (tableError) {
-      console.log('🔍 TEACHERS DEBUG - Course_teachers table not found, trying alternative query:', tableError.message);
       // Fallback: consulta simple solo con owner_id
       coursesResult = await pool.query(
         `SELECT 
@@ -102,7 +92,6 @@ router.get('/:id/courses', authMiddleware, async (req, res) => {
          ORDER BY c.created_at DESC`,
         [teacherId]
       );
-      console.log('🔍 TEACHERS DEBUG - fallback query successful, rows:', coursesResult.rows.length);
     }
 
     const courses = coursesResult.rows.map(course => ({
@@ -119,8 +108,6 @@ router.get('/:id/courses', authMiddleware, async (req, res) => {
       studentCount: parseInt(course.student_count) || 0,
       assignmentCount: parseInt(course.assignment_count) || 0
     }));
-
-    console.log('🔍 TEACHERS DEBUG - Sending response with', courses.length, 'courses');
     
     res.json({
       data: {
@@ -200,7 +187,6 @@ router.get('/:id/students', authMiddleware, async (req, res) => {
         [teacherId]
       );
     } catch (tableError) {
-      console.log('🔍 Course_teachers table not found for students query:', tableError.message);
       // Fallback: consulta simple solo con owner_id
       studentsResult = await pool.query(
         `SELECT DISTINCT

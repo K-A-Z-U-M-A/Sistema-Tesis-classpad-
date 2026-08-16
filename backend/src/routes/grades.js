@@ -611,8 +611,6 @@ router.put('/generate-tp/:courseId', authMiddleware, async (req, res) => {
             });
         }
 
-        console.log('📊 Generando TP automáticamente para curso:', courseId);
-
         // Update TP for all students based on their task submissions
         const result = await pool.query(
             `UPDATE student_grades sg
@@ -630,8 +628,6 @@ router.put('/generate-tp/:courseId', authMiddleware, async (req, res) => {
        RETURNING *`,
             [courseId]
         );
-
-        console.log(`✅ TP generado para ${result.rows.length} estudiantes`);
 
         // Audit Log
         await logAction({
@@ -685,8 +681,6 @@ router.put('/publish/:courseId', authMiddleware, async (req, res) => {
             });
         }
 
-        console.log('📢 Publicando calificaciones para curso:', courseId);
-
         const result = await pool.query(
             `UPDATE student_grades
        SET is_published = true,
@@ -695,8 +689,6 @@ router.put('/publish/:courseId', authMiddleware, async (req, res) => {
        RETURNING *`,
             [courseId]
         );
-
-        console.log(`✅ Calificaciones publicadas para ${result.rows.length} estudiantes`);
 
         // Audit Log
         await logAction({

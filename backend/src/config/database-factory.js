@@ -28,9 +28,7 @@ async function createPostgresPool() {
     keepAliveInitialDelayMillis: 10000,
   });
 
-  newPool.on('connect', () => {
-    console.log(`✅ Connected to PostgreSQL database ${process.env.DB_NAME || 'classpad_bd'} as ${process.env.DB_USER || 'postgres'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}`);
-  });
+  newPool.on('connect', () => {});
 
   newPool.on('error', async (err) => {
     console.error('❌ PostgreSQL connection error (pool):', err);
@@ -40,7 +38,6 @@ async function createPostgresPool() {
     } catch {}
     try {
       pool = await createPostgresPool();
-      console.log('🔄 PostgreSQL pool recreated after error');
     } catch (reErr) {
       console.error('❌ Failed to recreate PostgreSQL pool:', reErr);
     }
@@ -51,7 +48,6 @@ async function createPostgresPool() {
 
 switch (DB_ENGINE) {
   case 'postgresql':
-    console.log('🐘 Using PostgreSQL database');
     try {
       pool = await createPostgresPool();
     } catch (error) {
@@ -62,7 +58,6 @@ switch (DB_ENGINE) {
     break;
 
   case 'sqlite':
-    console.log('🗃️ Using SQLite database');
     try {
       const Database = (await import('better-sqlite3')).default;
       const dbPath = process.env.DB_PATH || './data/classpad.db';
@@ -114,7 +109,6 @@ switch (DB_ENGINE) {
 
   case 'memory':
   default:
-    console.log('🧠 Using in-memory database');
     pool = await import('./database-memory.js').then(m => m.default);
     break;
 }

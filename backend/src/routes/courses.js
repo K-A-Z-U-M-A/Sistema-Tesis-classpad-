@@ -350,9 +350,7 @@ router.post('/', authMiddleware, async (req, res) => {
     // ── Fin verificación conflicto ────────────────────────────────────────────
 
     // Generate unique course code
-    console.log('🔑 Generating course code...');
     const courseCode = await generateUniqueCourseCode(pool);
-    console.log('🔑 Generated course code:', courseCode);
 
     // Create course (with classroom fields)
     const result = await pool.query(
@@ -1154,7 +1152,6 @@ router.get('/:id/students', authMiddleware, async (req, res) => {
         );
       }
     } catch (err) {
-      console.log('⚠️ First query failed:', err.message);
       queryError = err;
       // Fallback to course_students on error
       try {
@@ -1167,14 +1164,12 @@ router.get('/:id/students', authMiddleware, async (req, res) => {
           [courseId]
         );
       } catch (err2) {
-        console.log('⚠️ Second query also failed:', err2.message);
         throw err2;
       }
     }
 
     // Log query error if first failed but second succeeded
     if (queryError && result.rows.length > 0) {
-      console.log('✅ Fallback query succeeded');
     }
 
     res.json({ success: true, data: result.rows });
@@ -1253,10 +1248,8 @@ router.post('/:id/enroll', authMiddleware, async (req, res) => {
       );
 
       userId = newUser.rows[0].id;
-      console.log('✅ Created new user:', newUser.rows[0]);
     } else {
       userId = userResult.rows[0].id;
-      console.log('✅ User already exists:', userResult.rows[0]);
     }
 
     // Check if already enrolled
@@ -1425,8 +1418,6 @@ router.put('/:courseId/archive', authMiddleware, async (req, res) => {
       });
     }
 
-    console.log('🗂️ Archivando curso:', courseId);
-
     await client.query('BEGIN');
 
     // Check if user is owner
@@ -1477,8 +1468,6 @@ router.put('/:courseId/archive', authMiddleware, async (req, res) => {
       [courseId]
     );
 
-    console.log('✅ Inscripciones de estudiantes eliminadas');
-
     // 2. Mark course as archived
     const archiveResult = await client.query(
       `UPDATE courses 
@@ -1491,8 +1480,6 @@ router.put('/:courseId/archive', authMiddleware, async (req, res) => {
     );
 
     await client.query('COMMIT');
-
-    console.log('✅ Curso archivado exitosamente');
 
     res.json({
       success: true,
@@ -1528,8 +1515,6 @@ router.put('/:courseId/unarchive', authMiddleware, async (req, res) => {
         }
       });
     }
-
-    console.log('📂 Restaurando curso:', courseId);
 
     // Check if user is owner
     const courseResult = await pool.query(
@@ -1575,8 +1560,6 @@ router.put('/:courseId/unarchive', authMiddleware, async (req, res) => {
        RETURNING *`,
       [courseId]
     );
-
-    console.log('✅ Curso restaurado exitosamente');
 
     res.json({
       success: true,

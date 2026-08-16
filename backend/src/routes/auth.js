@@ -115,10 +115,8 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('🔍 Login attempt:', { email, password: '***' });
 
     if (!email || !password) {
-      console.log('❌ Missing fields');
       return res.status(400).json({
         error: {
           message: 'Email and password are required',
@@ -128,7 +126,6 @@ router.post('/login', async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase();
-    console.log('🔍 Normalized email:', normalizedEmail);
 
     // Find user (incluimos must_change_password para verificar si el usuario debe cambiar su contraseña)
     const result = await pool.query(
@@ -136,10 +133,7 @@ router.post('/login', async (req, res) => {
       [normalizedEmail]
     );
 
-    console.log('🔍 User query result:', result.rows.length > 0 ? 'User found' : 'User not found');
-
     if (result.rows.length === 0) {
-      console.log('❌ User not found');
       return res.status(401).json({
         error: {
           message: 'Invalid credentials',
@@ -149,11 +143,9 @@ router.post('/login', async (req, res) => {
     }
 
     const user = result.rows[0];
-    console.log('🔍 User found:', { id: user.id, email: user.email, provider: user.provider, is_active: user.is_active });
 
     // Check if user is active
     if (!user.is_active) {
-      console.log('❌ Account deactivated');
       return res.status(403).json({
         error: {
           message: 'Account is deactivated',
@@ -164,7 +156,6 @@ router.post('/login', async (req, res) => {
 
     // Check if user has local authentication
     if (user.provider !== 'local' || !user.password_hash) {
-      console.log('❌ Provider mismatch:', { provider: user.provider, hasPassword: !!user.password_hash });
       return res.status(403).json({
         error: {
           message: 'Este usuario solo puede iniciar sesión con Google',
@@ -174,12 +165,9 @@ router.post('/login', async (req, res) => {
     }
 
     // Verify password
-    console.log('🔍 Verifying password...');
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
-    console.log('🔍 Password verification result:', isValidPassword);
 
     if (!isValidPassword) {
-      console.log('❌ Invalid password');
       return res.status(401).json({
         error: {
           message: 'Invalid credentials',
@@ -262,8 +250,6 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 // Google OAuth routes
 router.get('/google', (req, res, next) => {
-  console.log('🔍 Google auth - query params:', req.query);
-  console.log('🔍 Google auth - flow param:', req.query.flow);
 
   // Store the flow parameter in session or pass it through state
   if (req.query.flow === 'redirect') {
@@ -283,8 +269,6 @@ router.get('/google/callback',
   async (req, res) => {
     try {
       const user = req.user;
-      console.log('🔍 Google callback - query params:', req.query);
-      console.log('🔍 Google callback - state param:', req.query.state);
 
       // Generate JWT token
       const token = signToken({
@@ -298,7 +282,6 @@ router.get('/google/callback',
 
       // Support full-page redirect flow to frontend (avoids popup/postMessage entirely)
       if (req.query.state === 'redirect') {
-        console.log('✅ Using redirect flow to frontend');
         const encodedToken = encodeURIComponent(token);
         const encodedUser = encodeURIComponent(JSON.stringify(user));
         return res.redirect(`${frontendUrl}/auth/callback?token=${encodedToken}&user=${encodedUser}`);
@@ -327,8 +310,6 @@ router.put('/update-recovery-email', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const userEmail = req.user.email;
     const displayName = req.user.display_name;
-
-    console.log(`🔐 Intento de actualizar recovery_email para usuario ${userId}`);
 
     // Validaciones
     if (!recoveryEmail) {
@@ -383,8 +364,6 @@ router.put('/update-recovery-email', authMiddleware, async (req, res) => {
       'UPDATE users SET recovery_email = $1 WHERE id = $2',
       [normalizedRecoveryEmail, userId]
     );
-
-    console.log(`✅ Recovery email actualizado para usuario ${userId}: ${normalizedRecoveryEmail}`);
 
     // TODO: Enviar notificación al email principal
     // await emailService.sendRecoveryEmailChangedNotification(userEmail, normalizedRecoveryEmail, displayName);

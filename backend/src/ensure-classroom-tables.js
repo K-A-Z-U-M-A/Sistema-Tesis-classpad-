@@ -38,24 +38,21 @@ async function ensureClassroomTables() {
     }
 
     if (allExist && classroomsCount === 120) {
-      console.log('✅ Columnas de aula y tabla classrooms ya existen');
       return;
     }
 
-    console.log('⚠️  Columnas de aula / tabla classrooms no encontradas. Aplicando migración 017...');
 
     const migrationPath = path.join(__dirname, 'migrations', '017_add_classroom_to_courses.sql');
     const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
 
     await pool.query(migrationSQL);
-    console.log('✅ Migración 017 aplicada: columnas de aula y catálogo de classrooms creados');
 
   } catch (error) {
     if (
       error.message.includes('already exists') ||
       error.message.includes('duplicate')
     ) {
-      console.log('✅ Tabla classrooms / columnas de aula ya existen (detectado en catch)');
+      // already exists
     } else {
       console.error('❌ Error aplicando migración de aulas:', error.message);
       console.error('Detalles:', error);

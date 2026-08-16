@@ -156,10 +156,7 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
     }
     const courseId = unitRes.rows[0].course_id;
-    console.log(`🔍 Unit ${unitId} belongs to course ${courseId}`);
-    console.log(`🔍 Checking access for user ${req.user.id} to course ${courseId}`);
     const access = await hasCourseAccess(req.user.id, courseId);
-    console.log(`🔍 Access result: ${access}`);
     if (!access) {
       return res.status(403).json({ error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' } });
     }
@@ -193,10 +190,7 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
     }
     const courseId = unitRes.rows[0].course_id;
-    console.log(`🔍 Unit ${unitId} belongs to course ${courseId}`);
-    console.log(`🔍 Checking access for user ${req.user.id} to course ${courseId}`);
     const access = await hasCourseAccess(req.user.id, courseId);
-    console.log(`🔍 Access result: ${access}`);
     if (!access) {
       return res.status(403).json({ error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' } });
     }
@@ -257,9 +251,7 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
 // POST /api/units/:id/assignments - Create assignment in a unit (teachers only)
 router.post('/:id/assignments', authMiddleware, async (req, res) => {
   try {
-    console.log('🔍 Creating assignment - Request body:', JSON.stringify(req.body, null, 2));
     const unitId = req.params.id;
-    console.log('🔍 Unit ID:', unitId, 'isUuid:', isUuid(unitId), 'isIntegerString:', isIntegerString(unitId));
 
     if (!(isIntegerString(unitId) || isUuid(unitId))) {
       return res.status(400).json({
@@ -269,13 +261,11 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
 
     // Find course for the unit
     const cast = isUuid(unitId) ? '::uuid' : '';
-    console.log('🔍 Querying unit with cast:', cast);
     const unitRes = await pool.query(`SELECT course_id FROM units WHERE id = $1${cast}`, [unitId]);
     if (unitRes.rows.length === 0) {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
     }
     const courseId = unitRes.rows[0].course_id;
-    console.log('🔍 Course ID:', courseId, 'isUuid:', isUuid(courseId));
 
     // Only teachers
     const isTeacher = await isCourseTeacher(req.user.id, courseId);
@@ -309,19 +299,6 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
     const unitIdCast = isUuid(unitId) ? '::uuid' : '';
     const userIdCast = isUuid(req.user.id) ? '::uuid' : '';
 
-    console.log('🔍 Inserting assignment with casts:', {
-      courseIdCast,
-      unitIdCast,
-      userIdCast,
-      courseId,
-      unitId,
-      userId: req.user.id,
-      title,
-      is_published,
-      normalizedDueDate,
-      points: points || 100
-    });
-
     let result;
     try {
       result = await pool.query(
@@ -330,7 +307,6 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
          RETURNING *`,
         [courseId, unitId, title, description || null, instructions || null, normalizedDueDate, points || 100, is_published, req.user.id]
       );
-      console.log('✅ Assignment created successfully:', result.rows[0]?.id);
     } catch (insertError) {
       console.error('❌ Error inserting assignment:', insertError);
       console.error('❌ Insert error details:', {
@@ -364,7 +340,6 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
       } catch (assignmentStudentError) {
         // If table doesn't exist, try to create it
         if (assignmentStudentError.code === '42P01') {
-          console.log('⚠️ assignment_students table does not exist, attempting to create it...');
           try {
             // Determine if we're using UUIDs or INTEGERs
             const assignmentIdIsUuid = isUuid(assignment.id);
@@ -398,7 +373,6 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
                 CREATE INDEX IF NOT EXISTS idx_assignment_students_student_id ON assignment_students(student_id);
               `);
             }
-            console.log('✅ assignment_students table created successfully');
 
             // Retry the insert
             const assignmentStudentPromises = target_student_ids.map(studentId => {

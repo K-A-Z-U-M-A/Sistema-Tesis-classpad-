@@ -11,7 +11,7 @@ class SessionManager {
     this._storagePrefix = null;
     this._isInitialized = false;
     this._tabFingerprint = null;
-    
+
     this.init();
   }
 
@@ -40,7 +40,7 @@ class SessionManager {
     if (this._tabFingerprint) {
       return this._tabFingerprint;
     }
-    
+
     // Intentar recuperar de sessionStorage primero
     try {
       const stored = sessionStorage.getItem('app_tab_fingerprint');
@@ -54,21 +54,21 @@ class SessionManager {
     } catch (e) {
       console.warn('Error accediendo a sessionStorage para tabFingerprint:', e);
     }
-    
+
     // Si no existe, generar uno nuevo y persistirlo
     this._tabFingerprint = this.generateTabFingerprint();
-    
+
     // Persistir en sessionStorage para que sobreviva a recargas
     try {
       sessionStorage.setItem('app_tab_fingerprint', this._tabFingerprint);
     } catch (e) {
       console.warn('Error guardando tabFingerprint en sessionStorage:', e);
     }
-    
+
     if (process.env.NODE_ENV === 'development') {
       console.log(`🔐 Nuevo tabFingerprint generado y persistido: ${this._tabFingerprint.substring(0, 20)}...`);
     }
-    
+
     return this._tabFingerprint;
   }
 
@@ -80,7 +80,7 @@ class SessionManager {
     try {
       const prefix = `session_${sessionId}_`;
       const keys = Object.keys(localStorage);
-      
+
       for (const key of keys) {
         if (key.startsWith(prefix)) {
           try {
@@ -123,17 +123,17 @@ class SessionManager {
    */
   init() {
     if (this._isInitialized) return;
-    
+
     // Obtener o crear sessionId desde sessionStorage
     this._sessionId = this.getOrCreateSessionId();
-    
+
     // Obtener o crear tabFingerprint (se persiste en sessionStorage para sobrevivir recargas)
     // Esto asegura que cada pestaña tenga su propio fingerprint único que persiste
     this._tabFingerprint = this.getOrCreateTabFingerprint();
-    
+
     this._storagePrefix = `session_${this._sessionId}_`;
     this._isInitialized = true;
-    
+
     // Log para debugging (solo en desarrollo)
     if (process.env.NODE_ENV === 'development') {
       console.log(`🔐 SessionManager inicializado - SessionID: ${this._sessionId.substring(0, 20)}...`);
@@ -149,7 +149,7 @@ class SessionManager {
     try {
       const prefix = `session_${sessionId}_`;
       const keys = Object.keys(localStorage);
-      
+
       for (const key of keys) {
         if (key.startsWith(prefix)) {
           try {
@@ -196,19 +196,19 @@ class SessionManager {
    */
   getOrCreateSessionId() {
     let sessionId = null;
-    
+
     try {
       sessionId = sessionStorage.getItem('app_session_id');
     } catch (e) {
       console.warn('Error accediendo a sessionStorage:', e);
     }
-    
+
     // Si existe un sessionId, verificar si es válido para esta pestaña
     if (sessionId) {
       // Verificar si hay datos en localStorage para este sessionId
       const testKey = `session_${sessionId}_authToken`;
       const tokenData = localStorage.getItem(testKey);
-      
+
       if (tokenData) {
         // Hay datos para este sessionId - verificar que pertenecen a esta sesión
         try {
@@ -229,11 +229,11 @@ class SessionManager {
           return sessionId;
         }
       }
-      
+
       // No hay datos para este sessionId - puede ser una pestaña duplicada
       // Verificar si hay CUALQUIER dato con este prefijo
       const hasAnyData = this.hasDataForSession(sessionId);
-      
+
       if (!hasAnyData) {
         // No hay datos para este sessionId
         // Esto puede ser:
@@ -243,7 +243,7 @@ class SessionManager {
         // SOLUCIÓN: Si sessionStorage tiene sessionId pero localStorage no tiene datos,
         // y la pestaña se acaba de abrir (sin datos de sesión previos),
         // es muy probable que sea una duplicación. Crear nuevo sessionId.
-        
+
         // Verificar si sessionInfo es reciente (menos de 1 segundo)
         // Si es muy reciente, es probable que sea una duplicación
         try {
@@ -254,7 +254,7 @@ class SessionManager {
               const created = new Date(info.createdAt);
               const now = new Date();
               const secondsDiff = (now - created) / 1000;
-              
+
               // Si la sesión tiene menos de 2 segundos y no hay datos,
               // es muy probable que sea una duplicación
               if (secondsDiff < 2) {
@@ -284,11 +284,11 @@ class SessionManager {
         return sessionId;
       }
     }
-    
+
     // Crear nuevo sessionId (no existe o es una duplicación)
     if (!sessionId) {
       sessionId = this.createNewSessionId();
-      
+
       try {
         // Limpiar sessionId anterior si existe (por si acaso)
         const oldSessionId = sessionStorage.getItem('app_session_id');
@@ -296,10 +296,10 @@ class SessionManager {
           sessionStorage.removeItem('app_session_id');
           sessionStorage.removeItem('app_session_info');
         }
-        
+
         // Guardar nuevo sessionId
         sessionStorage.setItem('app_session_id', sessionId);
-        
+
         const sessionInfo = {
           id: sessionId,
           createdAt: new Date().toISOString(),
@@ -309,7 +309,7 @@ class SessionManager {
           tabId: `tab_${performance.now()}_${Math.random().toString(36).substring(2, 9)}`
         };
         sessionStorage.setItem('app_session_info', JSON.stringify(sessionInfo));
-        
+
         if (process.env.NODE_ENV === 'development') {
           console.log(`🔐 ✅ Nueva sesión creada: ${sessionId.substring(0, 20)}...`);
         }
@@ -317,7 +317,7 @@ class SessionManager {
         console.error('Error guardando sessionId:', e);
       }
     }
-    
+
     return sessionId;
   }
 
@@ -395,7 +395,7 @@ class SessionManager {
         timestamp: Date.now()
       };
       localStorage.setItem(prefixedKey, JSON.stringify(data));
-      
+
       if (process.env.NODE_ENV === 'development' && (key === 'user' || key === 'authToken')) {
         console.log(`💾 Guardado ${key} para sesión: ${this.sessionId.substring(0, 12)}..., tab: ${this.getTabFingerprint().substring(0, 12)}...`);
       }
@@ -414,17 +414,17 @@ class SessionManager {
     const prefixedKey = this.getKey(key);
     const currentSessionId = this.sessionId;
     const currentTabFingerprint = this.getTabFingerprint();
-    
+
     try {
       const stored = localStorage.getItem(prefixedKey);
       if (!stored) {
         return null;
       }
-      
+
       // Intentar parsear como JSON (nuevo formato con metadata)
       try {
         const data = JSON.parse(stored);
-        
+
         // VERIFICACIÓN CRÍTICA: 
         // 1. El sessionId debe coincidir
         // 2. El tabFingerprint debe coincidir EXACTAMENTE
@@ -468,12 +468,12 @@ class SessionManager {
             return null;
           }
         }
-        
+
         // SessionId no coincide - datos de otra sesión
         if (process.env.NODE_ENV === 'development' && data.sessionId && data.sessionId !== currentSessionId) {
           console.warn(`⚠️ Intento de leer datos de otra sesión. Key: ${key}, SessionId esperado: ${currentSessionId.substring(0, 12)}..., encontrado: ${data.sessionId.substring(0, 12)}...`);
         }
-        
+
         return null;
       } catch (e) {
         // Si no es JSON, es un valor antiguo sin metadata
@@ -517,7 +517,7 @@ class SessionManager {
     const keys = Object.keys(localStorage);
     const currentSessionId = this.sessionId;
     const currentTabFingerprint = this.getTabFingerprint();
-    
+
     keys.forEach(key => {
       if (key.startsWith(`session_${currentSessionId}_`)) {
         try {
@@ -535,12 +535,12 @@ class SessionManager {
         }
       }
     });
-    
+
     // Limpiar sessionStorage
     sessionStorage.removeItem('app_session_id');
     sessionStorage.removeItem('app_session_info');
     sessionStorage.removeItem('app_tab_fingerprint');
-    
+
     // Resetear estado interno
     this._tabFingerprint = null;
   }
@@ -551,7 +551,7 @@ class SessionManager {
   getAllSessions() {
     const keys = Object.keys(localStorage);
     const sessions = new Set();
-    
+
     keys.forEach(key => {
       if (key.startsWith('session_')) {
         // Extraer el sessionId correctamente (formato: session_sess_xxx_key)
@@ -563,7 +563,7 @@ class SessionManager {
         }
       }
     });
-    
+
     return Array.from(sessions);
   }
 
@@ -581,11 +581,11 @@ class SessionManager {
     const prefixedKey = this.getKey(key);
     const currentSessionId = this.sessionId;
     const currentTabFingerprint = this.getTabFingerprint();
-    
+
     try {
       const stored = localStorage.getItem(prefixedKey);
       if (!stored) return false;
-      
+
       try {
         const data = JSON.parse(stored);
         // Verificar sessionId
@@ -614,7 +614,7 @@ class SessionManager {
   hasOtherActiveSessions(userId) {
     const keys = Object.keys(localStorage);
     const otherSessions = [];
-    
+
     keys.forEach(key => {
       if (key.startsWith('session_') && key.includes('_user')) {
         const sessionId = key.split('_')[1];
@@ -633,7 +633,7 @@ class SessionManager {
         }
       }
     });
-    
+
     return otherSessions.length > 0;
   }
 }
