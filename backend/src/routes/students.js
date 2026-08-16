@@ -2,21 +2,9 @@ import express from 'express';
 import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
+import { isUuid, getCastType as getCourseIdCast } from '../utils/uuid.js';
+
 const router = express.Router();
-
-// Helper function to check if value is UUID
-function isUuid(value) {
-    if (!value) return false;
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
-}
-
-// Helper function to get course ID cast for queries
-function getCourseIdCast(courseId) {
-    if (isUuid(courseId)) {
-        return '::uuid';
-    }
-    return '';
-}
 
 // TEST endpoint - simple test to verify this route file is loaded
 router.get('/test', authMiddleware, async (req, res) => {

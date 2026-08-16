@@ -5,6 +5,8 @@ import { logAction } from '../utils/auditLogger.js';
 import bcrypt from 'bcryptjs';
 import passwordService from '../../services/PasswordService.js';
 
+import { isUuid, getCastType as getCourseIdCast } from '../utils/uuid.js';
+
 const router = express.Router();
 
 // Helpers
@@ -18,22 +20,6 @@ function normalizeRole(rawRole) {
   if (r.startsWith('alum')) return 'student';
   if (r === 'estudiante') return 'student';
   return r;
-}
-
-// Helper function to check if value is UUID
-function isUuid(value) {
-  if (!value) return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
-}
-
-// Helper function to get course ID cast for queries
-function getCourseIdCast(courseId) {
-  // Try to determine type - if it's a string with dashes, it's likely UUID
-  if (isUuid(courseId)) {
-    return '::uuid';
-  }
-  // For integer IDs or when in doubt, use text comparison (works for both)
-  return '';
 }
 
 // POST /api/users/create-teacher - Crear una cuenta de profesor (Solo Admin)

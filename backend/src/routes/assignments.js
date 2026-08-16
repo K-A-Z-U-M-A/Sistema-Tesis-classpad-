@@ -5,83 +5,9 @@ import { upload } from '../config/multer.js';
 import { getMaterialTypeFromMime, getFileInfo } from '../services/storage.js';
 import { createNotification } from './notifications.js';
 
+import { isUuid, isIntegerString, isCourseTeacher, isCourseStudent, hasCourseAccess } from '../utils/uuid.js';
+
 const router = express.Router();
-
-// Helper function to check if user is teacher of course
-async function isCourseTeacher(userId, courseId) {
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     WHERE c.id = $1 AND (c.owner_id = $2 OR ct.teacher_id = $2)`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
-
-// Helper function to check if user has access to course
-async function hasCourseAccess(userId, courseId) {
-  try {
-
-    // First check if user is the owner
-    const ownerResult = await pool.query(
-      `SELECT 1 FROM courses WHERE id = $1 AND owner_id = $2`,
-      [courseId, userId]
-    );
-
-    if (ownerResult.rows.length > 0) {
-      return true;
-    }
-
-    // Check if user is a teacher
-    const teacherResult = await pool.query(
-      `SELECT 1 FROM course_teachers WHERE course_id = $1 AND teacher_id = $2`,
-      [courseId, userId]
-    );
-
-    if (teacherResult.rows.length > 0) {
-      return true;
-    }
-
-    // Check if user is a student (old system)
-    const studentResult = await pool.query(
-      `SELECT 1 FROM course_students WHERE course_id = $1 AND student_id = $2 AND status = 'active'`,
-      [courseId, userId]
-    );
-
-    if (studentResult.rows.length > 0) {
-      return true;
-    }
-
-    // Check if user is enrolled (new system)
-    const enrollmentResult = await pool.query(
-      `SELECT 1 FROM enrollments WHERE course_id = $1 AND student_id = $2 AND status = 'active'`,
-      [courseId, userId]
-    );
-
-    if (enrollmentResult.rows.length > 0) {
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error('Error checking course access:', error);
-    return false;
-  }
-}
-
-// Helper function to check if user is student of course
-async function isCourseStudent(userId, courseId) {
-  const result = await pool.query(
-    `SELECT 1 FROM course_students WHERE course_id = $1 AND student_id = $2 AND status = 'active'`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
-
-// Helper functions for ID validation
-function isUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
-}
-function isIntegerString(value) { return /^\d+$/.test(String(value)); }
 
 // GET /api/assignments/course/:courseId - Get assignments for a course
 // IMPORTANT: This must be defined BEFORE GET /:id to prevent Express from

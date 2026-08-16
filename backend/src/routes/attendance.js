@@ -4,60 +4,9 @@ import { authMiddleware } from '../middleware/authMiddleware.js';
 import crypto from 'crypto';
 import { logAction } from '../utils/auditLogger.js';
 
+import { isUuid, isIntegerString, isCourseTeacher, isCourseStudent } from '../utils/uuid.js';
+
 const router = express.Router();
-
-// Helper functions for UUID/Integer support
-function isUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
-}
-
-function isIntegerString(value) {
-  return /^\d+$/.test(String(value));
-}
-
-// Helper function to check if user is teacher of course
-async function isCourseTeacher(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  try {
-    // For course_teachers table, course_id is INTEGER, so we need to handle both cases
-    if (isUuid(courseId)) {
-      // UUID: Check only courses table (course_teachers won't match)
-      const result = await pool.query(
-        `SELECT 1 FROM courses c WHERE c.id = $1::uuid AND c.owner_id = $2`,
-        [courseId, userId]
-      );
-      return result.rows.length > 0;
-    } else {
-      // INTEGER: Check both courses and course_teachers
-      const result = await pool.query(
-        `SELECT 1 FROM courses c 
-         LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-         WHERE c.id = $1 AND (c.owner_id = $2 OR ct.teacher_id = $2)`,
-        [courseId, userId]
-      );
-      return result.rows.length > 0;
-    }
-  } catch (err) {
-    console.error('❌ Error in isCourseTeacher:', err.message);
-    throw err;
-  }
-}
-
-// Helper function to check if user is student of course
-async function isCourseStudent(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  try {
-    const result = await pool.query(
-      `SELECT 1 FROM enrollments 
-       WHERE course_id = $1${cast} AND student_id = $2 AND status = 'active'`,
-      [courseId, userId]
-    );
-    return result.rows.length > 0;
-  } catch (err) {
-    console.error('❌ Error in isCourseStudent:', err.message);
-    throw err;
-  }
-}
 
 // Helper function to calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {

@@ -4,25 +4,9 @@ import { authMiddleware } from '../middleware/authMiddleware.js';
 import { createNotification } from './notifications.js';
 import { logAction } from '../utils/auditLogger.js';
 
-const router = express.Router();
+import { hasCourseAccess } from '../utils/uuid.js';
 
-// Helper function to check if user has access to course
-async function hasCourseAccess(userId, courseId) {
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     LEFT JOIN course_students cs ON c.id = cs.course_id
-     LEFT JOIN enrollments e ON c.id = e.course_id
-     WHERE c.id = $1 AND (
-       c.owner_id = $2 OR 
-       ct.teacher_id = $2 OR 
-       (cs.student_id = $2 AND cs.status = 'active') OR
-       (e.student_id = $2 AND e.status = 'active')
-     )`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
+const router = express.Router();
 
 // GET /api/messages - Get all messages from all courses the user has access to
 router.get('/', authMiddleware, async (req, res) => {

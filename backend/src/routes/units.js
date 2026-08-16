@@ -5,57 +5,9 @@ import { createNotification } from './notifications.js';
 import { upload, getFileInfo, validateFileSize, getMaterialTypeFromMime, isValidMaterialType } from '../services/storage.js';
 import { logAction } from '../utils/auditLogger.js';
 
+import { isUuid, isIntegerString, isCourseTeacher, hasCourseAccess } from '../utils/uuid.js';
+
 const router = express.Router();
-
-// Helpers for ID validation
-function isIntegerString(value) {
-  return typeof value === 'string' && /^\d+$/.test(value);
-}
-
-function isUuid(value) {
-  // Accept standard UUID v1-v5 format
-  return (
-    typeof value === 'string' &&
-    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value)
-  );
-}
-
-// Helper functions are now imported from storage service
-
-// Multer configuration is now handled by storage service
-
-// Helper function to check if user is teacher of course
-async function isCourseTeacher(userId, courseId) {
-  const courseCast = isUuid(courseId) ? '::uuid' : '';
-  const userCast = isUuid(userId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     WHERE c.id = $1${courseCast} AND (c.owner_id = $2${userCast} OR ct.teacher_id = $2${userCast})`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
-
-// Helper function to check if user has access to course
-async function hasCourseAccess(userId, courseId) {
-  const courseCast = isUuid(courseId) ? '::uuid' : '';
-  const userCast = isUuid(userId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     LEFT JOIN course_students cs ON c.id = cs.course_id
-     LEFT JOIN enrollments e ON c.id = e.course_id
-     WHERE c.id = $1${courseCast} AND (
-       c.owner_id = $2${userCast} OR 
-       ct.teacher_id = $2${userCast} OR 
-       (cs.student_id = $2${userCast} AND cs.status = 'active') OR
-       (e.student_id = $2${userCast} AND e.status = 'active')
-     )`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
 
 // GET /api/units/:courseId - Get units for a course
 
