@@ -46,7 +46,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors(corsOptions));
-app.use(morgan('combined'));
+app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -196,9 +196,7 @@ async function startNgrok() {
 
 // Graceful shutdown
 const server = app.listen(PORT, '0.0.0.0', async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🌐 External access: http://[TU_IP]:${PORT}/api/health`);
+  console.log(`\n🚀 Backend listo en http://localhost:${PORT}`);
 
   // Asegurar que las tablas de asistencia existan
   await ensureAttendanceTables();

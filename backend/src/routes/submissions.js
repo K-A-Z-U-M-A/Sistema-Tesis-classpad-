@@ -136,7 +136,6 @@ router.get('/my/:assignmentId', authMiddleware, async (req, res) => {
         [submission.id]
       );
       files = filesResult.rows;
-      console.log('🔍 Files query result:', files);
     }
 
     res.json({
@@ -162,8 +161,6 @@ router.post('/', authMiddleware, async (req, res) => {
     const { assignmentId, content, status } = req.body;
     const { role } = req.user;
 
-    console.log('🔍 Creating submission:', { assignmentId, content, status, role, userId: req.user.id });
-
     if (role !== 'student') {
       return res.status(403).json({
         success: false,
@@ -179,9 +176,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     // Check if student has access to this assignment
-    console.log('🔍 Checking access for user', req.user.id, 'to assignment', assignmentId);
     const hasAccess = await hasAssignmentAccess(req.user.id, assignmentId);
-    console.log('🔍 Access result:', hasAccess);
 
     if (!hasAccess) {
       return res.status(403).json({
@@ -203,9 +198,6 @@ router.post('/', authMiddleware, async (req, res) => {
     if (existingResult.rows.length > 0) {
       // Update existing submission
       const existingSubmission = existingResult.rows[0];
-      console.log('🔍 Updating existing submission:', existingSubmission.id);
-      console.log('🔍 Current status:', existingSubmission.status);
-      console.log('🔍 New status:', status);
 
       const updateData = {
         content: content || null,
@@ -216,8 +208,6 @@ router.post('/', authMiddleware, async (req, res) => {
         updateData.submitted_at = new Date();
       }
 
-      console.log('🔍 Update data:', updateData);
-
       const updateResult = await pool.query(
         `UPDATE submissions 
          SET content = $1, status = $2, submitted_at = $3
@@ -225,8 +215,6 @@ router.post('/', authMiddleware, async (req, res) => {
          RETURNING *`,
         [updateData.content, updateData.status, updateData.submitted_at, existingSubmission.id]
       );
-
-      console.log('🔍 Update result:', updateResult.rows[0]);
       submission = updateResult.rows[0];
     } else {
       // Create new submission
@@ -236,19 +224,12 @@ router.post('/', authMiddleware, async (req, res) => {
         submitted_at: status === 'submitted' ? new Date() : null
       };
 
-      console.log('🔍 Creating new submission with data:', insertData);
-      console.log('🔍 Cast type:', cast);
-      console.log('🔍 Assignment ID:', assignmentId);
-      console.log('🔍 User ID:', req.user.id);
-
       const insertResult = await pool.query(
         `INSERT INTO submissions (assignment_id, student_id, content, status, submitted_at)
          VALUES ($1${cast}, $2, $3, $4, $5)
          RETURNING *`,
         [assignmentId, req.user.id, insertData.content, insertData.status, insertData.submitted_at]
       );
-
-      console.log('🔍 Insert result:', insertResult.rows[0]);
       submission = insertResult.rows[0];
     }
 

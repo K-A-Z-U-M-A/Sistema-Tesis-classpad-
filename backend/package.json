@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "dev": "nodemon --quiet src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate": "node src/migrations/migrate.js",
     "migrate-all": "node run-all-migrations.js",

@@ -42,8 +42,6 @@ router.get('/course/:courseId/excel', authMiddleware, async (req, res) => {
             });
         }
 
-        console.log('📊 Generando reporte Excel para curso:', courseId);
-
         // Get course info
         const courseResult = await pool.query(
             'SELECT name, course_code, turn, grade, semester, year FROM courses WHERE id = $1',
@@ -223,8 +221,6 @@ router.get('/course/:courseId/excel', authMiddleware, async (req, res) => {
         // Generate buffer
         const buffer = await workbook.xlsx.writeBuffer();
 
-        console.log('✅ Reporte Excel generado exitosamente');
-
         // Send file
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="Calificaciones_${course.name.replace(/\s+/g, '_')}_${course.course_code}.xlsx"`);
@@ -265,8 +261,6 @@ router.get('/course/:courseId/pdf', authMiddleware, async (req, res) => {
                 }
             });
         }
-
-        console.log('📄 Generando reporte PDF para curso:', courseId);
 
         // Get course info
         const courseResult = await pool.query(
@@ -315,7 +309,6 @@ router.get('/course/:courseId/pdf', authMiddleware, async (req, res) => {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename="Calificaciones_${course.name.replace(/\s+/g, '_')}_${course.course_code}.pdf"`);
             res.send(pdfBuffer);
-            console.log('✅ Reporte PDF generado exitosamente');
         });
 
         // Add title

@@ -4,7 +4,7 @@
   "type": "module",
   "description": "ClassPad system with React frontend and Express backend",
   "scripts": {
-    "dev": "concurrently -n WEB,BACK -c auto \"npm --prefix web run dev\" \"npm --prefix backend run dev\"",
+    "dev": "cross-env NODE_NO_WARNINGS=1 concurrently -n WEB,BACK -c auto \"npm --prefix web run dev\" \"npm --prefix backend run dev\"",
     "dev:ngrok": "concurrently -n WEB,BACK,NGROK -c auto \"npm --prefix web run dev\" \"npm --prefix backend run dev\" \"npx wait-on https-get://localhost:5173 --timeout 30000 && ngrok http https://localhost:5173\"",
     "dev:open": "concurrently -n WEB,BACK -c auto \"npm --prefix web run dev\" \"npm --prefix backend run dev\" && start http://localhost:5173",
     "ip": "ipconfig | findstr /R /C:\"IPv4 Address\" /C:\"Dirección IPv4\"",
@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "cross-env": "^10.1.0",
     "wait-on": "^9.1.0"
   },
   "dependencies": {

@@ -21,8 +21,6 @@ async function isCourseTeacher(userId, courseId) {
 // Helper function to check if user has access to course
 async function hasCourseAccess(userId, courseId) {
   try {
-    console.log(`🔍 Checking course access for user ${userId} to course ${courseId}`);
-    console.log(`🔍 User ID type: ${typeof userId}, Course ID type: ${typeof courseId}`);
 
     // First check if user is the owner
     const ownerResult = await pool.query(
@@ -30,11 +28,7 @@ async function hasCourseAccess(userId, courseId) {
       [courseId, userId]
     );
 
-    console.log(`🔍 Owner check result:`, ownerResult.rows.length > 0);
-    console.log(`🔍 Owner query: SELECT 1 FROM courses WHERE id = '${courseId}' AND owner_id = '${userId}'`);
-
     if (ownerResult.rows.length > 0) {
-      console.log(`✅ User ${userId} is owner of course ${courseId}`);
       return true;
     }
 
@@ -44,11 +38,7 @@ async function hasCourseAccess(userId, courseId) {
       [courseId, userId]
     );
 
-    console.log(`🔍 Teacher check result:`, teacherResult.rows.length > 0);
-    console.log(`🔍 Teacher query: SELECT 1 FROM course_teachers WHERE course_id = '${courseId}' AND teacher_id = '${userId}'`);
-
     if (teacherResult.rows.length > 0) {
-      console.log(`✅ User ${userId} is teacher of course ${courseId}`);
       return true;
     }
 
@@ -58,11 +48,7 @@ async function hasCourseAccess(userId, courseId) {
       [courseId, userId]
     );
 
-    console.log(`🔍 Student check result:`, studentResult.rows.length > 0);
-    console.log(`🔍 Student query: SELECT 1 FROM course_students WHERE course_id = '${courseId}' AND student_id = '${userId}' AND status = 'active'`);
-
     if (studentResult.rows.length > 0) {
-      console.log(`✅ User ${userId} is student of course ${courseId}`);
       return true;
     }
 
@@ -72,15 +58,9 @@ async function hasCourseAccess(userId, courseId) {
       [courseId, userId]
     );
 
-    console.log(`🔍 Enrollment check result:`, enrollmentResult.rows.length > 0);
-    console.log(`🔍 Enrollment query: SELECT 1 FROM enrollments WHERE course_id = '${courseId}' AND student_id = '${userId}' AND status = 'active'`);
-
     if (enrollmentResult.rows.length > 0) {
-      console.log(`✅ User ${userId} is enrolled in course ${courseId}`);
       return true;
     }
-
-    console.log(`❌ User ${userId} has no access to course ${courseId}`);
     return false;
   } catch (error) {
     console.error('Error checking course access:', error);
@@ -186,9 +166,6 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
     }
 
     // Apply cast to course_id in query strings
-    console.log(`🔍 Course ID: ${courseId}, Cast: ${cast}`);
-    console.log(`🔍 Query: ${query.replace(/a\.course_id = \$1/g, `a.course_id = $1${cast}`)}`);
-    console.log(`🔍 Params:`, params);
 
     let assignmentsResult;
     try {
@@ -196,7 +173,6 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
         query.replace(/a\.course_id = \$1/g, `a.course_id = $1${cast}`),
         params
       );
-      console.log(`✅ Assignments query successful, found ${assignmentsResult.rows.length} assignments`);
     } catch (queryError) {
       console.error('❌ Error in assignments query:', queryError);
       throw queryError;
@@ -310,18 +286,10 @@ router.get('/:id', authMiddleware, async (req, res) => {
     const assignment = assignmentResult.rows[0];
 
     // Check if user has access to course
-    console.log(`🔍 User ${req.user.id} trying to access assignment ${assignmentId} in course ${assignment.course_id}`);
-    console.log(`🔍 User details:`, {
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role
-    });
 
     const hasAccess = await hasCourseAccess(req.user.id, assignment.course_id);
-    console.log(`🔍 hasAccess result:`, hasAccess);
 
     if (!hasAccess) {
-      console.log(`❌ Access denied for user ${req.user.id} to course ${assignment.course_id}`);
 
       // Let's also check if the user is the owner or a teacher
       const isOwner = assignment.course_id && await pool.query(
@@ -333,10 +301,6 @@ router.get('/:id', authMiddleware, async (req, res) => {
         `SELECT 1 FROM course_teachers WHERE course_id = $1 AND teacher_id = $2`,
         [assignment.course_id, req.user.id]
       );
-
-      console.log(`🔍 Is owner: ${isOwner.rows.length > 0}, Is teacher: ${isTeacher.rows.length > 0}`);
-      console.log(`🔍 Owner query result:`, isOwner.rows);
-      console.log(`🔍 Teacher query result:`, isTeacher.rows);
 
       // If user is neither owner nor teacher, deny access
       if (isOwner.rows.length === 0 && isTeacher.rows.length === 0) {
@@ -597,17 +561,6 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 
     // Log the data being sent
-    console.log('🔍 Updating assignment:', {
-      assignmentId,
-      title,
-      description,
-      instructions,
-      dueTimestamp,
-      points,
-      maxPoints,
-      isPublished,
-      status
-    });
 
     // Determine if assignmentId is UUID or INTEGER
     const cast = isUuid(assignmentId) ? '::uuid' : '';
@@ -1324,11 +1277,6 @@ router.get('/units/:unitId/assignments', authMiddleware, async (req, res) => {
 // POST /api/assignments/:id/materials/upload - Upload material to assignment
 router.post('/:id/materials/upload', authMiddleware, upload.single('file'), async (req, res) => {
   try {
-    console.log('📁 Upload material request:', {
-      assignmentId: req.params.id,
-      userId: req.user?.id,
-      hasUser: !!req.user
-    });
 
     const assignmentId = req.params.id;
 

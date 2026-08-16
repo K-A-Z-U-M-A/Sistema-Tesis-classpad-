@@ -18,7 +18,6 @@ function isIntegerString(value) {
 // Helper function to check if user is teacher of course
 async function isCourseTeacher(userId, courseId) {
   const cast = isUuid(courseId) ? '::uuid' : '';
-  console.log('🔍 isCourseTeacher - courseId:', courseId, 'isUuid:', isUuid(courseId), 'cast:', cast);
   try {
     // For course_teachers table, course_id is INTEGER, so we need to handle both cases
     if (isUuid(courseId)) {
@@ -27,7 +26,6 @@ async function isCourseTeacher(userId, courseId) {
         `SELECT 1 FROM courses c WHERE c.id = $1::uuid AND c.owner_id = $2`,
         [courseId, userId]
       );
-      console.log('🔍 isCourseTeacher result:', result.rows.length > 0);
       return result.rows.length > 0;
     } else {
       // INTEGER: Check both courses and course_teachers
@@ -37,7 +35,6 @@ async function isCourseTeacher(userId, courseId) {
          WHERE c.id = $1 AND (c.owner_id = $2 OR ct.teacher_id = $2)`,
         [courseId, userId]
       );
-      console.log('🔍 isCourseTeacher result:', result.rows.length > 0);
       return result.rows.length > 0;
     }
   } catch (err) {
@@ -49,14 +46,12 @@ async function isCourseTeacher(userId, courseId) {
 // Helper function to check if user is student of course
 async function isCourseStudent(userId, courseId) {
   const cast = isUuid(courseId) ? '::uuid' : '';
-  console.log('🔍 isCourseStudent - courseId:', courseId, 'isUuid:', isUuid(courseId), 'cast:', cast);
   try {
     const result = await pool.query(
       `SELECT 1 FROM enrollments 
        WHERE course_id = $1${cast} AND student_id = $2 AND status = 'active'`,
       [courseId, userId]
     );
-    console.log('🔍 isCourseStudent result:', result.rows.length > 0);
     return result.rows.length > 0;
   } catch (err) {
     console.error('❌ Error in isCourseStudent:', err.message);
@@ -282,7 +277,6 @@ router.get('/courses/:courseId/sessions', authMiddleware, async (req, res) => {
 router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
   try {
     const { sessionId } = req.params;
-    console.log('📊 Getting session records for sessionId:', sessionId);
 
     // Get session details
     const sessionResult = await pool.query(
@@ -291,7 +285,6 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
     );
 
     if (sessionResult.rows.length === 0) {
-      console.log('⚠️ Session not found:', sessionId);
       return res.status(404).json({
         error: {
           message: 'Sesión no encontrada',
@@ -301,14 +294,12 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
     }
 
     const session = sessionResult.rows[0];
-    console.log('📋 Session found:', session.title, 'Course:', session.course_id);
 
     // Check access
     const hasAccess = await isCourseTeacher(req.user.id, session.course_id) ||
       await isCourseStudent(req.user.id, session.course_id);
 
     if (!hasAccess) {
-      console.log('⚠️ Access denied for user:', req.user.id);
       return res.status(403).json({
         error: {
           message: 'No tienes acceso a esta sesión',
@@ -316,8 +307,6 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
         }
       });
     }
-
-    console.log('✅ Access granted, fetching records...');
     const result = await pool.query(
       `SELECT r.*, u.display_name, u.photo_url, u.email
        FROM attendance_records r
@@ -326,8 +315,6 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
        ORDER BY r.recorded_at DESC`,
       [sessionId]
     );
-
-    console.log('✅ Found', result.rows.length, 'records');
     res.json({
       success: true,
       data: result.rows
@@ -891,7 +878,6 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
         );
       }
     } catch (err) {
-      console.log('⚠️ First query failed, trying course_students:', err.message);
       // Fallback to course_students on error
       studentsResult = await pool.query(
         `SELECT DISTINCT u.id, u.display_name, u.cedula

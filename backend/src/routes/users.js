@@ -1358,10 +1358,7 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
       const courses = coursesResult.rows || [];
       statistics.totalCourses = courses.length;
 
-      console.log(`📚 Found ${courses.length} courses for teacher ${userId}`);
-
       if (courses.length === 0) {
-        console.log('⚠️ No courses found for teacher, returning empty statistics');
         return res.json({
           success: true,
           data: { statistics }
@@ -1805,8 +1802,6 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
         });
       }
 
-      console.log(`✅ Statistics calculated for ${statistics.coursesStats.length} courses`);
-
       // 10. Agregar estadísticas de actividad reciente (últimos 7 días)
       try {
         // Entregas recientes
@@ -1857,12 +1852,6 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
       // Continuar con valores por defecto pero loguear el error
     }
 
-    console.log('📊 Final statistics:', {
-      totalCourses: statistics.totalCourses,
-      totalStudents: statistics.totalStudents,
-      coursesStatsCount: statistics.coursesStats.length
-    });
-
     return res.json({
       success: true,
       data: { statistics }
@@ -1895,8 +1884,6 @@ router.put('/update-profile', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const userRole = req.user.role;
     const { displayName, photoURL } = req.body;
-
-    console.log(`📝 Update profile request for user ${userId} (${userRole})`);
 
     // Validar displayName
     if (displayName !== undefined) {
@@ -1994,8 +1981,6 @@ router.put('/update-profile', authMiddleware, async (req, res) => {
     }
 
     const updatedUser = result.rows[0];
-
-    console.log(`✅ Profile updated for user ${userId}`);
 
     res.json({
       success: true,
@@ -2129,8 +2114,6 @@ router.get('/students/:studentId/progress/:courseId', authMiddleware, async (req
   try {
     const { studentId, courseId } = req.params;
 
-    console.log('🔍 Getting student progress for:', { studentId, courseId, teacherId: req.user.id });
-
     // Only teachers can view
     if (req.user.role !== 'teacher') {
       return res.status(403).json({ error: { message: 'Forbidden', code: 'FORBIDDEN' } });
@@ -2190,7 +2173,6 @@ router.get('/students/:studentId/progress/:courseId', authMiddleware, async (req
       absentSessions = attendance.filter(a => a.status === 'absent').length;
       attendanceRate = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
     } catch (attendanceError) {
-      console.log('⚠️ Attendance query failed:', attendanceError.message);
       // Keep default values (all zeros and empty array)
     }
 
