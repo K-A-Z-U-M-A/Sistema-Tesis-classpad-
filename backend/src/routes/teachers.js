@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
 
 const router = express.Router();
 
@@ -211,7 +212,7 @@ router.get('/:id/students', authMiddleware, async (req, res) => {
       id: student.id,
       email: student.email,
       displayName: student.display_name,
-      photoURL: student.photo_url,
+      photoURL: formatAvatarUrl(student.id, student.photo_url),
       role: student.role,
       joinedAt: student.joined_at,
       courseName: student.course_name,

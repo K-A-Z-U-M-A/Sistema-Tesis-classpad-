@@ -31,10 +31,35 @@ const FLOORS = [
 const CLASSROOM_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const turns        = ['Mañana', 'Tarde', 'Noche'];
-const grades       = ['Primer Año','Segundo Año','Tercer Año','Cuarto Año','Quinto Año','Sexto Año','Otro'];
-const semesters    = ['Primer Semestre','Segundo Semestre','Tercer Semestre','Cuarto Semestre','Quinto Semestre','Sexto Semestre','Séptimo Semestre','Octavo Semestre','Noveno Semestre','Décimo Semestre','Undécimo Semestre','Duodécimo Semestre'];
+const courseLevels = ['Primer Curso', 'Segundo Curso', 'Tercer Curso', 'Cuarto Curso', 'Quinto Curso', 'Sexto Curso', 'Otro'];
+const grades       = ['Primer Curso', 'Primer Año', 'Segundo Curso', 'Segundo Año', 'Tercer Curso', 'Tercer Año', 'Cuarto Curso', 'Cuarto Año', 'Quinto Curso', 'Quinto Año', 'Sexto Curso', 'Sexto Año', 'Otro'];
+const COURSE_SEMESTERS_MAP = {
+  'Primer Curso': ['Primer Semestre', 'Segundo Semestre'],
+  'Primer Año': ['Primer Semestre', 'Segundo Semestre'],
+  'Segundo Curso': ['Tercer Semestre', 'Cuarto Semestre'],
+  'Segundo Año': ['Tercer Semestre', 'Cuarto Semestre'],
+  'Tercer Curso': ['Quinto Semestre', 'Sexto Semestre'],
+  'Tercer Año': ['Quinto Semestre', 'Sexto Semestre'],
+  'Cuarto Curso': ['Séptimo Semestre', 'Octavo Semestre'],
+  'Cuarto Año': ['Séptimo Semestre', 'Octavo Semestre'],
+  'Quinto Curso': ['Noveno Semestre', 'Décimo Semestre'],
+  'Quinto Año': ['Noveno Semestre', 'Décimo Semestre'],
+  'Sexto Curso': ['Undécimo Semestre', 'Duodécimo Semestre'],
+  'Sexto Año': ['Undécimo Semestre', 'Duodécimo Semestre'],
+};
+const allSemesters = ['Primer Semestre','Segundo Semestre','Tercer Semestre','Cuarto Semestre','Quinto Semestre','Sexto Semestre','Séptimo Semestre','Octavo Semestre','Noveno Semestre','Décimo Semestre','Undécimo Semestre','Duodécimo Semestre'];
 const academicYears = ['2024-2025','2025-2026','2026-2027','2027-2028','2028-2029','2029-2030','2030-2031'];
 const colors       = ['#1976d2','#dc004e','#9c27b0','#673ab7','#3f51b5','#2196f3','#03a9f4','#00bcd4','#009688','#4caf50','#8bc34a','#cddc39','#ffeb3b','#ffc107','#ff9800','#ff5722'];
+
+const DAYS_OF_WEEK = [
+  { key: 'monday',    label: 'Lun', disabled: false },
+  { key: 'tuesday',   label: 'Mar', disabled: false },
+  { key: 'wednesday', label: 'Mié', disabled: false },
+  { key: 'thursday',  label: 'Jue', disabled: false },
+  { key: 'friday',    label: 'Vie', disabled: false },
+  { key: 'saturday',  label: 'Sáb', disabled: true, reason: 'Fin de semana (no lectivo)' },
+  { key: 'sunday',    label: 'Dom', disabled: true, reason: 'Fin de semana (no lectivo)' },
+];
 
 // Convert a stored year (integer like 2024) back to the "2024-2025" display format
 const yearToDisplay = (year) => {
@@ -76,6 +101,7 @@ const EditCourse = () => {
           classroom_pavilion: c.classroom_pavilion ? String(c.classroom_pavilion) : '',
           classroom_floor:    c.classroom_floor   || '',
           classroom_number:   c.classroom_number  ? String(c.classroom_number)   : '',
+          class_days:         Array.isArray(c.class_days) ? c.class_days : [],
         });
       } catch (err) {
         console.error('Error cargando curso:', err);
@@ -141,6 +167,16 @@ const EditCourse = () => {
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleChange = (field) => (event) => {
     setFormData(prev => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const toggleDay = (day) => {
+    if (day.disabled) return;
+    setFormData(prev => ({
+      ...prev,
+      class_days: prev.class_days.includes(day.key)
+        ? prev.class_days.filter(d => d !== day.key)
+        : [...prev.class_days, day.key],
+    }));
   };
 
   const handleSubmit = async (event) => {
@@ -319,10 +355,10 @@ const EditCourse = () => {
 
                 {/* Descripción */}
                 <Grid item xs={12}>
-                  <TextField fullWidth label="Descripción" value={formData.description} onChange={handleChange('description')} multiline rows={3} placeholder="Describe brevemente el contenido del curso" />
+                  <TextField fullWidth label="Descripción (opcional)" value={formData.description} onChange={handleChange('description')} multiline rows={3} placeholder="Describe brevemente el contenido del curso (opcional)" />
                 </Grid>
 
-                {/* Turno y Grado */}
+                {/* Turno y Curso */}
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth required>
                     <InputLabel>Turno</InputLabel>
@@ -333,9 +369,21 @@ const EditCourse = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
-                    <InputLabel>Grado</InputLabel>
-                    <Select value={formData.grade} onChange={handleChange('grade')} label="Grado">
-                      {grades.map(g => <MenuItem key={g} value={g}>{g}</MenuItem>)}
+                    <InputLabel>Curso</InputLabel>
+                    <Select
+                      value={formData.grade}
+                      onChange={(e) => {
+                        const newGrade = e.target.value;
+                        const allowed = COURSE_SEMESTERS_MAP[newGrade];
+                        setFormData(prev => ({
+                          ...prev,
+                          grade: newGrade,
+                          semester: (allowed && !allowed.includes(prev.semester)) ? (allowed[0] || '') : prev.semester
+                        }));
+                      }}
+                      label="Curso"
+                    >
+                      {courseLevels.map(level => <MenuItem key={level} value={level}>{level}</MenuItem>)}
                     </Select>
                   </FormControl>
                 </Grid>
@@ -345,7 +393,10 @@ const EditCourse = () => {
                   <FormControl fullWidth>
                     <InputLabel>Semestre</InputLabel>
                     <Select value={formData.semester} onChange={handleChange('semester')} label="Semestre">
-                      {semesters.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                      {(formData.grade && COURSE_SEMESTERS_MAP[formData.grade]
+                        ? COURSE_SEMESTERS_MAP[formData.grade]
+                        : allSemesters
+                      ).map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
                     </Select>
                   </FormControl>
                 </Grid>
@@ -406,6 +457,83 @@ const EditCourse = () => {
                 {/* Estado del aula */}
                 <Grid item xs={12}>
                   <AnimatePresence>{classroomStatusBanner()}</AnimatePresence>
+                </Grid>
+
+                {/* Días de Clase */}
+                <Grid item xs={12}>
+                  <Divider sx={{ mb: 1 }} />
+                  <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      Días de clase
+                    </Typography>
+                    <Chip label="Calendario" size="small" color="secondary" sx={{ ml: 0.5 }} />
+                    <Tooltip title="Los días seleccionados se usarán en el calendario escolar del curso para marcar automáticamente las fechas de clase." placement="top">
+                      <InfoIcon fontSize="small" color="action" sx={{ cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Box display="flex" gap={1} flexWrap="wrap">
+                    {DAYS_OF_WEEK.map((day) => {
+                      const selected = formData.class_days.includes(day.key);
+                      if (day.disabled) {
+                        return (
+                          <Tooltip key={day.key} title={day.reason || 'No lectivo'} arrow>
+                            <span>
+                              <Box
+                                sx={{
+                                  px: 2,
+                                  py: 1,
+                                  borderRadius: 2,
+                                  fontWeight: 600,
+                                  fontSize: '0.85rem',
+                                  userSelect: 'none',
+                                  border: '1px dashed',
+                                  borderColor: 'divider',
+                                  backgroundColor: 'action.disabledBackground',
+                                  color: 'text.disabled',
+                                  cursor: 'not-allowed',
+                                  opacity: 0.5,
+                                }}
+                              >
+                                {day.label}
+                              </Box>
+                            </span>
+                          </Tooltip>
+                        );
+                      }
+
+                      return (
+                        <Box
+                          key={day.key}
+                          onClick={() => toggleDay(day)}
+                          sx={{
+                            px: 2.5,
+                            py: 1,
+                            borderRadius: 2,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: '0.85rem',
+                            userSelect: 'none',
+                            transition: 'all 0.18s',
+                            border: '2px solid',
+                            borderColor: selected ? 'primary.main' : 'divider',
+                            backgroundColor: selected ? 'primary.main' : 'background.paper',
+                            color: selected ? '#fff' : 'text.primary',
+                            '&:hover': {
+                              borderColor: 'primary.main',
+                              backgroundColor: selected ? 'primary.dark' : 'action.hover',
+                              transform: 'translateY(-1px)',
+                              boxShadow: selected ? 2 : 1,
+                            },
+                          }}
+                        >
+                          {day.label}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+                    * Sábado y Domingo no están disponibles (fines de semana no lectivos).
+                  </Typography>
                 </Grid>
 
                 {/* Color */}

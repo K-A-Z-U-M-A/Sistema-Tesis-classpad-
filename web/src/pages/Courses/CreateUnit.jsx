@@ -112,11 +112,25 @@ const CreateUnit = () => {
 
   const handleFileChange = (event) => {
     const file = event.target.files?.[0] || null;
-    setMaterialForm(prev => ({ ...prev, file }));
+    if (file) {
+      // Auto-fill title with filename (without extension) if title is empty
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+      setMaterialForm(prev => ({
+        ...prev,
+        file,
+        title: prev.title.trim() ? prev.title : nameWithoutExt
+      }));
+    } else {
+      setMaterialForm(prev => ({ ...prev, file }));
+    }
   };
 
   const handleAddMaterial = () => {
-    if (!materialForm.title.trim()) {
+    // For file type, auto-use filename if title still empty
+    const effectiveTitle = materialForm.title.trim() ||
+      (materialForm.file ? materialForm.file.name.replace(/\.[^/.]+$/, '') : '');
+
+    if (!effectiveTitle) {
       toast.error('El título del material es requerido');
       return;
     }
@@ -128,8 +142,8 @@ const CreateUnit = () => {
     const newMaterial = {
       id: `${Date.now()}`,
       type: materialForm.type,
-      title: materialForm.title.trim(),
-      description: materialForm.description.trim(),
+      title: effectiveTitle,
+      description: '',
       url: materialForm.type === 'file' ? '' : materialForm.url.trim(),
       file: materialForm.file || null,
       fileName: materialForm.file?.name || null,
@@ -153,10 +167,6 @@ const CreateUnit = () => {
       return;
     }
 
-    if (!formData.description.trim()) {
-      toast.error('La descripción de la unidad es requerida');
-      return;
-    }
 
     try {
       setLoading(true);
@@ -327,12 +337,11 @@ const CreateUnit = () => {
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="Descripción"
+                    label="Descripción (opcional)"
                     value={formData.description}
                     onChange={handleInputChange('description')}
                     multiline
                     rows={4}
-                    required
                     placeholder="Describe los objetivos y contenido de esta unidad..."
                     helperText="Explica qué aprenderán los estudiantes en esta unidad"
                   />
@@ -446,27 +455,6 @@ const CreateUnit = () => {
           </Box>
 
           <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Título del material"
-                value={materialForm.title}
-                onChange={handleMaterialFormChange('title')}
-                required
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Descripción (opcional)"
-                value={materialForm.description}
-                onChange={handleMaterialFormChange('description')}
-                multiline
-                rows={3}
-              />
-            </Grid>
-
             {materialForm.type === 'file' ? (
               <Grid item xs={12}>
                 <Button variant="outlined" component="label" startIcon={<CloudUpload />}>
@@ -475,21 +463,32 @@ const CreateUnit = () => {
                 </Button>
                 {materialForm.file && (
                   <Typography variant="body2" sx={{ ml: 2, display: 'inline' }}>
-                    {materialForm.file.name} • {(materialForm.file.size/1024/1024).toFixed(2)} MB
+                    {materialForm.file.name} • {(materialForm.file.size / 1024 / 1024).toFixed(2)} MB
                   </Typography>
                 )}
               </Grid>
             ) : (
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label={materialForm.type === 'video' ? 'URL de YouTube' : 'URL del recurso'}
-                  placeholder={materialForm.type === 'video' ? 'https://www.youtube.com/watch?v=...' : 'https://...'}
-                  value={materialForm.url}
-                  onChange={handleMaterialFormChange('url')}
-                  required
-                />
-              </Grid>
+              <>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Título del material"
+                    value={materialForm.title}
+                    onChange={handleMaterialFormChange('title')}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label={materialForm.type === 'video' ? 'URL de YouTube' : 'URL del recurso'}
+                    placeholder={materialForm.type === 'video' ? 'https://www.youtube.com/watch?v=...' : 'https://...'}
+                    value={materialForm.url}
+                    onChange={handleMaterialFormChange('url')}
+                    required
+                  />
+                </Grid>
+              </>
             )}
           </Grid>
         </DialogContent>

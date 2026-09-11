@@ -5,16 +5,69 @@ import { generateUniqueCourseCode } from '../utils/courseCodeGenerator.js';
 import { logAction } from '../utils/auditLogger.js';
 
 import { isUuid, isIntegerString, isCourseTeacher, isCourseStudent, hasCourseAccess } from '../utils/uuid.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
+import { createNotification } from './notifications.js';
 
 const router = express.Router();
 
 // GET /api/courses - Get user's courses (ONLY ACTIVE)
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { role } = req.user;
+    const rawRole = (req.user.role || '').toLowerCase();
     let courses;
 
-    if (role === 'teacher') {
+    // Roles de administración y supervisión académica ven todos los cursos
+    const isGlobalViewer = ['admin', 'director', 'coordinator', 'secretary'].includes(rawRole);
+
+    if (isGlobalViewer) {
+      const result = await pool.query(
+        `SELECT DISTINCT c.*, 
+                u.display_name as owner_name,
+                u.photo_url as owner_photo
+         FROM courses c
+         LEFT JOIN users u ON c.owner_id = u.id
+         WHERE (c.archived = false OR c.archived IS NULL)
+         ORDER BY c.created_at DESC`
+      );
+
+      // Get counts and students for each course
+      courses = await Promise.all(result.rows.map(async (course) => {
+        const [studentCount, assignmentCount, studentsResult] = await Promise.all([
+          pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
+          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND is_published = true', [course.id]),
+          pool.query(`
+            SELECT u.id, u.display_name, u.email, u.photo_url,
+                   COALESCE(cs.enrolled_at, e.enrolled_at) as enrolled_at,
+                   COALESCE(cs.status, e.status) as status
+             FROM (
+               SELECT DISTINCT student_id, enrolled_at, status
+               FROM course_students 
+               WHERE course_id = $1
+               UNION
+               SELECT DISTINCT student_id, enrolled_at, status
+               FROM enrollments 
+               WHERE course_id = $1 AND status = 'active'
+             ) combined
+             JOIN users u ON combined.student_id = u.id
+             LEFT JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1
+             LEFT JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1
+             ORDER BY enrolled_at
+          `, [course.id])
+        ]);
+
+        return {
+          ...course,
+          student_count: parseInt(studentCount.rows[0]?.count || '0', 10),
+          assignment_count: parseInt(assignmentCount.rows[0]?.count || '0', 10),
+          students: studentsResult.rows,
+          teacher: {
+            id: course.owner_id,
+            display_name: course.owner_name,
+            photo_url: course.owner_photo
+          }
+        };
+      }));
+    } else if (rawRole === 'teacher' || rawRole.startsWith('prof') || rawRole.startsWith('docen')) {
       // Get courses where user is owner or teacher - ONLY ACTIVE
       const result = await pool.query(
         `SELECT DISTINCT c.*, 
@@ -24,7 +77,7 @@ router.get('/', authMiddleware, async (req, res) => {
          LEFT JOIN users u ON c.owner_id = u.id
          LEFT JOIN course_teachers ct ON c.id = ct.course_id
          WHERE (c.owner_id = $1 OR ct.teacher_id = $1)
-         AND c.archived = false
+         AND (c.archived = false OR c.archived IS NULL)
          ORDER BY c.created_at DESC`,
         [req.user.id]
       );
@@ -56,13 +109,14 @@ router.get('/', authMiddleware, async (req, res) => {
 
         return {
           ...course,
-          student_count: parseInt(studentCount.rows[0].count),
-          assignment_count: parseInt(assignmentCount.rows[0].count),
-          students: studentsResult.rows,
+          owner_photo: formatAvatarUrl(course.owner_id, course.owner_photo),
+          student_count: parseInt(studentCount.rows[0]?.count || '0', 10),
+          assignment_count: parseInt(assignmentCount.rows[0]?.count || '0', 10),
+          students: studentsResult.rows.map(s => ({ ...s, photo_url: formatAvatarUrl(s.id, s.photo_url) })),
           teacher: {
             id: course.owner_id,
             display_name: course.owner_name,
-            photo_url: course.owner_photo
+            photo_url: formatAvatarUrl(course.owner_id, course.owner_photo)
           }
         };
       }));
@@ -110,13 +164,14 @@ router.get('/', authMiddleware, async (req, res) => {
 
         return {
           ...course,
+          owner_photo: formatAvatarUrl(course.owner_id, course.owner_photo),
           student_count: parseInt(studentCount.rows[0].count),
           assignment_count: parseInt(assignmentCount.rows[0].count),
-          students: studentsResult.rows,
+          students: studentsResult.rows.map(s => ({ ...s, photo_url: formatAvatarUrl(s.id, s.photo_url) })),
           teacher: {
             id: course.owner_id,
             display_name: course.owner_name,
-            photo_url: course.owner_photo
+            photo_url: formatAvatarUrl(course.owner_id, course.owner_photo)
           }
         };
       }));
@@ -186,15 +241,75 @@ router.get('/available-classrooms', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/courses - Create new course (teachers only)
+// GET /api/courses/check-name - Verifica si ya existe un curso con un nombre similar
+// IMPORTANTE: debe estar ANTES de /:id para evitar colisiones de nombre
+router.get('/check-name', authMiddleware, async (req, res) => {
+  try {
+    const { name, exclude_id } = req.query;
+
+    if (!name || name.trim().length < 2) {
+      return res.json({ success: true, data: { matches: [], exact: false } });
+    }
+
+    const normalized = name.trim();
+    const queryParams = [`%${normalized}%`];
+    let excludeClause = '';
+
+    if (exclude_id && typeof exclude_id === 'string' && exclude_id.trim() !== '' && exclude_id !== 'undefined') {
+      queryParams.push(exclude_id.trim());
+      excludeClause = `AND c.id::text != $${queryParams.length}`;
+    }
+
+    // Busca coincidencias exactas o similares (ILIKE con wildcards)
+    const result = await pool.query(
+      `SELECT c.id, c.name, c.turn, c.semester, c.year, c.grade, c.owner_id,
+              u.display_name AS owner_name
+       FROM courses c
+       LEFT JOIN users u ON c.owner_id = u.id
+       WHERE c.name ILIKE $1
+         AND (c.archived = false OR c.archived IS NULL)
+         ${excludeClause}
+       ORDER BY c.name ASC
+       LIMIT 10`,
+      queryParams
+    );
+
+    const normalizedLower = normalized.toLowerCase();
+
+    // Ordenar en JS: exactos primero, luego el resto
+    const sorted = result.rows.sort((a, b) => {
+      const aExact = a.name && a.name.trim().toLowerCase() === normalizedLower ? 0 : 1;
+      const bExact = b.name && b.name.trim().toLowerCase() === normalizedLower ? 0 : 1;
+      return aExact - bExact;
+    }).slice(0, 5);
+
+    const exact = sorted.some(
+      (r) => r.name && r.name.trim().toLowerCase() === normalizedLower
+    );
+
+    res.json({
+      success: true,
+      data: {
+        matches: sorted,
+        exact,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error checking course name:', error);
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'CHECK_NAME_FAILED', details: error.message },
+    });
+  }
+});
+
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
 
-    if (role !== 'teacher' && role !== 'admin') {
+    if (!['teacher', 'admin', 'director'].includes(role)) {
       return res.status(403).json({
         error: {
-          message: 'Solo los profesores pueden crear cursos',
+          message: 'Solo los profesores y administradores pueden crear cursos',
           code: 'INSUFFICIENT_PERMISSIONS'
         }
       });
@@ -202,8 +317,15 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const {
       name, description, turn, grade, semester, year, color, image_url,
-      classroom_pavilion, classroom_floor, classroom_number
+      classroom_pavilion, classroom_floor, classroom_number,
+      class_days  // Array de días: ['monday', 'wednesday', ...]
     } = req.body;
+
+    // Validar class_days si se proveen
+    const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const classDaysArray = Array.isArray(class_days)
+      ? class_days.filter(d => validDays.includes(d))
+      : [];
 
     // Validate required fields (name, turn + classroom fields)
     if (!name || !turn) {
@@ -211,6 +333,21 @@ router.post('/', authMiddleware, async (req, res) => {
         error: {
           message: 'El nombre y el turno son requeridos',
           code: 'MISSING_REQUIRED_FIELDS'
+        }
+      });
+    }
+
+    // Validate duplicate course name (active courses)
+    const duplicateCheck = await pool.query(
+      `SELECT id, name FROM courses WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND archived = false LIMIT 1`,
+      [name]
+    );
+
+    if (duplicateCheck.rows.length > 0) {
+      return res.status(409).json({
+        error: {
+          message: `Ya existe un curso activo con el nombre "${duplicateCheck.rows[0].name}". Por favor elige un nombre diferente.`,
+          code: 'COURSE_NAME_ALREADY_EXISTS'
         }
       });
     }
@@ -305,18 +442,18 @@ router.post('/', authMiddleware, async (req, res) => {
     // Generate unique course code
     const courseCode = await generateUniqueCourseCode(pool);
 
-    // Create course (with classroom fields)
+    // Create course (with classroom fields + class_days)
     const result = await pool.query(
       `INSERT INTO courses
          (name, description, turn, grade, semester, year, color, image_url,
           owner_id, course_code,
-          classroom_pavilion, classroom_floor, classroom_number)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          classroom_pavilion, classroom_floor, classroom_number, class_days)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         name, description, turn, grade, semester, year, color, image_url,
         req.user.id, courseCode,
-        pavilionNum, String(classroom_floor), classroomNum
+        pavilionNum, String(classroom_floor), classroomNum, classDaysArray
       ]
     );
 
@@ -575,12 +712,15 @@ router.get('/:id', authMiddleware, async (req, res) => {
     res.json({
       success: true,
       data: {
-        course,
-        teachers: teachersResult.rows,
-        students: studentsResult.rows,
+        course: {
+          ...course,
+          owner_photo: formatAvatarUrl(course.owner_id, course.owner_photo)
+        },
+        teachers: teachersResult.rows.map(t => ({ ...t, photo_url: formatAvatarUrl(t.id, t.photo_url) })),
+        students: studentsResult.rows.map(s => ({ ...s, photo_url: formatAvatarUrl(s.id, s.photo_url) })),
         units: unitsResult.rows,
         assignments: assignmentsResult.rows,
-        recentMessages: messagesResult.rows
+        recentMessages: messagesResult.rows.map(m => ({ ...m, author_photo: formatAvatarUrl(m.sender_id, m.author_photo) }))
       }
     });
   } catch (error) {
@@ -613,8 +753,15 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
     const {
       name, description, turn, grade, semester, year, color, image_url,
-      classroom_pavilion, classroom_floor, classroom_number
+      classroom_pavilion, classroom_floor, classroom_number,
+      class_days
     } = req.body;
+
+    // Validar y normalizar class_days
+    const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const classDaysArray = Array.isArray(class_days)
+      ? class_days.filter(d => validDays.includes(d))
+      : [];
 
     if (!name || !turn) {
       return res.status(400).json({
@@ -713,12 +860,13 @@ router.put('/:id', authMiddleware, async (req, res) => {
            classroom_pavilion = $9,
            classroom_floor    = $10,
            classroom_number   = $11,
+           class_days         = $12,
            updated_at         = CURRENT_TIMESTAMP
-       WHERE id = $12${cast}
+       WHERE id = $13${cast}
        RETURNING *`,
       [
         name, description, turn, grade, semester, yearNumber, color, image_url,
-        pavilionNum, String(classroom_floor), classroomNum,
+        pavilionNum, String(classroom_floor), classroomNum, classDaysArray,
         courseId
       ]
     );
@@ -823,6 +971,45 @@ router.post('/:id/units', authMiddleware, async (req, res) => {
       details: { title: result.rows[0].title, course_id: courseId },
       ipAddress: req.ip || req.connection.remoteAddress
     });
+
+    // Enviar notificaciones y correos a todos los alumnos activos del curso
+    try {
+      const courseInfo = await pool.query(
+        `SELECT name FROM courses WHERE id = $1${cast}`,
+        [courseId]
+      );
+      const courseName = courseInfo.rows[0]?.name || 'Curso';
+
+      const studentsResult = await pool.query(
+        `SELECT DISTINCT student_id as user_id 
+         FROM (
+           SELECT student_id FROM course_students WHERE course_id = $1${cast} AND status = 'active'
+           UNION
+           SELECT student_id FROM enrollments WHERE course_id = $1${cast} AND status = 'active'
+         ) s`,
+        [courseId]
+      );
+
+      const unit = result.rows[0];
+      const notificationTitle = 'Nueva unidad disponible';
+      const notificationMessage = `Se ha publicado una nueva unidad "${unit.title}" en el curso ${courseName}.`;
+
+      studentsResult.rows.forEach(student => {
+        createNotification(
+          student.user_id,
+          'unit',
+          notificationTitle,
+          notificationMessage,
+          courseId,
+          unit.id,
+          'unit',
+          'normal',
+          { unitTitle: unit.title, description: unit.description || '' }
+        ).catch(err => console.error('Error enviando notificación de unidad:', err));
+      });
+    } catch (notifErr) {
+      console.error('Error preparando notificaciones de unidad:', notifErr);
+    }
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -1086,38 +1273,37 @@ router.get('/:id/students', authMiddleware, async (req, res) => {
     try {
       result = await pool.query(
         `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
-                e.enrolled_at, e.status
-         FROM users u
-         INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
+                COALESCE(enr.enrolled_at, u.created_at) as enrolled_at,
+                enr.status
+         FROM (
+           SELECT student_id, enrolled_at, status FROM enrollments WHERE course_id = $1${cast} AND status = 'active'
+           UNION
+           SELECT student_id, enrolled_at, status FROM course_students WHERE course_id = $1${cast} AND status = 'active'
+         ) enr
+         JOIN users u ON enr.student_id = u.id
          ORDER BY u.display_name`,
         [courseId]
       );
-
-      // If no results, try course_students (legacy table)
-      if (result.rows.length === 0) {
-        result = await pool.query(
-          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
-                  cs.enrolled_at, cs.status
-           FROM users u
-           INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
-           ORDER BY u.display_name`,
-          [courseId]
-        );
-      }
     } catch (err) {
-      queryError = err;
-      // Fallback to course_students on error
+      // Fallback: try querying only enrollments or course_students if one table does not exist
       try {
         result = await pool.query(
           `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
-                  cs.enrolled_at, cs.status
+                  e.enrolled_at, e.status
            FROM users u
-           INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
+           INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
            ORDER BY u.display_name`,
           [courseId]
         );
       } catch (err2) {
-        throw err2;
+        result = await pool.query(
+          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
+                  cs.enrolled_at, cs.status
+           FROM users u
+           INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
+           ORDER BY u.display_name`,
+          [courseId]
+        );
       }
     }
 

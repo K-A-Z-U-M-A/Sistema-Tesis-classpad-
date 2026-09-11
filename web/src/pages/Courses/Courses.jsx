@@ -124,7 +124,9 @@ const CoursesSkeleton = () => (
 const Courses = () => {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
-  const isTeacher = userProfile?.role === "teacher";
+  const userRole = (userProfile?.role || "").toLowerCase();
+  const isSupervision = ["admin", "director", "coordinator", "secretary"].includes(userRole);
+  const isTeacher = userRole === "teacher" || isSupervision;
 
   const [courses, setCourses]               = useState([]);
   const [loading, setLoading]               = useState(true);
@@ -140,9 +142,12 @@ const Courses = () => {
   const loadCourses = async () => {
     try {
       setLoading(true);
-      const endpoint = userProfile?.role === "student" ? "/courses/my-courses" : "/courses";
+      const endpoint = (userRole === "student") ? "/courses/my-courses" : "/courses";
       const response = await api.request(endpoint);
-      if (response.success) setCourses(response.data);
+      if (response && response.success) {
+        const rawList = Array.isArray(response.data) ? response.data : (response.data?.courses || []);
+        setCourses(rawList);
+      }
     } catch (error) {
       console.error("Error loading courses:", error);
       toast.error("Error al cargar los cursos");

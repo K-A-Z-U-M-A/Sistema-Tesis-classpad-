@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
 
 import { isUuid, getCastType as getCourseIdCast } from '../utils/uuid.js';
 
@@ -11,7 +12,64 @@ router.get('/test', authMiddleware, async (req, res) => {
     res.json({ success: true, message: 'Students route is working!', timestamp: new Date().toISOString() });
 });
 
+// GET /api/students/lookup/:cedula - Look up a student by cédula (for enrollment auto-fill)
+router.get('/lookup/:cedula', authMiddleware, async (req, res) => {
+    try {
+        const { role } = req.user;
+
+        // Only teachers can look up students by cédula
+        if (role !== 'teacher') {
+            return res.status(403).json({
+                error: { message: 'Solo los profesores pueden buscar estudiantes', code: 'FORBIDDEN' }
+            });
+        }
+
+        const { cedula } = req.params;
+
+        if (!cedula || !cedula.trim()) {
+            return res.status(400).json({
+                error: { message: 'La cédula es requerida', code: 'MISSING_CEDULA' }
+            });
+        }
+
+        const result = await pool.query(
+            `SELECT id, display_name, email, cedula, photo_url
+             FROM users
+             WHERE cedula = $1 AND role = 'student'
+             LIMIT 1`,
+            [cedula.trim()]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({
+                success: true,
+                found: false,
+                data: null
+            });
+        }
+
+        const student = result.rows[0];
+        res.json({
+            success: true,
+            found: true,
+            data: {
+                id: student.id,
+                displayName: student.display_name,
+                email: student.email,
+                cedula: student.cedula,
+                photoUrl: formatAvatarUrl(student.id, student.photo_url)
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error looking up student by cédula:', error);
+        res.status(500).json({
+            error: { message: 'Error interno del servidor', code: 'INTERNAL_ERROR' }
+        });
+    }
+});
+
 // GET /api/students/:studentId/progress/:courseId - Get student progress in a specific course
+
 router.get('/:studentId/progress/:courseId', authMiddleware, async (req, res) => {
     try {
         const { studentId, courseId } = req.params;
@@ -127,7 +185,7 @@ router.get('/:studentId/progress/:courseId', authMiddleware, async (req, res) =>
                     email: student.email,
                     cedula: student.cedula || null,
                     isActive: student.is_active,
-                    photoUrl: student.photo_url
+                    photoUrl: formatAvatarUrl(student.id, student.photo_url)
                 },
                 statistics: {
                     averageGrade: parseFloat(averageGrade.toFixed(2)),

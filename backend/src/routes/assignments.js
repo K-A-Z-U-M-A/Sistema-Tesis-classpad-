@@ -40,8 +40,8 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
     const assignmentIdCast = ''; // Will be determined based on assignment.id type
     const studentIdCast = isUuid(req.user.id) ? '::uuid' : '';
 
-    if (req.user.role === 'teacher') {
-      // Teachers see all assignments with submission counts and assigned students info
+    if (req.user.role !== 'student') {
+      // Teachers and supervisors see all assignments with submission counts and assigned students info
       query = `
         SELECT a.*, 
                u.display_name as created_by_name,
@@ -388,6 +388,46 @@ router.post('/', authMiddleware, async (req, res) => {
         );
       }
     }
+
+    // Notificar a los estudiantes inscritos en el curso (en segundo plano)
+    (async () => {
+      try {
+        const courseCast = isUuid(course_id) ? '::uuid' : '';
+        const studentsResult = await pool.query(
+          `SELECT DISTINCT student_id as user_id 
+           FROM enrollments 
+           WHERE course_id = $1${courseCast} AND status = 'active'`,
+          [course_id]
+        );
+
+        const courseResult = await pool.query(
+          `SELECT name FROM courses WHERE id = $1${courseCast}`,
+          [course_id]
+        );
+        const courseName = courseResult.rows[0]?.name || 'el curso';
+
+        const formattedDueDate = dueTimestamp ? new Date(dueTimestamp).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : 'Sin fecha límite';
+
+        for (const student of studentsResult.rows) {
+          createNotification(
+            student.user_id,
+            'assignment',
+            'Nueva tarea asignada',
+            `Se ha publicado la tarea "${title}" en ${courseName}. Fecha límite: ${formattedDueDate}.`,
+            course_id,
+            assignment.id,
+            'assignment',
+            'normal',
+            {
+              dueDate: formattedDueDate,
+              maxScore: max_points || 100
+            }
+          );
+        }
+      } catch (notifErr) {
+        console.error('⚠️ Error enviando notificaciones de nueva tarea:', notifErr.message);
+      }
+    })();
 
     res.status(201).json({
       success: true,

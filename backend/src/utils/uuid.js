@@ -31,6 +31,13 @@ import pool from '../config/database.js';
  */
 export async function isCourseTeacher(userId, courseId) {
   try {
+    // Verificar si el usuario tiene rol administrativo o de supervisión
+    const userRes = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
+    const role = (userRes.rows[0]?.role || '').toLowerCase();
+    if (['admin', 'director', 'coordinator'].includes(role)) {
+      return true;
+    }
+
     if (isUuid(courseId)) {
       const result = await pool.query(
         `SELECT 1 FROM courses c
@@ -62,7 +69,10 @@ export async function isCourseStudent(userId, courseId) {
     const cast = isUuid(courseId) ? '::uuid' : '';
     const result = await pool.query(
       `SELECT 1 FROM enrollments
-       WHERE course_id = $1${cast} AND student_id = $2 AND status = 'active'`,
+       WHERE course_id = $1${cast} AND student_id = $2 AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))
+       UNION
+       SELECT 1 FROM course_students
+       WHERE course_id = $1${cast} AND student_id = $2 AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))`,
       [courseId, userId]
     );
     return result.rows.length > 0;
@@ -74,10 +84,17 @@ export async function isCourseStudent(userId, courseId) {
 
 /**
  * Returns true if userId has any access to courseId
- * (owner, co-teacher, or active student).
+ * (owner, co-teacher, supervisor/admin, or active student).
  */
 export async function hasCourseAccess(userId, courseId) {
   try {
+    // Verificar si el usuario tiene rol administrativo o de supervisión
+    const userRes = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
+    const role = (userRes.rows[0]?.role || '').toLowerCase();
+    if (['admin', 'director', 'coordinator', 'secretary'].includes(role)) {
+      return true;
+    }
+
     const cast = isUuid(courseId) ? '::uuid' : '';
     const result = await pool.query(
       `SELECT 1 FROM courses c
@@ -87,8 +104,8 @@ export async function hasCourseAccess(userId, courseId) {
        WHERE c.id = $1${cast} AND (
          c.owner_id = $2 OR
          ct.teacher_id = $2 OR
-         (cs.student_id = $2 AND cs.status = 'active') OR
-         (e.student_id = $2 AND e.status = 'active')
+         (cs.student_id = $2 AND (cs.status IS NULL OR LOWER(cs.status) IN ('active', 'enrolled', 'matriculado'))) OR
+         (e.student_id = $2 AND (e.status IS NULL OR LOWER(e.status) IN ('active', 'enrolled', 'matriculado')))
        )`,
       [courseId, userId]
     );

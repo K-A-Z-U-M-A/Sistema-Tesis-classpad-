@@ -1,5 +1,6 @@
 import { verifyToken } from '../utils/jwt.js';
 import pool from '../config/database.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
 
 export async function authMiddleware(req, res, next) {
   try {
@@ -54,7 +55,7 @@ export async function authMiddleware(req, res, next) {
       role: user.role,
       provider: user.provider,
       is_active: user.is_active,
-      photo_url: user.photo_url,
+      photo_url: formatAvatarUrl(user.id, user.photo_url),
       created_at: user.created_at,
       last_login: user.last_login
     };

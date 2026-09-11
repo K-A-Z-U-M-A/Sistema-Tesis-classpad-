@@ -41,6 +41,7 @@ import api from '../../services/api';
 
 const Users = () => {
     const [users, setUsers] = useState([]);
+    const [availableRoles, setAvailableRoles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [openModal, setOpenModal] = useState(false);
     const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
@@ -62,9 +63,15 @@ const Users = () => {
     const fetchUsers = async (roleVal = roleFilter, incInactive = includeInactive) => {
         setLoading(true);
         try {
-            const response = await api.getUsers(roleVal === 'all' ? null : roleVal, incInactive);
+            const [response, rolesRes] = await Promise.all([
+                api.getUsers(roleVal === 'all' ? null : roleVal, incInactive),
+                api.getRoles().catch(() => ({ data: [] }))
+            ]);
             if (response.success) {
                 setUsers(response.data);
+            }
+            if (rolesRes.data) {
+                setAvailableRoles(rolesRes.data);
             }
         } catch (error) {
             console.error('Error fetching users:', error);
@@ -232,10 +239,18 @@ const Users = () => {
                                 fetchUsers(e.target.value, includeInactive);
                             }}
                         >
-                            <MenuItem value="all">Todos</MenuItem>
-                            <MenuItem value="admin">Administrador</MenuItem>
-                            <MenuItem value="teacher">Profesor</MenuItem>
-                            <MenuItem value="student">Estudiante</MenuItem>
+                            <MenuItem value="all">Todos los roles</MenuItem>
+                            {availableRoles.length > 0 ? (
+                                availableRoles.map((r) => (
+                                    <MenuItem key={r.slug} value={r.slug}>{r.name}</MenuItem>
+                                ))
+                            ) : (
+                                [
+                                    <MenuItem key="admin" value="admin">Administrador</MenuItem>,
+                                    <MenuItem key="teacher" value="teacher">Profesor</MenuItem>,
+                                    <MenuItem key="student" value="student">Estudiante</MenuItem>
+                                ]
+                            )}
                         </Select>
                     </FormControl>
                     <FormControlLabel
@@ -385,9 +400,20 @@ const Users = () => {
                                     label="Rol"
                                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                                 >
-                                    <MenuItem value="student">Estudiante</MenuItem>
-                                    <MenuItem value="teacher">Profesor</MenuItem>
-                                    <MenuItem value="admin">Administrador</MenuItem>
+                                    {availableRoles.length > 0 ? (
+                                        availableRoles.map((r) => (
+                                            <MenuItem key={r.slug} value={r.slug}>{r.name} (Nivel {r.level})</MenuItem>
+                                        ))
+                                    ) : (
+                                        [
+                                            <MenuItem key="student" value="student">Estudiante</MenuItem>,
+                                            <MenuItem key="teacher" value="teacher">Profesor</MenuItem>,
+                                            <MenuItem key="coordinator" value="coordinator">Coordinador Académico</MenuItem>,
+                                            <MenuItem key="director" value="director">Director Académico</MenuItem>,
+                                            <MenuItem key="secretary" value="secretary">Secretaría</MenuItem>,
+                                            <MenuItem key="admin" value="admin">Administrador</MenuItem>
+                                        ]
+                                    )}
                                 </Select>
                             </FormControl>
                         )}

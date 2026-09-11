@@ -66,6 +66,27 @@ router.post('/sessions', authMiddleware, async (req, res) => {
       });
     }
 
+    // Verificar que no exista ya una sesión para este curso HOY
+    const castCheck = isUuid(course_id) ? '::uuid' : '';
+    const todaySession = await pool.query(
+      `SELECT id, title FROM attendance_sessions
+       WHERE course_id = $1${castCheck}
+         AND DATE(created_at AT TIME ZONE 'America/Lima') = CURRENT_DATE
+         AND is_active = true
+       LIMIT 1`,
+      [course_id]
+    );
+
+    if (todaySession.rows.length > 0) {
+      return res.status(409).json({
+        error: {
+          message: `Ya existe una sesión de asistencia activa para hoy: "${todaySession.rows[0].title}". Solo se permite una sesión por clase por día.`,
+          code: 'SESSION_ALREADY_EXISTS_TODAY',
+          existing_session_id: todaySession.rows[0].id
+        }
+      });
+    }
+
     // Generate unique QR token
     const qrToken = crypto.randomBytes(32).toString('hex');
 
@@ -194,8 +215,16 @@ router.get('/courses/:courseId/sessions', authMiddleware, async (req, res) => {
     const cast = isUuid(courseId) ? '::uuid' : '';
     const result = await pool.query(
       `SELECT s.*, 
-              COUNT(r.id) as total_records,
-              COUNT(CASE WHEN r.status = 'present' THEN 1 END) as present_count
+              COUNT(DISTINCT r.id) as total_records,
+              COUNT(DISTINCT CASE WHEN r.status = 'present' THEN r.id END) as present_count,
+              (
+                SELECT COUNT(DISTINCT student_id)
+                FROM (
+                  SELECT student_id FROM course_students WHERE course_id = s.course_id AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))
+                  UNION
+                  SELECT student_id FROM enrollments WHERE course_id = s.course_id AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))
+                ) st
+              ) as total_students
        FROM attendance_sessions s
        LEFT JOIN attendance_records r ON s.id = r.session_id
        WHERE s.course_id = $1${cast}
@@ -308,16 +337,34 @@ router.post('/scan', authMiddleware, async (req, res) => {
 
     // Find active session with this QR token
     const sessionResult = await pool.query(
-      `SELECT * FROM attendance_sessions 
-       WHERE qr_token = $1 AND is_active = true 
-       AND (end_time IS NULL OR end_time > CURRENT_TIMESTAMP)`,
+      `SELECT s.*, c.name as course_name 
+       FROM attendance_sessions s
+       JOIN courses c ON s.course_id = c.id
+       WHERE s.qr_token = $1 AND s.is_active = true 
+       AND (s.end_time IS NULL OR s.end_time > CURRENT_TIMESTAMP)`,
       [qr_token]
     );
 
     if (sessionResult.rows.length === 0) {
+      // Check if session exists but is inactive or expired
+      const expiredSession = await pool.query(
+        `SELECT s.is_active, s.end_time, c.name as course_name 
+         FROM attendance_sessions s
+         JOIN courses c ON s.course_id = c.id
+         WHERE s.qr_token = $1`,
+        [qr_token]
+      );
+      if (expiredSession.rows.length > 0) {
+        return res.status(400).json({
+          error: {
+            message: 'La sesión de asistencia ha finalizado o el código QR ha expirado.',
+            code: 'SESSION_EXPIRED'
+          }
+        });
+      }
       return res.status(404).json({
         error: {
-          message: 'Sesión no encontrada o expirada',
+          message: 'Código QR no válido o sesión de asistencia no encontrada.',
           code: 'SESSION_NOT_FOUND'
         }
       });
@@ -330,7 +377,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
     if (!isStudent) {
       return res.status(403).json({
         error: {
-          message: 'No estás matriculado en este curso',
+          message: `No estás matriculado en el curso "${session.course_name || 'este curso'}". Solo los alumnos matriculados pueden registrar asistencia.`,
           code: 'NOT_ENROLLED'
         }
       });
@@ -346,18 +393,18 @@ router.post('/scan', authMiddleware, async (req, res) => {
     if (existingRecord.rows.length > 0) {
       return res.status(400).json({
         error: {
-          message: 'Ya registraste tu asistencia para esta sesión',
+          message: 'Ya registraste tu asistencia para esta sesión de clase.',
           code: 'ALREADY_RECORDED'
         }
       });
     }
 
     // Validate location if required
-    if (session.location_required) {
+    if (session.location_required && session.allowed_latitude && session.allowed_longitude) {
       if (!latitude || !longitude) {
         return res.status(400).json({
           error: {
-            message: 'Ubicación requerida',
+            message: 'Esta sesión requiere geolocalización. Por favor permite el acceso a tu ubicación GPS en el dispositivo.',
             code: 'LOCATION_REQUIRED'
           }
         });
@@ -373,7 +420,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
       if (distance > session.allowed_radius) {
         return res.status(400).json({
           error: {
-            message: 'Estás fuera del rango permitido para marcar asistencia',
+            message: `Estás fuera del radio permitido para marcar asistencia (${Math.round(distance)}m del aula, máximo permitido ${session.allowed_radius}m).`,
             code: 'LOCATION_OUT_OF_RANGE',
             details: {
               distance: Math.round(distance),
@@ -805,19 +852,30 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
       });
     }
 
-    // Get all students in the course (try enrollments first, then course_students)
+    // Get all students in the course (from both enrollments and course_students)
     let studentsResult;
     try {
       studentsResult = await pool.query(
         `SELECT DISTINCT u.id, u.display_name, u.cedula
-         FROM users u
-         INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
+         FROM (
+           SELECT student_id FROM enrollments WHERE course_id = $1${cast} AND status = 'active'
+           UNION
+           SELECT student_id FROM course_students WHERE course_id = $1${cast} AND status = 'active'
+         ) enr
+         JOIN users u ON enr.student_id = u.id
          ORDER BY u.display_name`,
         [courseId]
       );
-
-      // If no results, try course_students (legacy table)
-      if (studentsResult.rows.length === 0) {
+    } catch (err) {
+      try {
+        studentsResult = await pool.query(
+          `SELECT DISTINCT u.id, u.display_name, u.cedula
+           FROM users u
+           INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
+           ORDER BY u.display_name`,
+          [courseId]
+        );
+      } catch (err2) {
         studentsResult = await pool.query(
           `SELECT DISTINCT u.id, u.display_name, u.cedula
            FROM users u
@@ -826,15 +884,6 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
           [courseId]
         );
       }
-    } catch (err) {
-      // Fallback to course_students on error
-      studentsResult = await pool.query(
-        `SELECT DISTINCT u.id, u.display_name, u.cedula
-         FROM users u
-         INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
-         ORDER BY u.display_name`,
-        [courseId]
-      );
     }
 
     const students = studentsResult.rows;

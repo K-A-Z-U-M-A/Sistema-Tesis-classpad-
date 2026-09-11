@@ -1,18 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import {
   AppBar, Box, CssBaseline, Drawer, IconButton, List, ListItem,
   ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography,
   Avatar, Menu, MenuItem, Divider, Badge, Chip, Tooltip, useTheme,
   useMediaQuery,
 } from "@mui/material";
-import {
-  Menu as MenuIcon, Home, School, Assignment, People, Message,
-  Assessment, Settings, AccountCircle, Logout, Add, Dashboard,
-  AdminPanelSettings,
-} from "@mui/icons-material";
+// Imports específicos para tree-shaking correcto (evitan el barrel de 6.4MB)
+import MenuIcon from "@mui/icons-material/Menu";
+import Home from "@mui/icons-material/Home";
+import School from "@mui/icons-material/School";
+import Assignment from "@mui/icons-material/Assignment";
+import People from "@mui/icons-material/People";
+import Message from "@mui/icons-material/Message";
+import Assessment from "@mui/icons-material/Assessment";
+import Settings from "@mui/icons-material/Settings";
+import AccountCircle from "@mui/icons-material/AccountCircle";
+import Logout from "@mui/icons-material/Logout";
+import Add from "@mui/icons-material/Add";
+import Dashboard from "@mui/icons-material/Dashboard";
+import AdminPanelSettings from "@mui/icons-material/AdminPanelSettings";
+import Security from "@mui/icons-material/Security";
+import ManageAccounts from "@mui/icons-material/ManageAccounts";
+import Backup from "@mui/icons-material/Backup";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext.tsx";
-import NotificationBell from "../Notifications/NotificationBell";
+// NotificationBell carga lazy para diferir sus dependencias de íconos
+const NotificationBell = lazy(() => import("../Notifications/NotificationBell"));
 import { useAssignmentCount } from "../../hooks/useAssignmentCount";
 // @ts-ignore
 import createSessionManager from "../../services/sessionManager";
@@ -42,15 +55,23 @@ const getPageTitle = (pathname) => {
   if (pathname === "/settings") return "Configuración";
   if (pathname === "/administrar") return "Administrar";
   if (pathname === "/admin/users") return "Usuarios";
+  if (pathname === "/admin/roles") return "Roles y Permisos";
   if (pathname === "/admin/audit") return "Auditoría";
   if (pathname === "/admin/reports") return "Reportes";
+  if (pathname === "/admin/backups") return "Copias de Seguridad";
   return "ClassPad";
 };
 
 const getRoleLabel = (role) => {
-  if (role === "admin") return "Administrador";
-  if (role === "teacher") return "Docente";
-  return "Estudiante";
+  if (!role) return "Usuario";
+  const r = String(role).toLowerCase();
+  if (r === "admin") return "Administrador";
+  if (r === "director") return "Director Académico";
+  if (r === "coordinator") return "Coordinador Académico";
+  if (r === "secretary") return "Secretaría";
+  if (r === "teacher") return "Docente";
+  if (r === "student") return "Estudiante";
+  return role.charAt(0).toUpperCase() + role.slice(1);
 };
 
 // ─── Main menu items ─────────────────────────────────────────────────────────
@@ -69,9 +90,11 @@ const teacherMenuItems = [
 ];
 
 const adminMenuItems = [
-  { text: "Usuarios",   icon: <AdminPanelSettings sx={{ fontSize: 22 }} />, path: "/admin/users" },
-  { text: "Auditoría",  icon: <Assessment sx={{ fontSize: 22 }} />,          path: "/admin/audit" },
-  { text: "Reportes",   icon: <Dashboard sx={{ fontSize: 22 }} />,           path: "/admin/reports" },
+  { text: "Usuarios",          icon: <AdminPanelSettings sx={{ fontSize: 22 }} />, path: "/admin/users" },
+  { text: "Roles y Permisos",  icon: <Security sx={{ fontSize: 22 }} />,           path: "/admin/roles" },
+  { text: "Auditoría",         icon: <Assessment sx={{ fontSize: 22 }} />,          path: "/admin/audit" },
+  { text: "Reportes",          icon: <Dashboard sx={{ fontSize: 22 }} />,           path: "/admin/reports" },
+  { text: "Copias de Seguridad", icon: <Backup sx={{ fontSize: 22 }} />,            path: "/admin/backups" },
 ];
 
 // ─── M3 Navigation Drawer Item (Stadium Pill indicator) ──────────────────────
@@ -204,6 +227,7 @@ export default function AppLayout({ children }) {
       <Box sx={{ flex: 1, overflowY: "auto", py: 1.5 }}>
 
         {/* Admin: only Dashboard */}
+        {/* Navigation list */}
         {userProfile?.role === "admin" ? (
           <List disablePadding>
             <NavItem
@@ -213,7 +237,7 @@ export default function AppLayout({ children }) {
             />
           </List>
         ) : (
-          /* Teacher / Student: main items */
+          /* Teacher / Student / Director / Coordinator / Secretary: main items */
           <List disablePadding>
             {menuItems
               .filter((item) => !(item.text === "Alumnos" && userProfile?.role === "student"))
@@ -229,11 +253,11 @@ export default function AppLayout({ children }) {
           </List>
         )}
 
-        {/* Teacher section */}
-        {userProfile?.role === "teacher" && (
+        {/* Teacher / Supervision section */}
+        {(userProfile?.role === "teacher" || ["director", "coordinator"].includes(userProfile?.role)) && (
           <Box sx={{ mt: 2 }}>
             <Divider sx={{ mb: 1.5, mx: 2 }} />
-            <NavGroupLabel>Gestión</NavGroupLabel>
+            <NavGroupLabel>Gestión Académica</NavGroupLabel>
             <List disablePadding sx={{ mt: 0.5 }}>
               {teacherMenuItems.map((item) => (
                 <NavItem
@@ -247,20 +271,27 @@ export default function AppLayout({ children }) {
           </Box>
         )}
 
-        {/* Admin section */}
-        {userProfile?.role === "admin" && (
+        {/* Admin & Institutional Supervision section */}
+        {["admin", "director", "coordinator", "secretary"].includes(userProfile?.role) && (
           <Box sx={{ mt: 2 }}>
             <Divider sx={{ mb: 1.5, mx: 2 }} />
-            <NavGroupLabel>Administración</NavGroupLabel>
+            <NavGroupLabel>{userProfile?.role === "admin" ? "Administración" : "Supervisión Institucional"}</NavGroupLabel>
             <List disablePadding sx={{ mt: 0.5 }}>
-              {adminMenuItems.map((item) => (
-                <NavItem
-                  key={item.path}
-                  item={item}
-                  active={isActive(item.path)}
-                  onClick={() => handleNavigation(item.path)}
-                />
-              ))}
+              {adminMenuItems
+                .filter((item) => {
+                  if (userProfile?.role === "admin" || userProfile?.role === "director") return true;
+                  if (userProfile?.role === "coordinator") return ["/admin/roles", "/admin/reports"].includes(item.path);
+                  if (userProfile?.role === "secretary") return ["/admin/users", "/admin/reports"].includes(item.path);
+                  return true;
+                })
+                .map((item) => (
+                  <NavItem
+                    key={item.path}
+                    item={item}
+                    active={isActive(item.path)}
+                    onClick={() => handleNavigation(item.path)}
+                  />
+                ))}
             </List>
           </Box>
         )}
@@ -335,7 +366,7 @@ export default function AppLayout({ children }) {
           <Typography
             variant="h6"
             noWrap
-            component="h1"
+            component="span"
             sx={{
               flexGrow: 1,
               fontWeight: 600,
@@ -361,8 +392,10 @@ export default function AppLayout({ children }) {
             </Tooltip>
           )}
 
-          {/* Notifications */}
-          <NotificationBell />
+          {/* Notifications — lazy loaded para diferir @mui/icons-material */}
+          <Suspense fallback={null}>
+            <NotificationBell />
+          </Suspense>
 
           {/* Avatar → profile menu */}
           <Tooltip title="Mi cuenta">

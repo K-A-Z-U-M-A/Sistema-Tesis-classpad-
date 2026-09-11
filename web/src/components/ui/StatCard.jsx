@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Skeleton } from "@mui/material";
 
 /**
  * StatCard — M3 Expressive tonal card for dashboard stats.
@@ -12,8 +12,9 @@ import { Box, Typography } from "@mui/material";
  *   color      {"primary" | "secondary" | "tertiary" | "success" | "warning" | "error" | "default"}
  *   subtitle   {string}  — secondary text (also accepted as `context`)
  *   onClick    {function} — makes the card clickable with pointer cursor
+ *   loading    {boolean} — shows skeleton value while loading
  */
-export default function StatCard({ title, label, value, icon, color = "primary", subtitle, context, onClick }) {
+export default function StatCard({ title, label, value, icon, color = "primary", subtitle, context, onClick, loading = false }) {
   // Accept both naming conventions used across the codebase
   const resolvedTitle    = title    ?? label;
   const resolvedSubtitle = subtitle ?? context;
@@ -33,6 +34,7 @@ export default function StatCard({ title, label, value, icon, color = "primary",
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `${resolvedTitle}: ${loading ? "Cargando" : value}` : undefined}
       onKeyDown={onClick ? (e) => (e.key === "Enter" || e.key === " ") && onClick() : undefined}
       sx={{
         borderRadius: "28px",
@@ -65,12 +67,21 @@ export default function StatCard({ title, label, value, icon, color = "primary",
         </Box>
       )}
       <Box>
-        <Typography
-          variant="displaySmall"
-          sx={{ fontSize: "2rem", fontWeight: 700, color: tokens.text, lineHeight: 1.1 }}
-        >
-          {value}
-        </Typography>
+        {loading ? (
+          <Skeleton
+            variant="text"
+            width={52}
+            height={40}
+            sx={{ backgroundColor: tokens.text, opacity: 0.2 }}
+          />
+        ) : (
+          <Typography
+            variant="displaySmall"
+            sx={{ fontSize: "2rem", fontWeight: 700, color: tokens.text, lineHeight: 1.1 }}
+          >
+            {value}
+          </Typography>
+        )}
         <Typography
           variant="labelLarge"
           sx={{ color: tokens.text, opacity: 0.8, mt: 0.25, display: "block" }}

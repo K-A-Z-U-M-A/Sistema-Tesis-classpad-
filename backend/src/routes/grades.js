@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { logAction } from '../utils/auditLogger.js';
+import { createNotification } from './notifications.js';
 
 const router = express.Router();
 
@@ -371,6 +372,43 @@ router.post('/course/:courseId/publish', authMiddleware, async (req, res) => {
         }
 
         await pool.query(query, params);
+
+        // Notificar a los estudiantes afectados (en segundo plano)
+        (async () => {
+            try {
+                let targetStudents = [];
+                if (studentIds && studentIds.length > 0) {
+                    targetStudents = studentIds;
+                } else {
+                    const enrollResult = await pool.query(
+                        `SELECT DISTINCT student_id FROM enrollments WHERE course_id = $1 AND status = 'active'`,
+                        [courseId]
+                    );
+                    targetStudents = enrollResult.rows.map(r => r.student_id);
+                }
+
+                const courseResult = await pool.query(
+                    `SELECT name FROM courses WHERE id = $1`,
+                    [courseId]
+                );
+                const courseName = courseResult.rows[0]?.name || 'el curso';
+
+                for (const sId of targetStudents) {
+                    createNotification(
+                        sId,
+                        'grade',
+                        'Calificaciones publicadas',
+                        `El docente ha publicado nuevas calificaciones en ${courseName}. Revisa tu registro de notas.`,
+                        courseId,
+                        null,
+                        'course',
+                        'normal'
+                    );
+                }
+            } catch (err) {
+                console.error('⚠️ Error notificando publicación de calificaciones:', err.message);
+            }
+        })();
 
         // Audit Log
         await logAction({

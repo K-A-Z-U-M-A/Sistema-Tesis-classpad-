@@ -248,12 +248,13 @@ router.post('/', authMiddleware, async (req, res) => {
         if (assignmentResult.rows.length > 0) {
           const assignment = assignmentResult.rows[0];
 
+          const courseCast = isUuid(assignment.course_id) ? '::uuid' : '';
           // Get all teachers in the course (owner + course teachers)
           const teachersResult = await pool.query(
             `SELECT DISTINCT user_id FROM (
-              SELECT owner_id as user_id FROM courses WHERE id = $1
+              SELECT owner_id as user_id FROM courses WHERE id = $1${courseCast}
               UNION
-              SELECT teacher_id as user_id FROM course_teachers WHERE course_id = $1
+              SELECT teacher_id as user_id FROM course_teachers WHERE course_id = $1${courseCast}
             ) as teachers`,
             [assignment.course_id]
           );
@@ -266,26 +267,28 @@ router.post('/', authMiddleware, async (req, res) => {
           const studentName = studentResult.rows[0]?.display_name || 'Un estudiante';
 
           // Create notifications for all teachers
+          const formattedDate = new Date().toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
           const notificationPromises = teachersResult.rows.map(teacher => {
             const title = 'Nueva entrega de tarea';
-            const messageText = `${studentName} ha entregado la tarea "${assignment.assignment_title}" en ${assignment.course_name}. ${content ? `Contenido: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}` : ''}`;
+            const messageText = `El estudiante ${studentName} ha entregado la tarea "${assignment.assignment_title}" en ${assignment.course_name}.`;
 
             return createNotification(
               teacher.user_id,
-              'assignment',
+              'submission',
               title,
               messageText,
               assignment.course_id,
               assignmentId,
               'assignment',
-              'normal'
+              'normal',
+              {
+                studentName,
+                submissionDate: formattedDate
+              }
             );
           });
 
-          // Create notifications asynchronously (don't wait for them)
-          Promise.all(notificationPromises).catch(error => {
-            console.error('Error creating submission notifications:', error);
-          });
+          await Promise.all(notificationPromises);
         }
       } catch (error) {
         console.error('Error creating submission notifications:', error);

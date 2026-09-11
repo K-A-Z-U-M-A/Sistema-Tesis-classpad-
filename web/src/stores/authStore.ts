@@ -22,7 +22,7 @@ interface AuthStore extends AuthState {
   updateUserProfile: (data: Partial<User>) => Promise<void>;
   getUserProfileWithStats: (userId?: number) => Promise<any>;
   getTeacherCourses: (teacherId?: number) => Promise<any>;
-  initializeAuth: () => void;
+  initializeAuth: () => Promise<void>;
   handleGoogleCallback: (token: string, user: any) => Promise<boolean>;
   checkProfileComplete: () => Promise<boolean>;
   clearMustChangePassword: () => void;
@@ -39,6 +39,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       set({ loading: true, error: null });
       const response = await apiService.login(credentials);
+
+      // Limpiar storage viejo ANTES de guardar para evitar QuotaExceededError
+      sessionManager.cleanOldSessions();
 
       // Guardar token y datos del usuario usando sessionManager
       apiService.setToken(response.data.token);
@@ -246,7 +249,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
-  initializeAuth: () => {
+  initializeAuth: async () => {
     set({ loading: true });
 
     try {
@@ -316,7 +319,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
             user = savedUser;
           }
 
-          // Los datos son válidos para esta sesión
+          // Mostrar al usuario con los datos del storage inmediatamente (sin esperar)
           set({ user, loading: false, error: null });
 
           sessionManager.updateSessionInfo({
@@ -325,7 +328,35 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           });
 
           if (process.env.NODE_ENV === 'development') {
-            console.log(`✅ Usuario cargado: ${user.email}, Rol: ${user.role}`);
+            console.log(`✅ Usuario cargado desde storage: ${user.email}, Rol: ${user.role}`);
+          }
+
+          // ───────────────────────────────────────────────────────────────────
+          // CRITICAL FIX: Siempre refrescar el perfil desde la DB para
+          // obtener el rol/datos actualizados (ej. si el admin cambió el rol
+          // de 'teacher' a 'director' sin que el usuario cerrara sesión).
+          // ───────────────────────────────────────────────────────────────────
+          try {
+            const meResponse = await apiService.request('/users/me');
+            const freshUser = meResponse?.data?.user || meResponse?.data;
+            if (meResponse && meResponse.success && freshUser) {
+              // Actualizar solo si el rol o datos cambiaron
+              if (freshUser.role !== user.role || freshUser.display_name !== user.display_name) {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`🔄 Rol actualizado desde DB: ${user.role} → ${freshUser.role}`);
+                }
+              }
+              // Siempre guardar el perfil fresco
+              sessionManager.setItem('user', JSON.stringify(freshUser));
+              set({ user: freshUser });
+              sessionManager.updateSessionInfo({
+                role: freshUser.role,
+                userId: freshUser.id
+              });
+            }
+          } catch (refreshErr) {
+            // Si falla el refresh (ej. sin red), continuar con datos de storage
+            console.warn('No se pudo refrescar perfil desde DB, usando datos de storage:', refreshErr);
           }
 
           // Verificar perfil completo de forma asíncrona
@@ -345,8 +376,6 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       console.error('Error inicializando autenticación:', error);
       set({ user: null, loading: false, error: null, profileComplete: null });
     }
-
-    return () => { };
   },
 
 

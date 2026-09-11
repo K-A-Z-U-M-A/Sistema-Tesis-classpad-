@@ -31,7 +31,9 @@ import {
   CheckCircle as CheckCircleIcon,
   ErrorOutline as ErrorIcon,
   InfoOutlined as InfoIcon,
-  Business as BuildingIcon
+  Business as BuildingIcon,
+  WarningAmber as WarningIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -54,6 +56,10 @@ const CreateCourse = () => {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
   const [loading, setLoading] = useState(false);
+
+  // ── Name duplicate check ────────────────────────────────────────────────────
+  const [nameCheck, setNameCheck] = useState(null); // null | 'checking' | { exact, matches }
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -65,6 +71,7 @@ const CreateCourse = () => {
     classroom_pavilion: '',
     classroom_floor: '',
     classroom_number: '',
+    class_days: [],
   });
 
   // Classroom availability state
@@ -73,19 +80,79 @@ const CreateCourse = () => {
   const [takenInfo, setTakenInfo] = useState(null);
   const [showAvailableList, setShowAvailableList] = useState(false);
 
+  // ── Debounced name-check effect ─────────────────────────────────────────────
+  useEffect(() => {
+    const name = formData.name.trim();
+    if (name.length < 2) {
+      setNameCheck(null);
+      return;
+    }
+
+    setNameCheck('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.checkCourseName(name);
+        if (res.success && res.data) {
+          setNameCheck(res.data);
+        } else {
+          setNameCheck(null);
+        }
+      } catch (err) {
+        console.error('Error checking course name:', err);
+        setNameCheck(null);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [formData.name]);
+
   const turns = ['Mañana', 'Tarde', 'Noche'];
 
-  const grades = [
-    'Primer Año',
-    'Segundo Año',
-    'Tercer Año',
-    'Cuarto Año',
-    'Quinto Año',
-    'Sexto Año',
+  const DAYS_OF_WEEK = [
+    { key: 'monday',    label: 'Lun', disabled: false },
+    { key: 'tuesday',   label: 'Mar', disabled: false },
+    { key: 'wednesday', label: 'Mié', disabled: false },
+    { key: 'thursday',  label: 'Jue', disabled: false },
+    { key: 'friday',    label: 'Vie', disabled: false },
+    { key: 'saturday',  label: 'Sáb', disabled: true, reason: 'Fin de semana (no lectivo)' },
+    { key: 'sunday',    label: 'Dom', disabled: true, reason: 'Fin de semana (no lectivo)' },
+  ];
+
+  const toggleDay = (day) => {
+    if (day.disabled) return;
+    setFormData(prev => ({
+      ...prev,
+      class_days: prev.class_days.includes(day.key)
+        ? prev.class_days.filter(d => d !== day.key)
+        : [...prev.class_days, day.key],
+    }));
+  };
+
+  const courseLevels = [
+    'Primer Curso',
+    'Segundo Curso',
+    'Tercer Curso',
+    'Cuarto Curso',
+    'Quinto Curso',
+    'Sexto Curso',
     'Otro',
   ];
 
-  const semesters = [
+  const COURSE_SEMESTERS_MAP = {
+    'Primer Curso': ['Primer Semestre', 'Segundo Semestre'],
+    'Primer Año': ['Primer Semestre', 'Segundo Semestre'],
+    'Segundo Curso': ['Tercer Semestre', 'Cuarto Semestre'],
+    'Segundo Año': ['Tercer Semestre', 'Cuarto Semestre'],
+    'Tercer Curso': ['Quinto Semestre', 'Sexto Semestre'],
+    'Tercer Año': ['Quinto Semestre', 'Sexto Semestre'],
+    'Cuarto Curso': ['Séptimo Semestre', 'Octavo Semestre'],
+    'Cuarto Año': ['Séptimo Semestre', 'Octavo Semestre'],
+    'Quinto Curso': ['Noveno Semestre', 'Décimo Semestre'],
+    'Quinto Año': ['Noveno Semestre', 'Décimo Semestre'],
+    'Sexto Curso': ['Undécimo Semestre', 'Duodécimo Semestre'],
+    'Sexto Año': ['Undécimo Semestre', 'Duodécimo Semestre'],
+  };
+
+  const allSemesters = [
     'Primer Semestre',
     'Segundo Semestre',
     'Tercer Semestre',
@@ -201,6 +268,12 @@ const CreateCourse = () => {
       return;
     }
 
+    // Bloquear si hay un duplicado exacto
+    if (nameCheck && nameCheck !== 'checking' && nameCheck.exact) {
+      toast.error('Ya existe un curso con ese nombre exacto. Cambia el nombre para continuar.');
+      return;
+    }
+
     if (!formData.classroom_pavilion || !formData.classroom_floor || !formData.classroom_number) {
       toast.error('Debes seleccionar el pabellón, piso y número de aula');
       return;
@@ -259,12 +332,13 @@ const CreateCourse = () => {
     setShowAvailableList(false);
   };
 
-  // ── Guard: only teachers ────────────────────────────────────────────────────
-  if (userProfile?.role !== 'teacher') {
+  // ── Guard: teachers, admin, director ───────────────────────────────────────
+  const canCreateCourse = ['teacher', 'admin', 'director'].includes(userProfile?.role);
+  if (!canCreateCourse) {
     return (
       <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
         <Alert severity="error">
-          Solo los profesores pueden crear cursos
+          Solo los profesores y administradores pueden crear cursos
         </Alert>
       </Box>
     );
@@ -418,23 +492,88 @@ const CreateCourse = () => {
                     onChange={handleChange('name')}
                     required
                     placeholder="Ej: Matemáticas Avanzadas"
+                    error={Boolean(nameCheck && nameCheck !== 'checking' && nameCheck.exact)}
+                    helperText={
+                      nameCheck === 'checking'
+                        ? '🔍 Verificando disponibilidad del nombre...'
+                        : nameCheck?.exact
+                        ? '⚠️ Ya existe un curso activo con este nombre exacto'
+                        : nameCheck?.matches?.length > 0
+                        ? `💡 Se encontraron ${nameCheck.matches.length} curso(s) con nombre similar`
+                        : (formData.name.trim().length >= 2 && nameCheck && !nameCheck.exact)
+                        ? '✅ Nombre disponible'
+                        : ''
+                    }
+                    FormHelperTextProps={{
+                      sx: {
+                        color: (nameCheck && nameCheck !== 'checking' && !nameCheck.exact && formData.name.trim().length >= 2)
+                          ? 'success.main'
+                          : undefined,
+                        fontWeight: 500
+                      }
+                    }}
+                    InputProps={{
+                      endAdornment: nameCheck === 'checking'
+                        ? <CircularProgress size={18} sx={{ mr: 1 }} />
+                        : (nameCheck?.exact)
+                        ? <ErrorIcon color="error" sx={{ mr: 1, fontSize: 22 }} />
+                        : (nameCheck && !nameCheck.exact && formData.name.trim().length >= 2)
+                        ? <CheckCircleIcon color="success" sx={{ mr: 1, fontSize: 22 }} />
+                        : null,
+                    }}
                   />
+
+                  {/* Banner de coincidencias */}
+                  <AnimatePresence>
+                    {nameCheck && nameCheck !== 'checking' && nameCheck.matches?.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Alert
+                          severity={nameCheck.exact ? 'error' : 'warning'}
+                          icon={nameCheck.exact ? <ErrorIcon fontSize="inherit" /> : <WarningIcon fontSize="inherit" />}
+                          sx={{ mt: 1, py: 0.5 }}
+                        >
+                          <AlertTitle sx={{ mb: 0.5, fontSize: '0.85rem', fontWeight: 700 }}>
+                            {nameCheck.exact
+                              ? 'Nombre duplicado — Ya existe un curso con este nombre exacto'
+                              : 'Cursos con nombre similar encontrados:'}
+                          </AlertTitle>
+                          <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                            {nameCheck.matches.map((c) => (
+                              <li key={c.id}>
+                                <Typography variant="caption">
+                                  <strong>{c.name}</strong>
+                                  {c.turn && ` · Turno ${c.turn}`}
+                                  {c.semester && ` · ${c.semester}`}
+                                  {c.owner_name && ` · Prof. ${c.owner_name}`}
+                                </Typography>
+                              </li>
+                            ))}
+                          </Box>
+                        </Alert>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </Grid>
 
                 {/* Descripción */}
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="Descripción"
+                    label="Descripción (opcional)"
                     value={formData.description}
                     onChange={handleChange('description')}
                     multiline
                     rows={3}
-                    placeholder="Describe brevemente el contenido del curso"
+                    placeholder="Describe brevemente el contenido del curso (opcional)"
                   />
                 </Grid>
 
-                {/* Turno y Grado */}
+                {/* Turno y Curso */}
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth required>
                     <InputLabel>Turno</InputLabel>
@@ -454,15 +593,23 @@ const CreateCourse = () => {
 
                 <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
-                    <InputLabel>Grado</InputLabel>
+                    <InputLabel>Curso</InputLabel>
                     <Select
                       value={formData.grade}
-                      onChange={handleChange('grade')}
-                      label="Grado"
+                      onChange={(e) => {
+                        const newGrade = e.target.value;
+                        const allowed = COURSE_SEMESTERS_MAP[newGrade];
+                        setFormData(prev => ({
+                          ...prev,
+                          grade: newGrade,
+                          semester: (allowed && !allowed.includes(prev.semester)) ? (allowed[0] || '') : prev.semester
+                        }));
+                      }}
+                      label="Curso"
                     >
-                      {grades.map((grade) => (
-                        <MenuItem key={grade} value={grade}>
-                          {grade}
+                      {courseLevels.map((level) => (
+                        <MenuItem key={level} value={level}>
+                          {level}
                         </MenuItem>
                       ))}
                     </Select>
@@ -478,7 +625,10 @@ const CreateCourse = () => {
                       onChange={handleChange('semester')}
                       label="Semestre"
                     >
-                      {semesters.map((semester) => (
+                      {(formData.grade && COURSE_SEMESTERS_MAP[formData.grade]
+                        ? COURSE_SEMESTERS_MAP[formData.grade]
+                        : allSemesters
+                      ).map((semester) => (
                         <MenuItem key={semester} value={semester}>
                           {semester}
                         </MenuItem>
@@ -574,6 +724,83 @@ const CreateCourse = () => {
                   <AnimatePresence>
                     {classroomStatusBanner()}
                   </AnimatePresence>
+                </Grid>
+
+                {/* Días de Clase */}
+                <Grid item xs={12}>
+                  <Divider sx={{ mb: 1 }} />
+                  <Box display="flex" alignItems="center" gap={1} mb={1.5}>
+                    <Typography variant="subtitle1" fontWeight={600}>
+                      Días de clase
+                    </Typography>
+                    <Chip label="Recomendado" size="small" color="secondary" sx={{ ml: 0.5 }} />
+                    <Tooltip title="Selecciona los días de la semana en que se imparte este curso. Serán usados para generar el calendario escolar." placement="top">
+                      <InfoIcon fontSize="small" color="action" sx={{ cursor: 'help' }} />
+                    </Tooltip>
+                  </Box>
+                  <Box display="flex" gap={1} flexWrap="wrap">
+                    {DAYS_OF_WEEK.map((day) => {
+                      const selected = formData.class_days.includes(day.key);
+                      if (day.disabled) {
+                        return (
+                          <Tooltip key={day.key} title={day.reason || 'No lectivo'} arrow>
+                            <span>
+                              <Box
+                                sx={{
+                                  px: 2,
+                                  py: 1,
+                                  borderRadius: 2,
+                                  fontWeight: 600,
+                                  fontSize: '0.85rem',
+                                  userSelect: 'none',
+                                  border: '1px dashed',
+                                  borderColor: 'divider',
+                                  backgroundColor: 'action.disabledBackground',
+                                  color: 'text.disabled',
+                                  cursor: 'not-allowed',
+                                  opacity: 0.5,
+                                }}
+                              >
+                                {day.label}
+                              </Box>
+                            </span>
+                          </Tooltip>
+                        );
+                      }
+
+                      return (
+                        <Box
+                          key={day.key}
+                          onClick={() => toggleDay(day)}
+                          sx={{
+                            px: 2.5,
+                            py: 1,
+                            borderRadius: 2,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: '0.85rem',
+                            userSelect: 'none',
+                            transition: 'all 0.18s',
+                            border: '2px solid',
+                            borderColor: selected ? 'primary.main' : 'divider',
+                            backgroundColor: selected ? 'primary.main' : 'background.paper',
+                            color: selected ? '#fff' : 'text.primary',
+                            '&:hover': {
+                              borderColor: 'primary.main',
+                              backgroundColor: selected ? 'primary.dark' : 'action.hover',
+                              transform: 'translateY(-1px)',
+                              boxShadow: selected ? 2 : 1,
+                            },
+                          }}
+                        >
+                          {day.label}
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+                    * Sábado y Domingo no están disponibles (fines de semana no lectivos).
+                  </Typography>
                 </Grid>
 
                 {/* Color */}

@@ -11,6 +11,8 @@ class SessionManager {
     this._storagePrefix = null;
     this._isInitialized = false;
     this._tabFingerprint = null;
+    // Fallback en memoria para cuando localStorage y sessionStorage estén llenos
+    this._memoryStore = new Map();
 
     this.init();
   }
@@ -381,34 +383,84 @@ class SessionManager {
   }
 
   /**
+   * Limpia sesiones antiguas y datos obsoletos del localStorage
+   */
+  cleanOldSessions() {
+    try {
+      const keys = Object.keys(localStorage);
+      const now = Date.now();
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+
+      for (const key of keys) {
+        if (key.startsWith('session_')) {
+          // Si no pertenece a la sesión activa actual
+          if (this.storagePrefix && !key.startsWith(this.storagePrefix)) {
+            try {
+              const item = JSON.parse(localStorage.getItem(key));
+              if (!item?.timestamp || (now - item.timestamp > ONE_DAY)) {
+                localStorage.removeItem(key);
+              }
+            } catch {
+              localStorage.removeItem(key);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Error durante la limpieza de sesiones antiguas:', err);
+    }
+  }
+
+  /**
    * Guarda un valor en localStorage con prefijo de sesión
    * IMPORTANTE: Incluye la huella digital de la pestaña para detectar duplicaciones
    */
   setItem(key, value) {
     const prefixedKey = this.getKey(key);
+    const data = {
+      value: value,
+      sessionId: this.sessionId,
+      tabFingerprint: this.getTabFingerprint(),
+      timestamp: Date.now()
+    };
+    const jsonStr = JSON.stringify(data);
+
+    // Siempre guardar en memoria como respaldo instantáneo (no expira, no falla)
+    this._memoryStore.set(prefixedKey, data);
+
     try {
-      // Guardar con metadata que incluye sessionId y tabFingerprint
-      const data = {
-        value: value,
-        sessionId: this.sessionId,
-        tabFingerprint: this.getTabFingerprint(), // Identificador único de esta pestaña
-        timestamp: Date.now()
-      };
-      localStorage.setItem(prefixedKey, JSON.stringify(data));
+      localStorage.setItem(prefixedKey, jsonStr);
 
       if (process.env.NODE_ENV === 'development' && (key === 'user' || key === 'authToken')) {
         console.log(`💾 Guardado ${key} para sesión: ${this.sessionId.substring(0, 12)}..., tab: ${this.getTabFingerprint().substring(0, 12)}...`);
       }
+      return; // éxito en localStorage
     } catch (e) {
-      console.error('Error guardando en localStorage:', e);
+      if (e.name === 'QuotaExceededError' || e.code === 22 || e.number === -2147024882) {
+        console.warn('⚠️ QuotaExceededError detectado, ejecutando limpieza agresiva de sesiones...');
+        this.cleanOldSessions();
+        try {
+          localStorage.setItem(prefixedKey, jsonStr);
+          return; // éxito tras limpieza
+        } catch (retryError) {
+          // sigue al fallback sessionStorage
+        }
+      }
+      // Respaldo en sessionStorage
+      try {
+        sessionStorage.setItem(prefixedKey, jsonStr);
+        return; // éxito en sessionStorage
+      } catch (sessionErr) {
+        // El dato ya está en _memoryStore, continúa sin error
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`⚠️ Storage lleno - ${key} guardado solo en memoria (se perderá al recargar)`);
+        }
+      }
     }
   }
 
   /**
-   * Obtiene un valor de localStorage con prefijo de sesión
-   * Solo obtiene valores de esta sesión específica
-   * CRÍTICO: Verifica que el sessionId Y tabFingerprint coincidan
-   * Si tabFingerprint no coincide, es una pestaña duplicada y NO debe leer esos datos
+   * Obtiene un valor de localStorage con prefijo de sesión (o sessionStorage fallback)
    */
   getItem(key) {
     const prefixedKey = this.getKey(key);
@@ -416,7 +468,11 @@ class SessionManager {
     const currentTabFingerprint = this.getTabFingerprint();
 
     try {
-      const stored = localStorage.getItem(prefixedKey);
+      let stored = localStorage.getItem(prefixedKey);
+      if (!stored) {
+        // Buscar en sessionStorage fallback
+        stored = sessionStorage.getItem(prefixedKey);
+      }
       if (!stored) {
         return null;
       }
@@ -492,8 +548,14 @@ class SessionManager {
       }
     } catch (e) {
       console.error('Error leyendo de localStorage:', e);
-      return null;
+      // Último recurso: leer de memoria
+      const memData = this._memoryStore.get(prefixedKey);
+      return memData ? memData.value : null;
     }
+
+    // Si llegamos aquí sin haber retornado, intentar memoria
+    const memData = this._memoryStore.get(prefixedKey);
+    return memData ? memData.value : null;
   }
 
   /**
@@ -605,6 +667,40 @@ class SessionManager {
       }
     } catch (e) {
       return false;
+    }
+  }
+
+  /**
+   * Limpia sesiones antiguas y datos huérfanos de localStorage para liberar espacio de cuota
+   */
+  cleanOldSessions() {
+    try {
+      const keys = Object.keys(localStorage);
+      const currentPrefix = `session_${this.sessionId}_`;
+      let deletedCount = 0;
+
+      // 1. Eliminar todas las entradas de sesiones que no coincidan con la sesión actual
+      keys.forEach(key => {
+        if (key.startsWith('session_') && !key.startsWith(currentPrefix)) {
+          localStorage.removeItem(key);
+          deletedCount++;
+        }
+      });
+
+      // 2. Si todavía hay muchas entradas, limpiar registros de cache y toast
+      const remainingKeys = Object.keys(localStorage);
+      remainingKeys.forEach(key => {
+        if (key.startsWith('cache_') || key.startsWith('temp_') || key.startsWith('toast_')) {
+          localStorage.removeItem(key);
+          deletedCount++;
+        }
+      });
+
+      if (deletedCount > 0) {
+        console.log(`🧹 Limpieza de almacenamiento completada: ${deletedCount} entradas antiguas liberadas`);
+      }
+    } catch (e) {
+      console.warn('Error durante la limpieza de sesiones:', e);
     }
   }
 

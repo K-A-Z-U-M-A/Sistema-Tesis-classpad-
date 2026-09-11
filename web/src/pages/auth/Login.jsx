@@ -334,8 +334,7 @@ export default function Login() {
   // ============================================================================
 
   const handleGoogleLogin = () => {
-    const backendUrl = 'http://localhost:3001';
-    window.location.href = `${backendUrl}/api/auth/google?flow=redirect`;
+    window.location.href = '/api/auth/google?flow=redirect';
   };
 
   // ============================================================================

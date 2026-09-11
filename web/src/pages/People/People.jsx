@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -91,6 +91,68 @@ export default function People() {
   const [enrollLoading, setEnrollLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
 
+  // Lookup state for auto-filling student data from cédula
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [foundExistingStudent, setFoundExistingStudent] = useState(null);
+  const lookupTimerRef = useRef(null);
+
+  // Check if the cédula is already enrolled and active in the selected course
+  const alreadyEnrolledStudent = React.useMemo(() => {
+    const cedula = enrollForm.cedula.trim();
+    if (!cedula || !students.length) return null;
+    return students.find(
+      (s) => s.cedula === cedula && s.status === 'active'
+    ) || null;
+  }, [enrollForm.cedula, students]);
+
+  // Debounced lookup: when cédula changes, search for existing student in the system
+  useEffect(() => {
+    const cedula = enrollForm.cedula.trim();
+
+    // Clear previous timer
+    if (lookupTimerRef.current) {
+      clearTimeout(lookupTimerRef.current);
+      lookupTimerRef.current = null;
+    }
+
+    // Reset if cédula is empty or already enrolled in this course
+    if (!cedula || alreadyEnrolledStudent) {
+      setFoundExistingStudent(null);
+      setLookupLoading(false);
+      return;
+    }
+
+    setLookupLoading(true);
+
+    lookupTimerRef.current = setTimeout(async () => {
+      try {
+        const response = await api.lookupStudentByCedula(cedula);
+        if (response.success && response.found && response.data) {
+          setFoundExistingStudent(response.data);
+          // Auto-fill the form fields
+          setEnrollForm(prev => ({
+            ...prev,
+            nombre: response.data.displayName || prev.nombre,
+            email: response.data.email || prev.email
+          }));
+        } else {
+          setFoundExistingStudent(null);
+        }
+      } catch (error) {
+        console.error('Error looking up student:', error);
+        setFoundExistingStudent(null);
+      } finally {
+        setLookupLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      if (lookupTimerRef.current) {
+        clearTimeout(lookupTimerRef.current);
+      }
+    };
+  }, [enrollForm.cedula, alreadyEnrolledStudent]);
+
   // Student progress dialog
   const [progressDialogOpen, setProgressDialogOpen] = useState(false);
   const [selectedStudentProgress, setSelectedStudentProgress] = useState(null);
@@ -158,6 +220,7 @@ export default function People() {
         toast.success(response.message || 'Estudiante matriculado exitosamente');
         setEnrollDialogOpen(false);
         setEnrollForm({ cedula: '', nombre: '', email: '' });
+        setFoundExistingStudent(null);
         loadStudents(selectedCourse.id);
       }
     } catch (error) {
@@ -836,7 +899,11 @@ export default function People() {
       {/* Dialogs */}
       <Dialog
         open={enrollDialogOpen}
-        onClose={() => setEnrollDialogOpen(false)}
+        onClose={() => {
+          setEnrollDialogOpen(false);
+          setEnrollForm({ cedula: '', nombre: '', email: '' });
+          setFoundExistingStudent(null);
+        }}
         maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: "20px" } }}
@@ -849,24 +916,64 @@ export default function People() {
             <TextField
               label="Número de Cédula"
               value={enrollForm.cedula}
-              onChange={(e) => setEnrollForm(prev => ({ ...prev, cedula: e.target.value }))}
+              onChange={(e) => {
+                setEnrollForm(prev => ({ ...prev, cedula: e.target.value }));
+                // Reset found student when cédula changes manually
+                if (foundExistingStudent) {
+                  setFoundExistingStudent(null);
+                  setEnrollForm(prev => ({ ...prev, cedula: e.target.value, nombre: '', email: '' }));
+                }
+              }}
               fullWidth
               required
-              helperText="La cédula se usará como contraseña si el alumno no existe"
+              error={!!alreadyEnrolledStudent}
+              color={foundExistingStudent && !alreadyEnrolledStudent ? 'success' : undefined}
+              helperText={
+                alreadyEnrolledStudent
+                  ? `Este alumno ya se encuentra matriculado y activo en este curso`
+                  : foundExistingStudent
+                    ? `✓ Alumno encontrado en el sistema — datos cargados automáticamente`
+                    : lookupLoading
+                      ? 'Buscando alumno en el sistema...'
+                      : "La cédula se usará como contraseña si el alumno no existe"
+              }
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <Badge />
                   </InputAdornment>
-                )
+                ),
+                endAdornment: lookupLoading ? (
+                  <InputAdornment position="end">
+                    <CircularProgress size={20} />
+                  </InputAdornment>
+                ) : foundExistingStudent && !alreadyEnrolledStudent ? (
+                  <InputAdornment position="end">
+                    <CheckCircle color="success" />
+                  </InputAdornment>
+                ) : null
               }}
             />
+            {alreadyEnrolledStudent && (
+              <Alert severity="warning" sx={{ borderRadius: "16px" }}>
+                El alumno <strong>{alreadyEnrolledStudent.display_name}</strong> (Cédula: {alreadyEnrolledStudent.cedula}) ya está matriculado y activo en el curso "{selectedCourse?.name}". No es posible matricularlo nuevamente.
+              </Alert>
+            )}
+            {foundExistingStudent && !alreadyEnrolledStudent && (
+              <Alert severity="success" sx={{ borderRadius: "16px" }}>
+                El alumno <strong>{foundExistingStudent.displayName}</strong> ya existe en el sistema. Sus datos se han cargado automáticamente.
+              </Alert>
+            )}
             <TextField
               label="Nombre Completo"
               value={enrollForm.nombre}
               onChange={(e) => setEnrollForm(prev => ({ ...prev, nombre: e.target.value }))}
               fullWidth
               required
+              disabled={!!foundExistingStudent}
+              InputProps={{
+                readOnly: !!foundExistingStudent
+              }}
             />
             <TextField
               label="Correo Electrónico"
@@ -875,7 +982,9 @@ export default function People() {
               onChange={(e) => setEnrollForm(prev => ({ ...prev, email: e.target.value }))}
               fullWidth
               required
+              disabled={!!foundExistingStudent}
               InputProps={{
+                readOnly: !!foundExistingStudent,
                 startAdornment: (
                   <InputAdornment position="start">
                     <Email />
@@ -889,13 +998,17 @@ export default function People() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={() => setEnrollDialogOpen(false)} disabled={enrollLoading}>
+          <Button onClick={() => {
+            setEnrollDialogOpen(false);
+            setEnrollForm({ cedula: '', nombre: '', email: '' });
+            setFoundExistingStudent(null);
+          }} disabled={enrollLoading}>
             Cancelar
           </Button>
           <Button
             variant="contained"
             onClick={handleEnroll}
-            disabled={enrollLoading}
+            disabled={enrollLoading || !!alreadyEnrolledStudent}
             sx={{ borderRadius: "16px", minWidth: 120 }}
           >
             {enrollLoading ? <CircularProgress size={24} /> : 'Matricular'}

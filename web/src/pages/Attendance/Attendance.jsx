@@ -55,12 +55,13 @@ import {
   FileDownload,
   Assessment,
   Warning,
-  Done,
-  Clear,
   ExpandMore,
   ExpandLess,
   Visibility,
-  ArrowBack
+  ArrowBack,
+  AutoAwesome,
+  EventAvailable,
+  Done
 } from '@mui/icons-material';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
@@ -110,22 +111,74 @@ export default function Attendance() {
   const [attendanceStats, setAttendanceStats] = useState([]);
   const [showStats, setShowStats] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState(new Set());
+  const [scheduledClasses, setScheduledClasses] = useState([]);
+  const [selectedScheduledClassId, setSelectedScheduledClassId] = useState('');
   const qrCodeRef = useRef(null);
   const expandedSessionsRef = useRef(new Set());
+
+  // Helper para obtener fecha actual en formato YYYY-MM-DD local
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper para obtener fecha actual formateada en español
+  const getTodayFormattedLong = () => {
+    return new Date().toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  // Helper para encontrar la clase programada más cercana a la fecha de hoy
+  const getClosestScheduledClass = (classesList) => {
+    if (!classesList || classesList.length === 0) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+
+    let closest = null;
+    let minDiff = Infinity;
+
+    for (const c of classesList) {
+      if (!c.class_date) continue;
+      const dateStr = typeof c.class_date === 'string' ? c.class_date.split('T')[0] : '';
+      if (!dateStr) continue;
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const classDate = new Date(y, m - 1, d);
+      classDate.setHours(0, 0, 0, 0);
+
+      const diff = Math.abs(classDate.getTime() - todayTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = c;
+      }
+    }
+
+    return closest;
+  };
 
   // Load courses on mount
   useEffect(() => {
     loadCourses();
   }, []);
 
-  // Load sessions when course changes
+  // Load sessions and scheduled classes when course changes
   useEffect(() => {
     if (selectedCourse) {
       loadSessions(selectedCourse);
       loadStudents(selectedCourse);
+      loadScheduledClasses(selectedCourse);
     } else {
       setSessions([]);
       setStudents([]);
+      setScheduledClasses([]);
+      setSelectedScheduledClassId('');
     }
   }, [selectedCourse]);
 
@@ -191,9 +244,13 @@ export default function Attendance() {
   const loadCourses = async () => {
     try {
       setLoading(true);
-      if (userProfile?.role === 'teacher') {
-        const response = await api.request('/courses');
-        if (response.success) setCourses(response.data);
+      const response = await api.request('/courses');
+      if (response.success) {
+        const courseList = response.data || [];
+        setCourses(courseList);
+        if (courseList.length === 1 && !selectedCourse) {
+          setSelectedCourse(courseList[0].id);
+        }
       }
     } catch (error) {
       console.error('Error loading courses:', error);
@@ -224,6 +281,22 @@ export default function Attendance() {
     } catch (error) {
       console.error('Error loading students:', error);
       setStudents([]);
+    }
+  };
+
+  const loadScheduledClasses = async (courseId) => {
+    try {
+      const response = await api.getCourseScheduledClasses(courseId);
+      if (response.success && Array.isArray(response.data)) {
+        setScheduledClasses(response.data);
+        return response.data;
+      }
+      setScheduledClasses([]);
+      return [];
+    } catch (error) {
+      console.warn('Error loading scheduled classes:', error);
+      setScheduledClasses([]);
+      return [];
     }
   };
 
@@ -317,10 +390,9 @@ export default function Attendance() {
       toast.error('Selecciona un curso');
       return;
     }
-    if (!sessionForm.title) {
-      toast.error('El título es requerido');
-      return;
-    }
+
+    const selectedClass = scheduledClasses.find(c => c.id === selectedScheduledClassId);
+    const finalTitle = selectedClass?.title || sessionForm.title || `Clase del ${getTodayFormattedLong()}`;
 
     if (sessionForm.location_required && (!sessionForm.allowed_latitude || !sessionForm.allowed_longitude)) {
       toast.error('La latitud y longitud son requeridas cuando la ubicación es obligatoria');
@@ -332,6 +404,8 @@ export default function Attendance() {
       const response = await api.createAttendanceSession({
         course_id: selectedCourse,
         ...sessionForm,
+        title: finalTitle,
+        description: sessionForm.description || '',
         allowed_latitude: sessionForm.location_required ? parseFloat(sessionForm.allowed_latitude) : null,
         allowed_longitude: sessionForm.location_required ? parseFloat(sessionForm.allowed_longitude) : null
       });
@@ -339,6 +413,7 @@ export default function Attendance() {
       if (response.success) {
         toast.success('Sesión de asistencia creada exitosamente');
         setCreateDialogOpen(false);
+        setSelectedScheduledClassId('');
         setSessionForm({
           title: '',
           description: '',
@@ -449,6 +524,48 @@ export default function Attendance() {
     }
   };
 
+  // Abrir diálogo de creación de sesión QR con clase más próxima precargada
+  const openCreateQRDialog = async (courseId = selectedCourse) => {
+    if (!courseId) {
+      toast.error('Selecciona un curso');
+      return;
+    }
+
+    let classesList = scheduledClasses;
+    if (!classesList || classesList.length === 0) {
+      classesList = await loadScheduledClasses(courseId);
+    }
+
+    const closestClass = getClosestScheduledClass(classesList);
+    const formattedDate = getTodayFormattedLong();
+
+    if (closestClass) {
+      setSessionForm({
+        title: closestClass.title || `Clase del ${formattedDate}`,
+        description: closestClass.description || '',
+        location_required: false,
+        allowed_latitude: '',
+        allowed_longitude: '',
+        allowed_radius: 50,
+        duration_minutes: 60
+      });
+      setSelectedScheduledClassId(closestClass.id);
+    } else {
+      setSessionForm({
+        title: `Clase del ${formattedDate}`,
+        description: '',
+        location_required: false,
+        allowed_latitude: '',
+        allowed_longitude: '',
+        allowed_radius: 50,
+        duration_minutes: 60
+      });
+      setSelectedScheduledClassId('');
+    }
+
+    setCreateDialogOpen(true);
+  };
+
   // Crear sesión de asistencia por lista
   const handleCreateListAttendanceSession = async () => {
     if (!selectedCourse) {
@@ -458,20 +575,30 @@ export default function Attendance() {
 
     try {
       setLoading(true);
+      let classesList = scheduledClasses;
+      if (!classesList || classesList.length === 0) {
+        classesList = await loadScheduledClasses(selectedCourse);
+      }
+
+      const closestClass = getClosestScheduledClass(classesList);
       const now = new Date();
-      const sessionTitle = `Asistencia por Lista - ${now.toLocaleDateString('es-ES', { 
+      const formattedDate = now.toLocaleDateString('es-ES', { 
         day: '2-digit', 
         month: '2-digit', 
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })}`;
+        year: 'numeric'
+      });
+
+      const sessionTitle = closestClass
+        ? `${closestClass.title} (${formattedDate})`
+        : `Asistencia - ${formattedDate}`;
+
+      const sessionDescription = closestClass?.description || '';
 
       // Crear sesión de asistencia
       const response = await api.createAttendanceSession({
         course_id: selectedCourse,
         title: sessionTitle,
-        description: 'Asistencia tomada mediante lista manual',
+        description: sessionDescription,
         location_required: false,
         duration_minutes: 0 // Sin límite de tiempo
       });
@@ -562,7 +689,7 @@ export default function Attendance() {
     if (method === 'list') {
       handleCreateListAttendanceSession();
     } else if (method === 'qr') {
-      setCreateDialogOpen(true);
+      openCreateQRDialog(selectedCourse);
     }
   };
 
@@ -1037,7 +1164,7 @@ export default function Attendance() {
                 <Button
                   variant="contained"
                   startIcon={<Add />}
-                  onClick={() => setCreateDialogOpen(true)}
+                  onClick={() => openCreateQRDialog(selectedCourse)}
                   disabled={loading}
                 >
                   Nueva Sesión
@@ -1143,11 +1270,9 @@ export default function Attendance() {
                                   color={session.is_active ? 'success' : 'default'}
                                   size="small"
                                 />
-                                {session.total_records && (
-                                  <Typography variant="body2" color="text.secondary">
-                                    {session.present_count || 0} / {session.total_records} presentes
-                                  </Typography>
-                                )}
+                                <Typography variant="body2" color="text.secondary">
+                                  {session.present_count || 0} / {session.total_students !== undefined ? session.total_students : (students?.length || 0)} presentes
+                                </Typography>
                               </Box>
                             </Box>
                             <Box sx={{ display: 'flex', gap: 0.5, flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -1494,10 +1619,13 @@ export default function Attendance() {
       )}
 
       {/* Create Session Dialog */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Nueva Sesión de Asistencia</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <QrCode color="primary" />
+              <Typography variant="h6">Nueva Sesión de Asistencia con QR</Typography>
+            </Box>
             <IconButton
               onClick={() => setCreateDialogOpen(false)}
               size="small"
@@ -1513,39 +1641,103 @@ export default function Attendance() {
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
             <TextField
               label="Curso"
               value={selectedCourse ? courses.find(c => c.id === selectedCourse)?.name || '' : ''}
               fullWidth
-              required
               disabled
-              helperText="El curso ya está seleccionado"
+              size="small"
             />
+
+            {/* Selector de Clases Programadas del Calendario */}
+            {scheduledClasses.length > 0 ? (
+              <FormControl fullWidth size="small">
+                <InputLabel id="scheduled-class-select-label">Clase del Calendario Escolar</InputLabel>
+                <Select
+                  labelId="scheduled-class-select-label"
+                  label="Clase del Calendario Escolar"
+                  value={selectedScheduledClassId || ''}
+                  onChange={(e) => {
+                    const classId = e.target.value;
+                    setSelectedScheduledClassId(classId);
+                    if (classId) {
+                      const found = scheduledClasses.find(c => c.id === classId);
+                      if (found) {
+                        setSessionForm(prev => ({
+                          ...prev,
+                          title: found.title,
+                          description: found.description || ''
+                        }));
+                      }
+                    } else {
+                      setSessionForm(prev => ({
+                        ...prev,
+                        title: `Clase del ${getTodayFormattedLong()}`,
+                        description: ''
+                      }));
+                    }
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>Fecha actual ({getTodayFormattedLong()})</em>
+                  </MenuItem>
+                  {scheduledClasses.map((sc) => {
+                    const isToday = sc.class_date?.split('T')[0] === getTodayDateStr();
+                    const dateDisplay = sc.class_date ? new Date(sc.class_date).toLocaleDateString('es-ES') : '';
+                    return (
+                      <MenuItem key={sc.id} value={sc.id}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {isToday && (
+                              <Chip 
+                                label="Hoy" 
+                                size="small" 
+                                color="primary" 
+                                sx={{ height: 20, fontSize: '0.7rem', fontWeight: 'bold' }} 
+                              />
+                            )}
+                            <Typography variant="body2" sx={{ fontWeight: isToday ? 600 : 400 }}>
+                              {sc.title}
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            {dateDisplay}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+            ) : (
+              <TextField
+                label="Fecha de la Clase"
+                value={getTodayFormattedLong()}
+                fullWidth
+                disabled
+                size="small"
+              />
+            )}
+
             <TextField
-              label="Título"
-              value={sessionForm.title}
-              onChange={(e) => setSessionForm(prev => ({ ...prev, title: e.target.value }))}
-              fullWidth
-              required
-              placeholder="Ej: Clase del 15 de Noviembre"
-            />
-            <TextField
-              label="Descripción"
+              label="Descripción (Opcional)"
               value={sessionForm.description}
               onChange={(e) => setSessionForm(prev => ({ ...prev, description: e.target.value }))}
               fullWidth
               multiline
               rows={2}
-              placeholder="Opcional"
+              placeholder="Notas o descripción opcional de la clase..."
             />
+
             <TextField
               label="Duración (minutos)"
               type="number"
               value={sessionForm.duration_minutes}
-              onChange={(e) => setSessionForm(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) }))}
+              onChange={(e) => setSessionForm(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) || 0 }))}
               fullWidth
-              helperText="Tiempo que el QR estará activo (0 = sin límite)"
+              size="small"
+              helperText="Tiempo que el QR estará activo (0 = sin límite de tiempo)"
             />
             
             <FormControlLabel
@@ -1560,7 +1752,7 @@ export default function Attendance() {
 
             {sessionForm.location_required && (
               <>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary">
                   Configuración de Ubicación
                 </Typography>
                 <LocationMap
@@ -1580,22 +1772,22 @@ export default function Attendance() {
                   value={sessionForm.allowed_radius}
                   onChange={(e) => setSessionForm(prev => ({ ...prev, allowed_radius: parseInt(e.target.value) }))}
                   fullWidth
-                  sx={{ mt: 2 }}
+                  size="small"
                   helperText="Radio máximo desde la ubicación central"
                 />
-                <Alert severity="info" sx={{ mt: 2 }}>
+                <Alert severity="info">
                   Los estudiantes deben estar dentro del radio especificado para marcar su asistencia.
                 </Alert>
               </>
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => setCreateDialogOpen(false)} disabled={loading}>
             Cancelar
           </Button>
           <Button variant="contained" onClick={handleCreateSession} disabled={loading}>
-            {loading ? <CircularProgress size={24} /> : 'Crear Sesión'}
+            {loading ? <CircularProgress size={24} /> : 'Crear Sesión con QR'}
           </Button>
         </DialogActions>
       </Dialog>

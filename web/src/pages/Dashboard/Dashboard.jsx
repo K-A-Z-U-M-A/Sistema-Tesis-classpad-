@@ -1,21 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   Grid, Typography, Box, Card, CardContent, LinearProgress, Chip,
   CircularProgress, Alert, AlertTitle, Button, Skeleton, Stack,
+  Dialog, DialogTitle, DialogContent, DialogActions, Divider, IconButton, Paper
 } from "@mui/material";
-import {
-  School, Assignment, CheckCircle, TrendingUp, People, Assessment,
-  Warning, AccessTime, CalendarToday, AssignmentTurnedIn, BarChart,
-  ErrorOutline, CheckCircleOutline,
-} from "@mui/icons-material";
+import School from "@mui/icons-material/School";
+import Assignment from "@mui/icons-material/Assignment";
+import CheckCircle from "@mui/icons-material/CheckCircle";
+import TrendingUp from "@mui/icons-material/TrendingUp";
+import People from "@mui/icons-material/People";
+import Assessment from "@mui/icons-material/Assessment";
+import Warning from "@mui/icons-material/Warning";
+import AccessTime from "@mui/icons-material/AccessTime";
+import CalendarToday from "@mui/icons-material/CalendarToday";
+import AssignmentTurnedIn from "@mui/icons-material/AssignmentTurnedIn";
+import BarChart from "@mui/icons-material/BarChart";
+import ErrorOutline from "@mui/icons-material/ErrorOutline";
+import CheckCircleOutline from "@mui/icons-material/CheckCircleOutline";
+import TopicIcon from "@mui/icons-material/MenuBook";
+import RoomIcon from "@mui/icons-material/MeetingRoom";
+import CloseIcon from "@mui/icons-material/Close";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import AlertIcon from "@mui/icons-material/NotificationsActive";
 import { useAuth } from "../../contexts/AuthContext.tsx";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
-import {
-  BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip as RechartsTooltip, Legend, ResponsiveContainer, Cell,
-} from "recharts";
 import { PageContainer, StatCard, EmptyState } from "../../components/ui";
+
+const PerformanceChart = lazy(() => import("./PerformanceChart"));
 
 // ─── Mini stat card (inline, no icon container) ────────────────────────────────
 const MiniStat = ({ label, value, color = "primary.main" }) => (
@@ -38,8 +50,12 @@ const CourseCard = ({ course }) => {
 
   return (
     <Card
-      sx={{ height: "100%", cursor: "pointer" }}
+      sx={{ height: "100%", cursor: "pointer", outline: "none", "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main" } }}
       onClick={() => navigate(`/courses/${course.id}`)}
+      role="button"
+      tabIndex={0}
+      aria-label={`Ver curso ${course.name}`}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/courses/${course.id}`)}
     >
       <CardContent sx={{ p: "16px !important" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
@@ -102,8 +118,10 @@ const PendingTaskRow = ({ assignment }) => {
     <Box
       component="button"
       onClick={() => navigate(`/assignments/${assignmentId}`)}
+      aria-label={`Ver tarea ${assignment.title}`}
       sx={{
         width: "100%", display: "flex", alignItems: "center", gap: 2,
+        minHeight: "44px",
         p: "12px 0", borderBottom: "1px solid", borderColor: "divider",
         border: "none", backgroundColor: "transparent", cursor: "pointer", textAlign: "left",
         "&:last-child": { borderBottom: "none" },
@@ -134,91 +152,124 @@ const PendingTaskRow = ({ assignment }) => {
   );
 };
 
-// ─── Performance chart ────────────────────────────────────────────────────────
-const PerformanceChart = ({ data }) => {
-  if (!data || data.length === 0) {
-    return (
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: 260, color: "#98979D" }}>
-        <Typography variant="body2" color="text.secondary">No hay datos disponibles aun</Typography>
-      </Box>
-    );
-  }
-  return (
-    <ResponsiveContainer width="100%" height={260}>
-      <RechartsBarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 80 }} barGap={4}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E7E0EC" vertical={false} />
-        <XAxis
-          dataKey="name" angle={-40} textAnchor="end" height={90}
-          tick={{ fontSize: 11, fill: "#49454F" }} interval={0} tickLine={false} axisLine={false}
-        />
-        <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#49454F" }} tickLine={false} axisLine={false} />
-        <RechartsTooltip
-          contentStyle={{ borderRadius: 12, border: "1px solid #CAC4D0", boxShadow: "0px 4px 8px 3px rgba(0,0,0,0.15)", fontSize: 13 }}
-          formatter={(value, name) => [`${Number(value).toFixed(1)}%`, name]}
-        />
-        <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-        <Bar dataKey="averageGrade"    name="Promedio"      fill="#6750A4" radius={[6, 6, 0, 0]} maxBarSize={24} />
-        <Bar dataKey="attendanceRate"  name="Asistencia"    fill="#146C2E" radius={[6, 6, 0, 0]} maxBarSize={24} />
-        <Bar dataKey="participationRate" name="Participación" fill="#7D5260" radius={[6, 6, 0, 0]} maxBarSize={24} />
-      </RechartsBarChart>
-    </ResponsiveContainer>
-  );
+// ─── SWR Dashboard Cache ──────────────────────────────────────────────────────
+const DASHBOARD_CACHE_PREFIX = "classpad_dashboard_cache_";
+
+const getCachedDashboardData = (userId) => {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(`${DASHBOARD_CACHE_PREFIX}${userId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Válido si tiene menos de 24 horas
+    if (Date.now() - (parsed.timestamp || 0) < 24 * 60 * 60 * 1000) {
+      return parsed;
+    }
+  } catch {}
+  return null;
 };
 
-// ─── Loading skeleton ─────────────────────────────────────────────────────────
-const DashboardSkeleton = () => (
-  <PageContainer>
-    <Box sx={{ mb: 3 }}>
-      <Skeleton width="40%" height={36} />
-      <Skeleton width="25%" height={20} sx={{ mt: 0.5 }} />
-    </Box>
-    <Grid container spacing={2.5}>
-      {[0, 1, 2, 3].map((i) => (
-        <Grid item xs={12} sm={6} md={3} key={i}>
-          <Skeleton variant="rounded" height={120} sx={{ borderRadius: 3 }} />
-        </Grid>
-      ))}
-      <Grid item xs={12} md={8}>
-        <Skeleton variant="rounded" height={320} sx={{ borderRadius: 3 }} />
-      </Grid>
-      <Grid item xs={12} md={4}>
-        <Skeleton variant="rounded" height={320} sx={{ borderRadius: 3 }} />
-      </Grid>
-    </Grid>
-  </PageContainer>
-);
+const setCachedDashboardData = (userId, data) => {
+  if (!userId) return;
+  try {
+    localStorage.setItem(
+      `${DASHBOARD_CACHE_PREFIX}${userId}`,
+      JSON.stringify({ ...data, timestamp: Date.now() })
+    );
+  } catch {}
+};
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { userProfile, profileComplete } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading]           = useState(true);
-  const [courses, setCourses]           = useState([]);
-  const [assignments, setAssignments]   = useState([]);
-  const [teacherStats, setTeacherStats] = useState(null);
-  const isTeacher = userProfile?.role === "teacher";
+  const userId = userProfile?.id;
+  const initialCache = React.useMemo(() => getCachedDashboardData(userId), [userId]);
 
+  const [loading, setLoading]           = useState(() => !initialCache);
+  const [courses, setCourses]           = useState(() => initialCache?.courses || []);
+  const [assignments, setAssignments]   = useState(() => initialCache?.assignments || []);
+  const [teacherStats, setTeacherStats] = useState(() => initialCache?.teacherStats || null);
+  const [todayClasses, setTodayClasses] = useState(() => initialCache?.todayClasses || []);
+  const [showTodayPopup, setShowTodayPopup] = useState(false);
+  const userRole = (userProfile?.role || "").toLowerCase();
+  const isSupervision = ["admin", "director", "coordinator", "secretary"].includes(userRole);
+  const isTeacher = userRole === "teacher" || isSupervision;
+
+  // SWR: Recargar datos en segundo plano sin bloquear el render inicial
   useEffect(() => {
-    if (userProfile) loadDashboardData();
-  }, [userProfile]);
+    if (!userId) return;
+    loadDashboardData();
+  }, [userId]);
 
   const loadDashboardData = async () => {
     try {
-      setLoading(true);
-      const coursesRes     = await api.getMyCourses();
-      const userCourses    = coursesRes.data?.courses || coursesRes.data || [];
-      setCourses(Array.isArray(userCourses) ? userCourses : []);
-      const assignmentsRes = await api.getMyAssignments();
-      const userAssignments = assignmentsRes.data?.assignments || assignmentsRes.data || [];
-      setAssignments(Array.isArray(userAssignments) ? userAssignments : []);
-      try {
-        const statsRes = await api.getMyStatistics();
-        if (statsRes?.data?.statistics) setTeacherStats(statsRes.data.statistics);
-        else setTeacherStats(null);
-      } catch { setTeacherStats(null); }
+      if (!initialCache && courses.length === 0) {
+        setLoading(true);
+      }
+      // Carga paralela de todas las fuentes de datos (evita cascada de red)
+      const [coursesRes, assignmentsRes, todayClassesRes, statsRes] = await Promise.allSettled([
+        api.getMyCourses(),
+        api.getMyAssignments(),
+        api.getTodayClasses(),
+        api.getMyStatistics(),
+      ]);
+
+      let freshCourses = courses;
+      let freshAssignments = assignments;
+      let freshClasses = todayClasses;
+      let freshStats = teacherStats;
+
+      if (coursesRes.status === "fulfilled") {
+        const userCourses = coursesRes.value?.data?.courses || coursesRes.value?.data || [];
+        freshCourses = Array.isArray(userCourses) ? userCourses : [];
+        setCourses(freshCourses);
+      }
+
+      if (assignmentsRes.status === "fulfilled") {
+        const userAssignments = assignmentsRes.value?.data?.assignments || assignmentsRes.value?.data || [];
+        freshAssignments = Array.isArray(userAssignments) ? userAssignments : [];
+        setAssignments(freshAssignments);
+      }
+
+      if (todayClassesRes.status === "fulfilled") {
+        freshClasses = todayClassesRes.value?.data?.classes || [];
+        setTodayClasses(freshClasses);
+        if (freshClasses.length > 0) {
+          const todayStr = new Date().toISOString().split("T")[0];
+          const dismissed = sessionStorage.getItem(`dismissed_today_classes_${todayStr}`);
+          if (!dismissed) {
+            setShowTodayPopup(true);
+          }
+        }
+      }
+
+      if (statsRes.status === "fulfilled" && statsRes.value?.data?.statistics) {
+        freshStats = statsRes.value.data.statistics;
+        setTeacherStats(freshStats);
+      } else if (statsRes.status === "fulfilled") {
+        freshStats = null;
+        setTeacherStats(null);
+      }
+
+      // Guardar en cache para render instantáneo en recargas futuras (mejora LCP a < 1.2s)
+      setCachedDashboardData(userId, {
+        courses: freshCourses,
+        assignments: freshAssignments,
+        todayClasses: freshClasses,
+        teacherStats: freshStats,
+      });
     } catch (error) {
       console.error("Error loading dashboard data:", error);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseTodayPopup = () => {
+    setShowTodayPopup(false);
+    const todayStr = new Date().toISOString().split("T")[0];
+    sessionStorage.setItem(`dismissed_today_classes_${todayStr}`, "true");
   };
 
   // ─── Computed values ────────────────────────────────────────────────────────
@@ -273,7 +324,7 @@ const Dashboard = () => {
 
   const displayName = userProfile?.displayName || userProfile?.display_name || "usuario";
 
-  if (loading) return <DashboardSkeleton />;
+  // NO bloqueamos el render — el greeting se pinta de inmediato (mejora LCP)
 
   return (
     <PageContainer>
@@ -291,13 +342,47 @@ const Dashboard = () => {
         </Typography>
       </Box>
 
+      {/* ── Banner de Clases de Hoy ────────────────────────────────────────── */}
+      {todayClasses.length > 0 && (
+        <Alert
+          severity="info"
+          icon={<AlertIcon color="info" />}
+          sx={{
+            mb: 3,
+            borderRadius: 3,
+            background: "linear-gradient(135deg, rgba(21, 101, 192, 0.08) 0%, rgba(21, 101, 192, 0.16) 100%)",
+            border: "1px solid rgba(21, 101, 192, 0.25)",
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+          action={
+            <Button
+              color="primary"
+              variant="contained"
+              size="small"
+              onClick={() => setShowTodayPopup(true)}
+              startIcon={<TopicIcon sx={{ fontSize: 16 }} />}
+              sx={{ fontWeight: 700, borderRadius: 2, whiteSpace: "nowrap", minHeight: 44 }}
+            >
+              Ver Clases de Hoy ({todayClasses.length})
+            </Button>
+          }
+        >
+          <Typography variant="subtitle2" fontWeight={700} color="primary.main">
+            ¡Tienes {todayClasses.length === 1 ? "1 clase programada" : `${todayClasses.length} clases programadas`} para hoy!
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {todayClasses.map(c => `${c.course_name} — "${c.class_title}"`).join(" · ")}
+          </Typography>
+        </Alert>
+      )}
+
       {/* ── Profile incomplete banner ────────────────────────────────────────── */}
       {!isTeacher && profileComplete === false && (
         <Alert
           severity="warning"
           sx={{ mb: 3, cursor: "pointer" }}
           onClick={() => navigate("/profile/complete")}
-          action={<Button color="inherit" size="small" onClick={() => navigate("/profile/complete")}>Completar ahora</Button>}
+          action={<Button color="inherit" size="small" onClick={() => navigate("/profile/complete")} sx={{ minHeight: 44 }}>Completar ahora</Button>}
         >
           <AlertTitle>Completa tu perfil</AlertTitle>
           Faltan datos personales por completar.
@@ -309,12 +394,13 @@ const Dashboard = () => {
         {isTeacher ? (
           <>
             <Grid item xs={6} sm={6} md={3}>
-              <StatCard icon={<School />} value={totalCourses} label="Cursos activos" color="primary" onClick={() => navigate("/courses")} />
+              <StatCard icon={<School />} value={totalCourses} label="Cursos activos" color="primary" onClick={() => navigate("/courses")} loading={loading && !initialCache} />
             </Grid>
             <Grid item xs={6} sm={6} md={3}>
               <StatCard icon={<People />} value={totalStudents} label="Estudiantes" color="success"
                 context={totalActiveStudents > 0 ? `${totalActiveStudents} activos (7d)` : undefined}
                 onClick={() => navigate("/people")}
+                loading={loading && !initialCache}
               />
             </Grid>
             <Grid item xs={6} sm={6} md={3}>
@@ -322,28 +408,30 @@ const Dashboard = () => {
                 label={assignmentsPendingReview > 0 ? "Por revisar" : "Tareas totales"}
                 color={assignmentsPendingReview > 0 ? "warning" : "primary"}
                 onClick={() => navigate("/assignments")}
+                loading={loading && !initialCache}
               />
             </Grid>
             <Grid item xs={6} sm={6} md={3}>
               <StatCard icon={<TrendingUp />}
                 value={averageParticipationRate > 0 ? `${averageParticipationRate.toFixed(0)}%` : "0%"}
                 label="Participacion" color="success"
+                loading={loading && !initialCache}
               />
             </Grid>
           </>
         ) : (
           <>
             <Grid item xs={6} sm={6} md={3}>
-              <StatCard icon={<School />} value={totalCourses} label="Mis cursos" color="primary" onClick={() => navigate("/courses")} />
+              <StatCard icon={<School />} value={totalCourses} label="Mis cursos" color="primary" onClick={() => navigate("/courses")} loading={loading && !initialCache} />
             </Grid>
             <Grid item xs={6} sm={6} md={3}>
-              <StatCard icon={<CheckCircle />} value={completedAssignments} label="Entregadas" color="success" />
+              <StatCard icon={<CheckCircle />} value={completedAssignments} label="Entregadas" color="success" loading={loading && !initialCache} />
             </Grid>
             <Grid item xs={6} sm={6} md={3}>
-              <StatCard icon={<AccessTime />} value={pendingAssignmentsCount} label="Pendientes" color="warning" onClick={() => navigate("/assignments")} />
+              <StatCard icon={<AccessTime />} value={pendingAssignmentsCount} label="Pendientes" color="warning" onClick={() => navigate("/assignments")} loading={loading && !initialCache} />
             </Grid>
             <Grid item xs={6} sm={6} md={3}>
-              <StatCard icon={<Warning />} value={overdueAssignments} label="Vencidas" color={overdueAssignments > 0 ? "error" : "default"} onClick={() => navigate("/assignments")} />
+              <StatCard icon={<Warning />} value={overdueAssignments} label="Vencidas" color={overdueAssignments > 0 ? "error" : "default"} onClick={() => navigate("/assignments")} loading={loading && !initialCache} />
             </Grid>
           </>
         )}
@@ -364,7 +452,9 @@ const Dashboard = () => {
                     <Typography variant="h5" fontWeight={600} sx={{ mb: 2, fontSize: "1rem" }}>
                       Rendimiento por Curso
                     </Typography>
-                    <PerformanceChart data={performanceData} />
+                    <Suspense fallback={<Skeleton variant="rounded" height={260} sx={{ borderRadius: 3 }} />}>
+                      <PerformanceChart data={performanceData} />
+                    </Suspense>
                   </CardContent>
                 </Card>
               </Grid>
@@ -378,16 +468,30 @@ const Dashboard = () => {
                     <Typography variant="h5" fontWeight={600} sx={{ fontSize: "1rem" }}>
                       {isTeacher ? "Mis Cursos" : "Cursos Matriculados"}
                     </Typography>
-                    <Button size="small" variant="text" onClick={() => navigate("/courses")} sx={{ fontWeight: 600 }}>
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => navigate("/courses")}
+                      aria-label="Ver todos los cursos"
+                      sx={{ fontWeight: 600, minHeight: 44, minWidth: 44 }}
+                    >
                       Ver todos
                     </Button>
                   </Box>
-                  {courses.length === 0 ? (
+                  {loading && courses.length === 0 ? (
+                    <Grid container spacing={2}>
+                      {[1, 2].map((i) => (
+                        <Grid item xs={12} sm={6} key={i}>
+                          <Skeleton variant="rounded" height={130} sx={{ borderRadius: 3 }} />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : courses.length === 0 ? (
                     <EmptyState
                       icon={<School />}
                       title="Sin cursos"
                       description={isTeacher ? "Crea tu primer curso para empezar." : "No estas matriculado en ningun curso."}
-                      action={isTeacher ? <Button variant="contained" size="small" onClick={() => navigate("/create-course")}>Crear curso</Button> : undefined}
+                      action={isTeacher ? <Button variant="contained" size="small" onClick={() => navigate("/create-course")} sx={{ minHeight: 44 }}>Crear curso</Button> : undefined}
                       compact
                     />
                   ) : (
@@ -447,12 +551,23 @@ const Dashboard = () => {
                         Tareas Pendientes
                       </Typography>
                       {pendingTasks.length > 0 && (
-                        <Button size="small" variant="text" onClick={() => navigate("/assignments")} sx={{ fontWeight: 600 }}>
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => navigate("/assignments")}
+                          aria-label="Ver todas las tareas pendientes"
+                          sx={{ fontWeight: 600, minHeight: 44, minWidth: 44 }}
+                        >
                           Ver todas
                         </Button>
                       )}
                     </Box>
-                    {pendingTasks.length === 0 ? (
+                    {loading && pendingTasks.length === 0 ? (
+                      <Stack spacing={1.5} sx={{ py: 1 }}>
+                        <Skeleton variant="rounded" height={44} />
+                        <Skeleton variant="rounded" height={44} />
+                      </Stack>
+                    ) : pendingTasks.length === 0 ? (
                       <EmptyState
                         icon={<CheckCircle />}
                         title="Sin pendientes"
@@ -480,7 +595,13 @@ const Dashboard = () => {
                       <Typography variant="h5" fontWeight={600} sx={{ fontSize: "1rem" }}>
                         Tareas Recientes
                       </Typography>
-                      <Button size="small" variant="text" onClick={() => navigate("/assignments")} sx={{ fontWeight: 600 }}>
+                      <Button
+                        size="small"
+                        variant="text"
+                        onClick={() => navigate("/assignments")}
+                        aria-label="Ver todas las tareas recientes"
+                        sx={{ fontWeight: 600, minHeight: 44, minWidth: 44 }}
+                      >
                         Ver todas
                       </Button>
                     </Box>
@@ -494,6 +615,140 @@ const Dashboard = () => {
           </Grid>
         </Grid>
       </Grid>
+
+      {/* ── Modal Popup: Clases de Hoy ────────────────────────────────────────── */}
+      <Dialog
+        open={showTodayPopup}
+        onClose={handleCloseTodayPopup}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 4, overflow: "hidden", p: 0 }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            background: "linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)",
+            color: "#fff",
+            py: 2,
+            px: 3,
+          }}
+        >
+          <TopicIcon sx={{ fontSize: 28, color: "#ffe082" }} />
+          <Box flex={1}>
+            <Typography variant="h6" fontWeight={800} sx={{ color: "#fff", lineHeight: 1.2 }}>
+              ¡Tienes clase programada para hoy!
+            </Typography>
+            <Typography variant="caption" sx={{ color: "rgba(255, 255, 255, 0.8)" }}>
+              {new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+            </Typography>
+          </Box>
+          <IconButton onClick={handleCloseTodayPopup} sx={{ color: "#fff" }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 3, px: 3 }}>
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            {isTeacher
+              ? "Aquí tienes el resumen de las clases y temas que impartes el día de hoy:"
+              : "Aquí tienes el temario y aula de tus clases de hoy:"}
+          </Typography>
+
+          <Stack spacing={2}>
+            {todayClasses.map((item) => (
+              <Paper
+                key={item.id}
+                elevation={0}
+                sx={{
+                  p: 2,
+                  borderRadius: 3,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  backgroundColor: "background.paper",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                  transition: "all 0.2s",
+                  "&:hover": {
+                    borderColor: "primary.main",
+                    boxShadow: "0 4px 12px rgba(21,101,192,0.12)",
+                  },
+                }}
+              >
+                <Box display="flex" alignItems="center" gap={1.5} mb={1}>
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: "50%",
+                      backgroundColor: item.course_color || "#1976d2",
+                    }}
+                  />
+                  <Typography variant="subtitle1" fontWeight={700} color="text.primary">
+                    {item.course_name}
+                  </Typography>
+                  {item.course_turn && (
+                    <Chip label={`Turno ${item.course_turn}`} size="small" variant="outlined" sx={{ ml: "auto" }} />
+                  )}
+                </Box>
+
+                {/* Aula */}
+                {item.classroom_pavilion && item.classroom_number && (
+                  <Box display="flex" alignItems="center" gap={0.75} mb={1}>
+                    <RoomIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                      Pabellón {item.classroom_pavilion} &bull; Piso {item.classroom_floor === "PB" ? "Planta Baja" : item.classroom_floor} &bull; Aula {item.classroom_number}
+                    </Typography>
+                  </Box>
+                )}
+
+                <Divider sx={{ my: 1 }} />
+
+                {/* Tema / Unidad */}
+                <Box mb={1.5}>
+                  <Typography variant="caption" color="primary.main" fontWeight={700} display="block" sx={{ textTransform: "uppercase", fontSize: "0.7rem", mb: 0.25 }}>
+                    {item.unit_title ? `Unidad: ${item.unit_title}` : "Tema de la clase:"}
+                  </Typography>
+                  <Typography variant="body1" fontWeight={700} color="text.primary">
+                    {item.class_title}
+                  </Typography>
+                  {item.class_description && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {item.class_description}
+                    </Typography>
+                  )}
+                </Box>
+
+                <Button
+                  variant="contained"
+                  fullWidth
+                  endIcon={<ArrowForwardIcon />}
+                  onClick={() => {
+                    handleCloseTodayPopup();
+                    navigate(`/courses/${item.course_id}?tab=classes`);
+                  }}
+                  sx={{
+                    borderRadius: 2,
+                    fontWeight: 700,
+                    textTransform: "none",
+                    py: 1,
+                  }}
+                >
+                  Ir a la clase del curso
+                </Button>
+              </Paper>
+            ))}
+          </Stack>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, px: 3, borderTop: "1px solid", borderColor: "divider" }}>
+          <Button onClick={handleCloseTodayPopup} color="inherit" sx={{ fontWeight: 600 }}>
+            Entendido
+          </Button>
+        </DialogActions>
+      </Dialog>
     </PageContainer>
   );
 };

@@ -4,10 +4,40 @@ import { authMiddleware, requireRole } from '../middleware/authMiddleware.js';
 import { logAction } from '../utils/auditLogger.js';
 import bcrypt from 'bcryptjs';
 import passwordService from '../../services/PasswordService.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
 
 import { isUuid, getCastType as getCourseIdCast } from '../utils/uuid.js';
 
 const router = express.Router();
+
+// GET /api/users/:id/avatar - Servir foto de perfil como imagen binaria con cache HTTP
+router.get('/:id/avatar', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('SELECT photo_url FROM users WHERE id = $1', [id]);
+    if (result.rows.length === 0 || !result.rows[0].photo_url) {
+      return res.status(404).send('Avatar no encontrado');
+    }
+
+    const photoUrl = result.rows[0].photo_url;
+    if (photoUrl.startsWith('data:image/')) {
+      const parts = photoUrl.split(';base64,');
+      const mimeType = parts[0].replace('data:', '') || 'image/jpeg';
+      const imageBuffer = Buffer.from(parts[1], 'base64');
+
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+      return res.send(imageBuffer);
+    } else if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
+      return res.redirect(photoUrl);
+    } else {
+      return res.redirect(photoUrl);
+    }
+  } catch (error) {
+    console.error('Error serving avatar:', error);
+    res.status(500).send('Error');
+  }
+});
 
 // Helpers
 function normalizeRole(rawRole) {
@@ -144,7 +174,10 @@ router.get('/', authMiddleware, requireRole('admin'), async (req, res) => {
 
     res.json({
       success: true,
-      data: result.rows
+      data: result.rows.map(u => ({
+        ...u,
+        photo_url: formatAvatarUrl(u.id, u.photo_url)
+      }))
     });
   } catch (error) {
     console.error('Error getting users:', error);
@@ -419,7 +452,7 @@ router.put('/me', authMiddleware, async (req, res) => {
       id: u.id,
       email: u.email,
       display_name: u.display_name,
-      photo_url: u.photo_url,
+      photo_url: formatAvatarUrl(u.id, u.photo_url),
       role: normalizeRole(u.role),
       description: u.description || '',
       created_at: u.created_at,
@@ -701,7 +734,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       id: u.id,
       email: u.email,
       display_name: u.display_name,
-      photo_url: u.photo_url,
+      photo_url: formatAvatarUrl(u.id, u.photo_url),
       role,
       description: u.description || '',
       created_at: u.created_at,
@@ -829,7 +862,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
           id: user.id,
           email: user.email,
           displayName: user.display_name,
-          photoURL: user.photo_url,
+          photoURL: formatAvatarUrl(user.id, user.photo_url),
           role: user.role,
           description: user.description || '',
           createdAt: user.created_at,
@@ -1004,7 +1037,26 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
 
     let result;
 
-    if (userRole === 'teacher') {
+    if (['admin', 'director', 'coordinator', 'secretary'].includes(userRole)) {
+      // Para roles de supervisión/dirección: obtener todos los cursos activos del sistema
+      result = await pool.query(
+        `SELECT c.id,
+                c.name,
+                c.turn,
+                c.description,
+                c.color,
+                c.course_code,
+                c.created_at,
+                c.updated_at,
+                'supervisor' AS role,
+                u.display_name as owner_name,
+                c.created_at AS added_at
+         FROM courses c
+         LEFT JOIN users u ON c.owner_id = u.id
+         WHERE (c.archived = false OR c.archived IS NULL)
+         ORDER BY c.created_at DESC`
+      );
+    } else if (userRole === 'teacher') {
       // Para profesores: obtener cursos donde es owner o co-docente
       result = await pool.query(
         `SELECT c.id,
@@ -1019,7 +1071,8 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
                 COALESCE(ct.added_at, c.created_at) AS added_at
          FROM courses c
          LEFT JOIN course_teachers ct ON ct.course_id = c.id AND ct.teacher_id = $1
-         WHERE c.owner_id = $1 OR ct.teacher_id = $1
+         WHERE (c.owner_id = $1 OR ct.teacher_id = $1)
+           AND (c.archived = false OR c.archived IS NULL)
          ORDER BY added_at DESC, c.created_at DESC`,
         [userId]
       );
@@ -1040,6 +1093,7 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
          LEFT JOIN course_students cs ON c.id = cs.course_id AND cs.student_id = $1 AND cs.status = 'active'
          LEFT JOIN enrollments e ON c.id = e.course_id AND e.student_id = $1 AND e.status = 'active'
          WHERE (cs.student_id = $1 OR e.student_id = $1)
+           AND (c.archived = false OR c.archived IS NULL)
          ORDER BY COALESCE(cs.enrolled_at, e.enrolled_at) DESC`,
         [userId]
       );
@@ -1083,7 +1137,30 @@ router.get('/me/assignments', authMiddleware, async (req, res) => {
 
     let result;
 
-    if (userRole === 'teacher') {
+    if (['admin', 'director', 'coordinator', 'secretary'].includes(userRole)) {
+      // Para roles de supervisión: obtener tareas de todos los cursos activos
+      result = await pool.query(
+        `SELECT DISTINCT a.id,
+                a.title,
+                a.description,
+                a.due_date,
+                a.max_points,
+                a.status,
+                a.created_at,
+                a.updated_at,
+                c.id as course_id,
+                c.name as course_name,
+                c.turn as course_turn,
+                c.color as course_color,
+                u.title as unit_name,
+                (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id) as submission_count
+         FROM assignments a
+         JOIN courses c ON a.course_id = c.id
+         LEFT JOIN units u ON a.unit_id = u.id
+         WHERE (c.archived = false OR c.archived IS NULL)
+         ORDER BY a.due_date DESC NULLS LAST, a.created_at DESC`
+      );
+    } else if (userRole === 'teacher') {
       // Para profesores: obtener tareas de sus cursos
       result = await pool.query(
         `SELECT DISTINCT a.id,
@@ -1104,7 +1181,8 @@ router.get('/me/assignments', authMiddleware, async (req, res) => {
          JOIN courses c ON a.course_id = c.id
          LEFT JOIN units u ON a.unit_id = u.id
          LEFT JOIN course_teachers ct ON c.id = ct.course_id
-         WHERE c.owner_id = $1 OR ct.teacher_id = $1
+         WHERE (c.owner_id = $1 OR ct.teacher_id = $1)
+           AND (c.archived = false OR c.archived IS NULL)
          ORDER BY a.due_date DESC NULLS LAST, a.created_at DESC`,
         [userId]
       );
@@ -1275,11 +1353,13 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
       }
     }
 
-    // Si es profesor, continuar con las estadísticas de profesor
-    if (userRole !== 'teacher') {
+    const isSupervision = ['admin', 'director', 'coordinator', 'secretary'].includes(userRole);
+
+    // Si no es estudiante, profesor ni rol de supervisión, rechazar
+    if (userRole !== 'teacher' && !isSupervision) {
       return res.status(403).json({
         error: {
-          message: 'Solo los profesores y estudiantes pueden acceder a estas estadísticas',
+          message: 'Solo los profesores, estudiantes y personal directivo pueden acceder a estas estadísticas',
           code: 'ACCESS_DENIED'
         }
       });
@@ -1312,33 +1392,30 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
     };
 
     try {
-      // 1. Obtener cursos del profesor (owner o teacher) - Consulta mejorada con manejo de tipos
+      // 1. Obtener cursos del profesor o todos los cursos si es supervisor
       let coursesResult;
       try {
-        // Intentar primero con join normal
-        coursesResult = await pool.query(
-          `SELECT DISTINCT c.id, c.name, c.turn, c.color, c.is_active, c.created_at
-           FROM courses c
-           LEFT JOIN course_teachers ct ON c.id::text = ct.course_id::text
-           WHERE c.owner_id = $1 OR ct.teacher_id = $1
-           ORDER BY c.created_at DESC`,
-          [userId]
-        );
-      } catch (e) {
-        // Si falla, intentar solo con owner_id
-        console.warn('Error with course_teachers join, trying owner only:', e.message);
-        try {
+        if (isSupervision) {
           coursesResult = await pool.query(
             `SELECT DISTINCT c.id, c.name, c.turn, c.color, c.is_active, c.created_at
              FROM courses c
-             WHERE c.owner_id = $1
+             WHERE (c.archived = false OR c.archived IS NULL)
+             ORDER BY c.created_at DESC`
+          );
+        } else {
+          coursesResult = await pool.query(
+            `SELECT DISTINCT c.id, c.name, c.turn, c.color, c.is_active, c.created_at
+             FROM courses c
+             LEFT JOIN course_teachers ct ON c.id::text = ct.course_id::text
+             WHERE (c.owner_id = $1 OR ct.teacher_id = $1)
+               AND (c.archived = false OR c.archived IS NULL)
              ORDER BY c.created_at DESC`,
             [userId]
           );
-        } catch (e2) {
-          console.error('Error fetching courses:', e2.message);
-          coursesResult = { rows: [] };
         }
+      } catch (e) {
+        console.warn('Error fetching courses for statistics:', e.message);
+        coursesResult = { rows: [] };
       }
 
       const courses = coursesResult.rows || [];
@@ -1975,7 +2052,7 @@ router.put('/update-profile', authMiddleware, async (req, res) => {
           id: updatedUser.id,
           email: updatedUser.email,
           displayName: updatedUser.display_name,
-          photoURL: updatedUser.photo_url,
+          photoURL: formatAvatarUrl(updatedUser.id, updatedUser.photo_url),
           role: updatedUser.role,
           createdAt: updatedUser.created_at,
           updatedAt: updatedUser.updated_at
@@ -2073,7 +2150,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
           id: updatedUser.id,
           email: updatedUser.email,
           displayName: updatedUser.display_name,
-          photoURL: updatedUser.photo_url,
+          photoURL: formatAvatarUrl(updatedUser.id, updatedUser.photo_url),
           role: updatedUser.role,
           description: updatedUser.description,
           createdAt: updatedUser.created_at,

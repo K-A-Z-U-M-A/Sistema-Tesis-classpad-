@@ -537,27 +537,33 @@ router.post('/', authMiddleware, async (req, res) => {
     const course = courseResult.rows[0];
 
     // Get all students in the course
+    const isCourseUuid = isUuid(course_id);
+    const courseCast = isCourseUuid ? '::uuid' : '';
     const studentsResult = await pool.query(
       `SELECT DISTINCT student_id as user_id 
-       FROM enrollments 
-       WHERE course_id = $1 AND status = 'active'`,
+       FROM (
+         SELECT student_id FROM course_students WHERE course_id = $1${courseCast} AND status = 'active'
+         UNION
+         SELECT student_id FROM enrollments WHERE course_id = $1${courseCast} AND status = 'active'
+       ) s`,
       [course_id]
     );
 
     // Create notifications for all students
     const notificationPromises = studentsResult.rows.map(student => {
       const title = 'Nueva unidad disponible';
-      const messageText = `Se ha creado una nueva unidad "${unit.title}" en ${course.name}. ${description ? `Descripción: ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}` : ''}`;
+      const messageText = `Se ha creado una nueva unidad "${unit.title}" en ${course?.name || 'el curso'}. ${description ? `Descripción: ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}` : ''}`;
 
       return createNotification(
         student.user_id,
-        'announcement',
+        'unit',
         title,
         messageText,
         course_id,
-        null,
+        unit.id,
         'unit',
-        'normal'
+        'normal',
+        { unitTitle: unit.title, description: description || '' }
       );
     });
 

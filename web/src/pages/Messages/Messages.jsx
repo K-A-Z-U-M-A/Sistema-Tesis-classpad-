@@ -130,12 +130,12 @@ export default function Messages() {
     if (selectedCourseId === 'ALL') {
       const combined = [];
       courseEntries.forEach(([cId, data]) => {
-        (data.messages || []).forEach(msg => {
+        (data?.messages || []).forEach(msg => {
           combined.push({
             ...msg,
             courseId: cId,
-            courseName: data.course.name,
-            subject: data.course.subject
+            courseName: data?.course?.name || msg?.course_name || 'Curso',
+            subject: data?.course?.subject || msg?.course_subject || ''
           });
         });
       });
@@ -149,11 +149,11 @@ export default function Messages() {
 
     const courseData = messagesByCourse[selectedCourseId];
     if (!courseData) return [];
-    return (courseData.messages || []).map(msg => ({
+    return (courseData?.messages || []).map(msg => ({
       ...msg,
       courseId: selectedCourseId,
-      courseName: courseData.course.name,
-      subject: courseData.course.subject
+      courseName: courseData?.course?.name || msg?.course_name || 'Curso',
+      subject: courseData?.course?.subject || msg?.course_subject || ''
     })).sort((a, b) => {
       if (a.is_pinned && !b.is_pinned) return -1;
       if (!a.is_pinned && b.is_pinned) return 1;
@@ -182,27 +182,37 @@ export default function Messages() {
   }, [allMessagesList, selectedType, searchTerm]);
 
   useEffect(() => {
-    loadAllMessages();
+    loadAllMessages(false);
+    const interval = setInterval(() => {
+      loadAllMessages(true);
+    }, 8000);
+    return () => clearInterval(interval);
   }, []);
 
-  const loadAllMessages = async () => {
+  const loadAllMessages = async (silent = false) => {
     try {
-      setLoading(true);
-      setError(null);
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
       
       const response = await api.request('/messages');
       
       if (response.success) {
         setMessagesByCourse(response.data.messagesByCourse || {});
-      } else {
+      } else if (!silent) {
         throw new Error('Error al cargar los mensajes');
       }
     } catch (err) {
-      console.error('Error loading messages:', err);
-      setError(err.message);
-      toast.error('Error al cargar los mensajes');
+      if (!silent) {
+        console.error('Error loading messages:', err);
+        setError(err.message);
+        toast.error('Error al cargar los mensajes');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -401,7 +411,7 @@ export default function Messages() {
                 key={cId}
                 clickable
                 icon={<School sx={{ fontSize: 18 }} />}
-                label={`${cData.course.name} (${count})`}
+                label={`${cData?.course?.name || 'Curso'} (${count})`}
                 onClick={() => setSelectedCourseId(cId)}
                 sx={{
                   px: 1.5,

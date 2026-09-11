@@ -22,11 +22,13 @@ import {
   Security,
   ExpandMore,
   LockReset,
-  Email
+  Email,
+  NotificationsActive as NotificationsActiveIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import ChangePassword from '../../components/profile/ChangePassword';
 import RecoveryEmailSettings from '../../components/settings/RecoveryEmailSettings';
+import NotificationEmailPreferences from '../../components/Notifications/NotificationEmailPreferences';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function Settings() {
@@ -225,6 +227,65 @@ export default function Settings() {
                   userEmail={user?.email}
                   onUpdate={handleRecoveryEmailUpdate}
                 />
+              </AccordionDetails>
+            </Accordion>
+
+            {/* Accordion: Preferencias de Notificaciones por Correo */}
+            <Accordion
+              expanded={expandedPanel === 'notifications'}
+              onChange={handleAccordionChange('notifications')}
+              sx={{
+                borderRadius: '12px !important',
+                overflow: 'hidden',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                border: '1px solid',
+                borderColor: 'divider',
+                '&:before': { display: 'none' },
+                '&.Mui-expanded': {
+                  margin: '0 !important',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.15)'
+                }
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMore sx={{ color: '#667eea' }} />}
+                sx={{
+                  minHeight: 72,
+                  '&.Mui-expanded': {
+                    minHeight: 72,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider'
+                  },
+                  '& .MuiAccordionSummary-content': {
+                    my: 2
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    sx={{
+                      p: 1.25,
+                      borderRadius: "16px",
+                      background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15))',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <NotificationsActiveIcon sx={{ fontSize: 24, color: '#667eea' }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1.1rem' }}>
+                      Notificaciones por Correo
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Elige qué alertas y avisos recibir en tu correo electrónico
+                    </Typography>
+                  </Box>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 3, pt: 2 }}>
+                <NotificationEmailPreferences />
               </AccordionDetails>
             </Accordion>
           </Box>

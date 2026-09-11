@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Box, Typography, Button, TextField } from '@mui/material';
 import { MyLocation } from '@mui/icons-material';
@@ -22,6 +22,30 @@ const customIcon = new L.Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
 });
+
+// Componente para recentrar y animar el mapa cuando cambia la posición
+function ChangeMapView({ coords }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coords && coords[0] && coords[1]) {
+      map.flyTo(coords, 17, {
+        animate: true,
+        duration: 1.2
+      });
+    }
+  }, [coords, map]);
+  return null;
+}
+
+// Componente para permitir hacer click en el mapa y mover el marcador
+function MapClickHandler({ onLocationSelect }) {
+  useMapEvents({
+    click(e) {
+      onLocationSelect([e.latlng.lat, e.latlng.lng]);
+    }
+  });
+  return null;
+}
 
 function DraggableMarker({ position, setPosition }) {
   const [currentPosition, setCurrentPosition] = useState(position);
@@ -90,25 +114,28 @@ export default function LocationMap({ latitude, longitude, onLocationChange }) {
           Seleccionar Ubicación
         </Typography>
         <Button
-          variant="outlined"
+          variant="contained"
           size="small"
           startIcon={<MyLocation />}
           onClick={handleUseCurrentLocation}
+          sx={{ borderRadius: 2 }}
         >
-          Mi Ubicación
+          Mi Ubicación Actual
         </Button>
       </Box>
 
       <MapContainer
         center={position}
         zoom={16}
-        style={{ height: '300px', width: '100%', borderRadius: '8px' }}
+        style={{ height: '300px', width: '100%', borderRadius: '12px' }}
         scrollWheelZoom={true}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <ChangeMapView coords={position} />
+        <MapClickHandler onLocationSelect={handlePositionChange} />
         <DraggableMarker position={position} setPosition={handlePositionChange} />
       </MapContainer>
 

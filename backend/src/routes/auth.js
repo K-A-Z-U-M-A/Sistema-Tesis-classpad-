@@ -6,6 +6,7 @@ import { signToken } from '../utils/jwt.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import passport from '../config/passport.js';
 import { logAction } from '../utils/auditLogger.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
 
 const router = express.Router();
 
@@ -104,7 +105,7 @@ router.post('/register', async (req, res) => {
           role: user.role,
           provider: user.provider,
           is_active: user.is_active,
-          photo_url: user.photo_url,
+          photo_url: formatAvatarUrl(user.id, user.photo_url),
           created_at: user.created_at
         }
       }
@@ -220,7 +221,7 @@ router.post('/login', loginLimiter, async (req, res) => {
           role: user.role,
           provider: user.provider,
           is_active: user.is_active,
-          photo_url: user.photo_url,
+          photo_url: formatAvatarUrl(user.id, user.photo_url),
           created_at: user.created_at,
           last_login: new Date().toISOString(),
           must_change_password: user.must_change_password || false
@@ -260,25 +261,80 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 // Google OAuth routes
 router.get('/google', (req, res, next) => {
-
   // Store the flow parameter in session or pass it through state
   if (req.query.flow === 'redirect') {
-    // We'll use a custom state parameter to pass the flow type
     req.session = req.session || {};
     req.session.oauthFlow = 'redirect';
   }
 
+  // Detectar host dinámicamente (soporta ngrok, IP local y localhost)
+  const host = req.get('x-forwarded-host') || req.get('host');
+  const protocol = req.get('x-forwarded-proto') || req.protocol;
+  const isNgrokOrRemote = host && !host.includes('localhost') && !host.includes('127.0.0.1');
+  const callbackURL = isNgrokOrRemote
+    ? `${protocol}://${host}/api/auth/google/callback`
+    : (process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback');
+
+  // Detectar el origen exacto del frontend desde referer o headers para volver al mismo protocolo (https / http)
+  let clientOrigin = '';
+  const referer = req.get('referer');
+  if (referer) {
+    try {
+      const u = new URL(referer);
+      clientOrigin = `${u.protocol}//${u.host}`;
+    } catch (_) {}
+  }
+  if (!clientOrigin) {
+    clientOrigin = isNgrokOrRemote ? `${protocol}://${host}` : (process.env.CORS_ORIGIN?.split(',')[0] || 'https://localhost:5173');
+  }
+
+  const flowType = req.query.flow || 'redirect';
+  const statePayload = Buffer.from(JSON.stringify({ flow: flowType, origin: clientOrigin })).toString('base64url');
+
   passport.authenticate('google', {
     scope: ['profile', 'email'],
-    state: req.query.flow || 'popup' // Pass flow as state parameter
+    callbackURL,
+    state: statePayload
   })(req, res, next);
 });
 
-router.get('/google/callback',
-  passport.authenticate('google', { session: false }),
-  async (req, res) => {
+router.get('/google/callback', (req, res, next) => {
+  const host = req.get('x-forwarded-host') || req.get('host');
+  const protocol = req.get('x-forwarded-proto') || req.protocol;
+  const isNgrokOrRemote = host && !host.includes('localhost') && !host.includes('127.0.0.1');
+  const callbackURL = isNgrokOrRemote
+    ? `${protocol}://${host}/api/auth/google/callback`
+    : (process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback');
+
+  passport.authenticate('google', { 
+    session: false,
+    callbackURL 
+  }, async (err, user, info) => {
+    if (err || !user) {
+      console.error('Google OAuth callback error:', err || info);
+      return res.redirect('/auth-callback.html?error=OAuth%20authentication%20failed');
+    }
+
     try {
-      const user = req.user;
+      // Extraer flow y origin del state
+      let flow = 'redirect';
+      let frontendUrl = '';
+      if (req.query.state) {
+        try {
+          const raw = Buffer.from(req.query.state, 'base64url').toString('utf8');
+          const parsed = JSON.parse(raw);
+          flow = parsed.flow || 'redirect';
+          frontendUrl = parsed.origin || '';
+        } catch (_) {
+          flow = req.query.state;
+        }
+      }
+
+      if (!frontendUrl) {
+        frontendUrl = isNgrokOrRemote
+          ? `${protocol}://${host}`
+          : (process.env.CORS_ORIGIN?.split(',')[0] || 'https://localhost:5173');
+      }
 
       // Generate JWT token
       const token = signToken({
@@ -288,30 +344,42 @@ router.get('/google/callback',
         provider: user.provider
       });
 
-      const frontendUrl = process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:5173';
+      // Sanitizar objeto user para evitar desbordamiento de encabezados HTTP (Header overflow)
+      // Especialmente cuando photo_url contiene base64 de varios megabytes
+      const safeUser = {
+        id: user.id,
+        email: user.email,
+        display_name: user.display_name,
+        role: user.role,
+        provider: user.provider,
+        is_active: user.is_active,
+        photo_url: formatAvatarUrl(user.id, user.photo_url),
+        created_at: user.created_at,
+        last_login: user.last_login
+      };
 
       // Support full-page redirect flow to frontend (avoids popup/postMessage entirely)
-      if (req.query.state === 'redirect') {
+      if (flow === 'redirect' || req.query.state === 'redirect') {
         const encodedToken = encodeURIComponent(token);
-        const encodedUser = encodeURIComponent(JSON.stringify(user));
+        const encodedUser = encodeURIComponent(JSON.stringify(safeUser));
         return res.redirect(`${frontendUrl}/auth/callback?token=${encodedToken}&user=${encodedUser}`);
       }
 
       // If client prefers JSON
       if (req.headers.accept?.includes('application/json') || req.query.format === 'json') {
-        return res.json({ data: { token, user } });
+        return res.json({ data: { token, user: safeUser } });
       }
 
       // Redirect to static callback page with data in querystring (CSP-safe, no inline scripts)
-      const encodedUser = encodeURIComponent(JSON.stringify(user));
+      const encodedUser = encodeURIComponent(JSON.stringify(safeUser));
       const encodedFront = encodeURIComponent(frontendUrl);
       return res.redirect(`/auth-callback.html?token=${encodeURIComponent(token)}&user=${encodedUser}&front=${encodedFront}`);
     } catch (error) {
-      console.error('Google OAuth callback error:', error);
+      console.error('Google OAuth processing error:', error);
       return res.redirect('/auth-callback.html?error=OAuth%20authentication%20failed');
     }
-  }
-);
+  })(req, res, next);
+});
 
 // Update recovery email endpoint
 router.put('/update-recovery-email', authMiddleware, async (req, res) => {

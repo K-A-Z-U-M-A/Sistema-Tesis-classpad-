@@ -23,14 +23,22 @@ import gradeRoutes from './routes/grades.js';
 import reportRoutes from './routes/reports.js';
 import auditRoutes from './routes/audit.js';
 import adminRoutes from './routes/admin.js';
+import roleRoutes from './routes/roles.js';
+import backupRoutes from './routes/backups.js';
 import passwordRecoveryRoutes from './routes/passwordRecovery.js';
+import calendarRoutes from './routes/calendar.js';
 import ensureAttendanceTables from './ensure-attendance-tables.js';
 import ensureProfileFields from './ensure-profile-fields.js';
 import ensureClassroomTables from './ensure-classroom-tables.js';
+import ensureCalendarTables from './ensure-calendar-tables.js';
+import ensureRolesTables from './ensure-roles-tables.js';
 import { handleMulterError } from './config/multer.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Enable trust proxy for ngrok / reverse proxies (needed for rate limiter and IP detection)
+app.set('trust proxy', 1);
 
 // CORS configuration
 const corsOptions = {
@@ -92,6 +100,9 @@ app.use('/api/grades', gradeRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/backups', backupRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/calendar', calendarRoutes);
 
 // Endpoint de configuración de red (IP local + ngrok si está activo)
 app.get('/api/config', async (req, res) => {
@@ -206,6 +217,12 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
 
   // Asegurar que las columnas de aula y catálogo de classrooms existan
   await ensureClassroomTables();
+
+  // Asegurar que las tablas de calendario escolar y feriados existan
+  await ensureCalendarTables();
+
+  // Asegurar que las tablas y roles predefinidos existan
+  await ensureRolesTables();
 
   // Lanzar ngrok automáticamente
   setTimeout(() => startNgrok(), 1000);
