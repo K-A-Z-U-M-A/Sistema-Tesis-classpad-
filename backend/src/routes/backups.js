@@ -30,19 +30,13 @@ router.get('/oauth2callback', async (req, res) => {
       return res.redirect('/admin/backups?oauth=error&message=NoCodeReceived');
     }
 
-    // Detectar host dinámicamente para el redirectUri correcto
-    const host = req.get('host');
-    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const redirectUri = `${protocol}://${host}/api/admin/backups/oauth2callback`;
+    // Usar siempre el puerto real del backend (no el del proxy de Vite)
+    const redirectUri = process.env.OAUTH_REDIRECT_URI
+      || `http://localhost:${process.env.PORT || 3001}/api/admin/backups/oauth2callback`;
 
     await backupService.handleOAuthCallback(code, redirectUri);
     
-    // Redirigir al puerto del frontend (5173 en desarrollo o la URL base de la app)
-    const referer = req.get('referer') || '';
-    let targetFront = '/admin/backups?oauth=success';
-    if (host.includes(':3001')) {
-      targetFront = 'http://localhost:5173/admin/backups?oauth=success';
-    }
+    // La redirección al frontend se maneja desde el JS del HTML que se devuelve
 
     res.send(`
       <!DOCTYPE html>
@@ -117,9 +111,10 @@ router.use(authMiddleware, requireRole('admin'));
  */
 router.get('/auth-url', (req, res) => {
   try {
-    const host = req.get('host');
-    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const redirectUri = `${protocol}://${host}/api/admin/backups/oauth2callback`;
+    // Usar siempre el puerto real del backend (no el del proxy de Vite)
+    // para que la redirectUri coincida con lo registrado en Google Cloud Console
+    const redirectUri = process.env.OAUTH_REDIRECT_URI
+      || `http://localhost:${process.env.PORT || 3001}/api/admin/backups/oauth2callback`;
 
     const url = backupService.getOAuthAuthUrl(redirectUri);
     res.json({ success: true, url });
@@ -246,7 +241,8 @@ router.get('/:filename/download', (req, res) => {
       });
     }
 
-    res.setHeader('Content-Type', 'application/sql');
+    const contentType = filename.endsWith('.gz') ? 'application/gzip' : 'application/sql';
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.download(filePath, filename);
   } catch (error) {

@@ -68,8 +68,8 @@ const StudentProgress = () => {
                     const userStats = attendanceResponse.data.find(stat => stat.studentId === user.id);
                     if (userStats) {
                         attendanceStats = {
-                            presentCount: userStats.presentCount + userStats.lateCount + userStats.excusedCount,
-                            totalSessions: userStats.totalSessions,
+                            presentCount: userStats.attendedCount !== undefined ? userStats.attendedCount : (userStats.presentCount + userStats.lateCount + userStats.excusedCount),
+                            totalSessions: userStats.scheduledClasses || userStats.totalSessions,
                             percentage: Math.round(userStats.attendancePercentage)
                         };
                     }
@@ -112,18 +112,21 @@ const StudentProgress = () => {
         }
     };
 
-    const getPromedioStatus = (promedio) => {
-        if (promedio >= 8) return { text: 'Excelente', color: 'success' };
-        if (promedio >= 6) return { text: 'Bueno', color: 'info' };
-        if (promedio >= 4) return { text: 'Mejorable', color: 'warning' };
-        return { text: 'Insuficiente', color: 'error' };
+    const getPromedioStatus = (puntaje) => {
+        const p = parseFloat(puntaje) || 0;
+        if (p >= 80) return { text: 'Excelente', color: 'success' };
+        if (p >= 70) return { text: 'Muy Bueno', color: 'success' };
+        if (p >= 60) return { text: 'Aprobado', color: 'info' };
+        if (p >= 40) return { text: 'Recuperación', color: 'warning' };
+        return { text: 'Reprobado', color: 'error' };
     };
 
-    const getGradeColor = (value) => {
-        if (!value) return 'text.secondary';
+    const getGradeColor = (value, max = 20) => {
+        if (value === null || value === undefined || value === '') return 'text.secondary';
         const num = parseFloat(value);
-        if (num >= 14) return 'success.main';
-        if (num >= 10) return 'warning.main';
+        const pct = num / max;
+        if (pct >= 0.7) return 'success.main';
+        if (pct >= 0.6) return 'warning.main';
         return 'error.main';
     };
 
@@ -185,13 +188,13 @@ const StudentProgress = () => {
                             <CardContent>
                                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                                     <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                                        Promedio General
+                                        Puntaje Final
                                     </Typography>
                                     <TrendingUp sx={{ fontSize: 20, opacity: 0.75 }} />
                                 </Box>
                                 <Box display="flex" alignItems="end" gap={1}>
                                     <Typography variant="h3" fontWeight="bold">
-                                        {Number(progress?.promedio || 0).toFixed(1)}
+                                        {Math.round(progress?.promedio || 0)}
                                     </Typography>
                                     <Typography variant="body2" sx={{ opacity: 0.75, mb: 0.5 }}>
                                         {promedioStatus.text}
@@ -323,10 +326,10 @@ const StudentProgress = () => {
                                                 py: 4,
                                                 fontSize: '2rem',
                                                 fontWeight: 'bold',
-                                                color: getGradeColor(grades.parcial_1)
+                                                color: getGradeColor(grades.parcial_1, 20)
                                             }}
                                         >
-                                            {grades.parcial_1 ? parseFloat(grades.parcial_1).toFixed(2) : '--'}
+                                            {grades.parcial_1 ? Math.round(parseFloat(grades.parcial_1)) : '--'}
                                         </Box>
                                     </Box>
                                 </Grid>
@@ -350,10 +353,10 @@ const StudentProgress = () => {
                                                 py: 4,
                                                 fontSize: '2rem',
                                                 fontWeight: 'bold',
-                                                color: getGradeColor(grades.parcial_2)
+                                                color: getGradeColor(grades.parcial_2, 20)
                                             }}
                                         >
-                                            {grades.parcial_2 ? parseFloat(grades.parcial_2).toFixed(2) : '--'}
+                                            {grades.parcial_2 ? Math.round(parseFloat(grades.parcial_2)) : '--'}
                                         </Box>
                                     </Box>
                                 </Grid>
@@ -377,10 +380,10 @@ const StudentProgress = () => {
                                                 py: 4,
                                                 fontSize: '2rem',
                                                 fontWeight: 'bold',
-                                                color: getGradeColor(grades.examen_final)
+                                                color: getGradeColor(grades.examen_final, 40)
                                             }}
                                         >
-                                            {grades.examen_final ? parseFloat(grades.examen_final).toFixed(2) : '--'}
+                                            {grades.examen_final ? Math.round(parseFloat(grades.examen_final)) : '--'}
                                         </Box>
                                     </Box>
                                 </Grid>
@@ -404,10 +407,10 @@ const StudentProgress = () => {
                                                 py: 4,
                                                 fontSize: '2rem',
                                                 fontWeight: 'bold',
-                                                color: getGradeColor(grades.trabajos_practicos)
+                                                color: getGradeColor(grades.trabajos_practicos, 20)
                                             }}
                                         >
-                                            {grades.trabajos_practicos ? parseFloat(grades.trabajos_practicos).toFixed(2) : '--'}
+                                            {grades.trabajos_practicos ? Math.round(parseFloat(grades.trabajos_practicos)) : '--'}
                                         </Box>
                                     </Box>
                                 </Grid>
@@ -424,17 +427,17 @@ const StudentProgress = () => {
                                                 fontWeight: 600
                                             }}
                                         >
-                                            Promedio Final
+                                            Puntaje Final
                                         </Box>
                                         <Box
                                             sx={{
                                                 py: 4,
                                                 fontSize: '2rem',
                                                 fontWeight: 'bold',
-                                                color: getGradeColor(grades.promedio)
+                                                color: getGradeColor(grades.promedio, 100)
                                             }}
                                         >
-                                            {grades.promedio ? parseFloat(grades.promedio).toFixed(2) : '--'}
+                                            {grades.promedio ? Math.round(parseFloat(grades.promedio)) : '--'}
                                         </Box>
                                     </Box>
                                 </Grid>

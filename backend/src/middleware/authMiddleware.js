@@ -5,10 +5,10 @@ import { formatAvatarUrl } from '../utils/avatarHelper.js';
 export async function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
+    // EventSource (SSE) no puede enviar headers → aceptar ?token= como fallback
+    const queryToken = req.query?.token;
 
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-
+    if (!authHeader && !queryToken) {
       return res.status(401).json({
         error: {
           message: 'Access token required',
@@ -17,7 +17,12 @@ export async function authMiddleware(req, res, next) {
       });
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    let token = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : queryToken;
+    if (typeof token === 'string') {
+      token = token.replace(/^Bearer\s+/i, '').replace(/^"|"$/g, '').trim();
+    }
     // Verify JWT token
     const decoded = verifyToken(token);
 

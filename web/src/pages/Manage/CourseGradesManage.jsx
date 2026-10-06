@@ -54,19 +54,25 @@ const CourseGradesManage = () => {
             setLoading(true);
             const response = await api.getCourseGrades(courseId);
 
+            const formatInt = (val) => {
+                if (val === null || val === undefined || val === '') return '';
+                const n = Math.round(parseFloat(val));
+                return isNaN(n) ? '' : n;
+            };
+
             const gradesData = response.data.map(student => ({
                 student_id: student.student_id,
                 grade_id: student.grade_id,
                 cedula: student.cedula,
                 nombre: student.display_name,
-                p1: student.parcial_1 || '',
-                p2: student.parcial_2 || '',
-                recup: student.recuperatoria || '',
-                tp: student.trabajos_practicos || '',
-                tp_calculated: parseFloat(student.tp_calculated) || 0,
-                final: student.examen_final || '',
-                total: calculateTotal(student.parcial_1, student.parcial_2, student.trabajos_practicos),
-                promedio: student.promedio || '',
+                p1: formatInt(student.parcial_1),
+                p2: formatInt(student.parcial_2),
+                recup: formatInt(student.recuperatoria),
+                tp: formatInt(student.trabajos_practicos),
+                tp_calculated: Math.round(parseFloat(student.tp_calculated) || 0),
+                final: formatInt(student.examen_final),
+                total: Math.round(calculateTotal(student.parcial_1, student.parcial_2, student.trabajos_practicos)),
+                promedio: formatInt(student.promedio),
                 habilitado_final: student.habilitado_final || false,
                 habilitado_recuperacion: student.habilitado_recuperacion || false,
                 publicado: student.is_published || false
@@ -82,9 +88,9 @@ const CourseGradesManage = () => {
     };
 
     const calculateTotal = (p1, p2, tp) => {
-        const val1 = parseFloat(p1) || 0;
-        const val2 = parseFloat(p2) || 0;
-        const val3 = parseFloat(tp) || 0;
+        const val1 = Math.round(parseFloat(p1) || 0);
+        const val2 = Math.round(parseFloat(p2) || 0);
+        const val3 = Math.round(parseFloat(tp) || 0);
         return val1 + val2 + val3;
     };
 
@@ -98,15 +104,23 @@ const CourseGradesManage = () => {
     const handleGradeChange = (index, field, value) => {
         setGrades(prev => {
             const newGrades = [...prev];
-            newGrades[index][field] = value;
+            const cleanVal = value === '' ? '' : Math.round(parseFloat(value) || 0);
+            newGrades[index][field] = cleanVal;
 
-            if (['p1', 'p2', 'tp'].includes(field)) {
+            if (['p1', 'p2', 'tp', 'final', 'recup'].includes(field)) {
                 const total = calculateTotal(newGrades[index].p1, newGrades[index].p2, newGrades[index].tp);
                 newGrades[index].total = total;
 
                 const habs = calculateHabilitaciones(total);
                 newGrades[index].habilitado_final = habs.habilitado_final;
                 newGrades[index].habilitado_recuperacion = habs.habilitado_recuperacion;
+
+                const finalVal = newGrades[index].final === '' ? null : Math.round(parseFloat(newGrades[index].final));
+                if (finalVal !== null && !isNaN(finalVal)) {
+                    newGrades[index].promedio = Math.round(total + finalVal);
+                } else {
+                    newGrades[index].promedio = Math.round(total);
+                }
             }
 
             return newGrades;
@@ -314,7 +328,7 @@ const CourseGradesManage = () => {
                                 <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Hab. Final</TableCell>
                                 <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Hab. Recup</TableCell>
                                 <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Final</TableCell>
-                                <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Promedio</TableCell>
+                                <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Puntaje Final</TableCell>
                                 <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Publicado</TableCell>
                                 <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Acciones</TableCell>
                             </TableRow>
@@ -331,7 +345,7 @@ const CourseGradesManage = () => {
                                             onChange={(e) => handleGradeChange(index, 'p1', e.target.value)}
                                             size="small"
                                             sx={{ width: 70 }}
-                                            inputProps={{ min: 0, max: 20, step: 0.5 }}
+                                            inputProps={{ min: 0, max: 20, step: 1 }}
                                         />
                                     </TableCell>
                                     <TableCell align="center">
@@ -341,7 +355,7 @@ const CourseGradesManage = () => {
                                             onChange={(e) => handleGradeChange(index, 'p2', e.target.value)}
                                             size="small"
                                             sx={{ width: 70 }}
-                                            inputProps={{ min: 0, max: 20, step: 0.5 }}
+                                            inputProps={{ min: 0, max: 20, step: 1 }}
                                         />
                                     </TableCell>
                                     <TableCell align="center">
@@ -351,7 +365,7 @@ const CourseGradesManage = () => {
                                             onChange={(e) => handleGradeChange(index, 'recup', e.target.value)}
                                             size="small"
                                             sx={{ width: 70 }}
-                                            inputProps={{ min: 0, max: 20, step: 0.5 }}
+                                            inputProps={{ min: 0, max: 20, step: 1 }}
                                         />
                                     </TableCell>
                                     <TableCell align="center">
@@ -362,12 +376,12 @@ const CourseGradesManage = () => {
                                                 onChange={(e) => handleGradeChange(index, 'tp', e.target.value)}
                                                 size="small"
                                                 sx={{ width: 70 }}
-                                                inputProps={{ min: 0, max: 20, step: 0.5 }}
+                                                inputProps={{ min: 0, max: 20, step: 1 }}
                                             />
                                             <IconButton
                                                 size="small"
-                                                onClick={() => handleGradeChange(index, 'tp', grade.tp_calculated.toFixed(2))}
-                                                title={`Auto: ${grade.tp_calculated.toFixed(2)}`}
+                                                onClick={() => handleGradeChange(index, 'tp', Math.round(grade.tp_calculated))}
+                                                title={`Auto: ${Math.round(grade.tp_calculated)}`}
                                             >
                                                 <Refresh fontSize="small" />
                                             </IconButton>
@@ -375,7 +389,7 @@ const CourseGradesManage = () => {
                                     </TableCell>
                                     <TableCell align="center">
                                         <Chip
-                                            label={grade.total.toFixed(1)}
+                                            label={Math.round(grade.total)}
                                             sx={{ bgcolor: '#FFF9C4', color: '#F57F17', fontWeight: 'bold' }}
                                         />
                                     </TableCell>
@@ -400,11 +414,11 @@ const CourseGradesManage = () => {
                                             onChange={(e) => handleGradeChange(index, 'final', e.target.value)}
                                             size="small"
                                             sx={{ width: 70 }}
-                                            inputProps={{ min: 0, max: 100, step: 1 }}
+                                            inputProps={{ min: 0, max: 40, step: 1 }}
                                         />
                                     </TableCell>
                                     <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-                                        {grade.promedio || '-'}
+                                        {grade.promedio ? Math.round(parseFloat(grade.promedio)) : '-'}
                                     </TableCell>
                                     <TableCell align="center">
                                         <Chip

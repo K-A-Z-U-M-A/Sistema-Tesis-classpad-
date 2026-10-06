@@ -19,6 +19,8 @@ import {
 import {
   QrCode as QrCodeIcon,
   CheckCircle,
+  Cancel,
+  ErrorOutline,
   Close,
   CameraAlt,
   QrCodeScanner,
@@ -61,10 +63,13 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
   const [availableCameras, setAvailableCameras] = useState([]);
   const [selectedCameraId, setSelectedCameraId] = useState(null);
   const isProcessingScanRef = useRef(false);
+  // 'none' | 'already_recorded' | 'not_enrolled' | 'expired' | 'other'
+  const [errorType, setErrorType] = useState('none');
 
   const submitAttendance = async (token) => {
     setLoading(true);
     setError('');
+    setErrorType('none');
 
     try {
       let location = null;
@@ -103,8 +108,30 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
       }
     } catch (err) {
       const errorMsg = err.message || 'Error al registrar la asistencia';
+      const errorCode = err.code || '';
+
+      // Clasificar el tipo de error para mostrar pantalla prominente
+      let type = 'other';
+      if (errorCode === 'ALREADY_RECORDED' || errorMsg.toLowerCase().includes('ya registraste')) {
+        type = 'already_recorded';
+      } else if (errorCode === 'NOT_ENROLLED' || errorMsg.toLowerCase().includes('no est\u00e1s matriculado') || errorMsg.toLowerCase().includes('no perteneces')) {
+        type = 'not_enrolled';
+      } else if (errorCode === 'SESSION_EXPIRED' || errorCode === 'SESSION_NOT_FOUND') {
+        type = 'expired';
+      }
+
       setError(errorMsg);
-      toast.error(errorMsg, { duration: 5000 });
+      setErrorType(type);
+
+      // Para errores permanentes: detener la cámara para que el mensaje sea visible
+      if (type !== 'other') {
+        await stopCamera();
+      }
+
+      if (type === 'other') {
+        // Solo mostrar toast para errores transitorios
+        toast.error(errorMsg, { duration: 5000 });
+      }
     } finally {
       setLoading(false);
       isProcessingScanRef.current = false;
@@ -138,6 +165,7 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
       onClose();
       setQrToken('');
       setError('');
+      setErrorType('none');
       setSuccess(false);
       setTab(window.isSecureContext ? 0 : 1);
       setUploadedImage(null);
@@ -309,6 +337,7 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
         </DialogTitle>
 
         <DialogContent sx={{ p: 0 }}>
+          {/* ── Pantalla de ÉXITO ── */}
           {success ? (
             <Fade in={true}>
               <Box sx={{ textAlign: 'center', py: 6, px: 3 }}>
@@ -328,6 +357,57 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
                 <Typography variant="body1" color="text.secondary">
                   Tu asistencia ha sido procesada correctamente.
                 </Typography>
+              </Box>
+            </Fade>
+          ) : errorType !== 'none' ? (
+            /* ── Pantalla de ERROR PERMANENTE (ya escaneado / no matriculado / expirado) ── */
+            <Fade in={true}>
+              <Box sx={{ textAlign: 'center', py: 6, px: 3 }}>
+                <Box sx={{
+                  display: 'inline-flex',
+                  p: 2,
+                  borderRadius: '50%',
+                  bgcolor: errorType === 'not_enrolled' ? 'warning.light' : 'error.light',
+                  color: errorType === 'not_enrolled' ? 'warning.main' : 'error.main',
+                  mb: 3
+                }}>
+                  {errorType === 'not_enrolled'
+                    ? <ErrorOutline sx={{ fontSize: 60 }} />
+                    : <Cancel sx={{ fontSize: 60 }} />
+                  }
+                </Box>
+                <Typography variant="h5" fontWeight="bold" gutterBottom
+                  color={errorType === 'not_enrolled' ? 'warning.main' : 'error.main'}
+                >
+                  {errorType === 'already_recorded' && '¡Ya registraste tu asistencia!'}
+                  {errorType === 'not_enrolled' && 'No perteneces a este curso'}
+                  {errorType === 'expired' && 'Código QR inválido'}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                  {error}
+                </Typography>
+                {(errorType === 'already_recorded' || errorType === 'not_enrolled') ? (
+                  <Button
+                    variant="contained"
+                    color={errorType === 'not_enrolled' ? 'warning' : 'primary'}
+                    onClick={handleClose}
+                    sx={{ borderRadius: 2, px: 4, py: 1.2, fontWeight: 600 }}
+                  >
+                    Entendido / Cerrar
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      setError('');
+                      setErrorType('none');
+                      setTab(window.isSecureContext ? 0 : 1);
+                    }}
+                    sx={{ borderRadius: 2, px: 3, py: 1 }}
+                  >
+                    Intentar de nuevo
+                  </Button>
+                )}
               </Box>
             </Fade>
           ) : (
@@ -558,7 +638,7 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
 
         <DialogActions sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
           <Button onClick={handleClose} disabled={loading} color="inherit">
-            {success ? 'Cerrar' : 'Cancelar'}
+            {(success || errorType !== 'none') ? 'Cerrar' : 'Cancelar'}
           </Button>
         </DialogActions>
 

@@ -10,7 +10,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'https://localhost:5173';
@@ -18,15 +18,15 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'https://localhost:5173';
 /** Credenciales por rol - verificadas contra la BD de desarrollo */
 const CREDENTIALS = {
   admin: {
-    email:    process.env.E2E_ADMIN_EMAIL    || 'admin@classpad.com',
+    email: process.env.E2E_ADMIN_EMAIL || 'admin@classpad.com',
     password: process.env.E2E_ADMIN_PASSWORD || 'Abi12345',
   },
   teacher: {
-    email:    process.env.E2E_TEACHER_EMAIL    || 'test@classpad.com',
+    email: process.env.E2E_TEACHER_EMAIL || 'test@classpad.com',
     password: process.env.E2E_TEACHER_PASSWORD || '123456',
   },
   student: {
-    email:    process.env.E2E_STUDENT_EMAIL    || 'juan.perez@test.com',
+    email: process.env.E2E_STUDENT_EMAIL || 'juan.perez@test.com',
     password: process.env.E2E_STUDENT_PASSWORD || 'test123',
   },
 };
@@ -61,7 +61,7 @@ export const test = base.extend({
   /** Página autenticada como administrador */
   adminPage: async ({ browser }, use) => {
     const context = await browser.newContext({ ignoreHTTPSErrors: true });
-    const page    = await context.newPage();
+    const page = await context.newPage();
     await loginAs(page, 'admin');
     await use(page);
     await context.close();
@@ -70,7 +70,7 @@ export const test = base.extend({
   /** Página autenticada como profesor */
   teacherPage: async ({ browser }, use) => {
     const context = await browser.newContext({ ignoreHTTPSErrors: true });
-    const page    = await context.newPage();
+    const page = await context.newPage();
     await loginAs(page, 'teacher');
     await use(page);
     await context.close();
@@ -79,7 +79,7 @@ export const test = base.extend({
   /** Página autenticada como alumno */
   studentPage: async ({ browser }, use) => {
     const context = await browser.newContext({ ignoreHTTPSErrors: true });
-    const page    = await context.newPage();
+    const page = await context.newPage();
     await loginAs(page, 'student');
     await use(page);
     await context.close();
@@ -88,7 +88,7 @@ export const test = base.extend({
   /** Página sin autenticación (contexto limpio) */
   anonPage: async ({ browser }, use) => {
     const context = await browser.newContext({ ignoreHTTPSErrors: true });
-    const page    = await context.newPage();
+    const page = await context.newPage();
     await use(page);
     await context.close();
   },

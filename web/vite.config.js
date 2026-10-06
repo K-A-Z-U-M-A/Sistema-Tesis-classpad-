@@ -6,7 +6,7 @@ import path from 'path'
 // Certificados generados con mkcert (HTTPS confiable en red local)
 // Para generarlos: mkcert -key-file localhost-key.pem -cert-file localhost-cert.pem "césar.local" "192.168.0.113" localhost 127.0.0.1
 const certPath = path.resolve(__dirname, 'localhost-cert.pem')
-const keyPath  = path.resolve(__dirname, 'localhost-key.pem')
+const keyPath = path.resolve(__dirname, 'localhost-key.pem')
 const hasCerts = fs.existsSync(certPath) && fs.existsSync(keyPath)
 
 // https://vite.dev/config/
@@ -48,6 +48,20 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
+        // Necesario para SSE (Server-Sent Events): evitar que Vite bufferice la respuesta
+        configure: (proxy) => {
+          proxy.on('proxyReq', (_proxyReq, req) => {
+            if (req.url?.includes('/live')) {
+              // Forzar desactivar buffering en nginx/cualquier intermediario
+            }
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            if (req.url?.includes('/live')) {
+              proxyRes.headers['x-accel-buffering'] = 'no';
+              proxyRes.headers['cache-control'] = 'no-cache';
+            }
+          });
+        }
       }
     }
   },
@@ -72,9 +86,9 @@ export default defineConfig({
         manualChunks: (id) => {
           // ── React core ─────────────────────────────────────────────────────
           if (id.includes('node_modules/react/') ||
-              id.includes('node_modules/react-dom/') ||
-              id.includes('node_modules/react-router-dom/') ||
-              id.includes('node_modules/scheduler/')) {
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react-router-dom/') ||
+            id.includes('node_modules/scheduler/')) {
             return 'vendor-react';
           }
 
@@ -85,9 +99,9 @@ export default defineConfig({
 
           // ── MUI core + emotion ─────────────────────────────────────────────
           if (id.includes('@mui/material') ||
-              id.includes('@mui/system') ||
-              id.includes('@mui/base') ||
-              id.includes('@emotion/')) {
+            id.includes('@mui/system') ||
+            id.includes('@mui/base') ||
+            id.includes('@emotion/')) {
             return 'vendor-mui';
           }
 

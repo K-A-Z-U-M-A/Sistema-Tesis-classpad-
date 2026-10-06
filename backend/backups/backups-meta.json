@@ -1,102 +1,22 @@
 [
   {
-    "filename": "backup_classpad_auto_2026-08-31T19-00-00-025Z.sql",
-    "type": "auto",
-    "sizeBytes": 8910516,
-    "createdAt": "2026-08-31T19:00:00.497Z",
+    "filename": "backup_classpad_manual_2026-09-29T22-48-47-325Z.sql.gz",
+    "type": "manual",
+    "sizeBytes": 6433811,
+    "createdAt": "2026-09-29T22:48:48.266Z",
     "uploadedToDrive": true,
-    "driveFileId": "139sb5wAzTKl7BqeMeUiXxJqC5lng5VPa",
-    "driveLink": "https://drive.google.com/file/d/139sb5wAzTKl7BqeMeUiXxJqC5lng5VPa/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-31T19:00:04.370Z"
+    "driveFileId": "1DCzcIsxcPih7j4ry-4_iokq3h3lYZFVj",
+    "driveLink": "https://drive.google.com/file/d/1DCzcIsxcPih7j4ry-4_iokq3h3lYZFVj/view?usp=drivesdk",
+    "driveUploadedAt": "2026-09-29T22:49:10.866Z"
   },
   {
-    "filename": "backup_classpad_manual_2026-08-28T19-34-14-370Z.sql",
+    "filename": "backup_classpad_manual_2026-09-28T16-50-22-130Z.sql.gz",
     "type": "manual",
-    "sizeBytes": 8907095,
-    "createdAt": "2026-08-28T19:34:14.709Z",
+    "sizeBytes": 6429470,
+    "createdAt": "2026-09-28T16:50:22.670Z",
     "uploadedToDrive": true,
-    "driveFileId": "1tKDDVGQyrzNh_vWoNupI6K6ZvH9-VVLr",
-    "driveLink": "https://drive.google.com/file/d/1tKDDVGQyrzNh_vWoNupI6K6ZvH9-VVLr/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-28T19:34:16.878Z"
-  },
-  {
-    "filename": "backup_classpad_manual_2026-08-28T19-33-02-239Z.sql",
-    "type": "manual",
-    "sizeBytes": 8907095,
-    "createdAt": "2026-08-28T19:33:02.601Z",
-    "uploadedToDrive": true,
-    "driveFileId": "1a4Eq9RxD1-2RS16Uf8Lxxzh1DrhrOCFg",
-    "driveLink": "https://drive.google.com/file/d/1a4Eq9RxD1-2RS16Uf8Lxxzh1DrhrOCFg/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-28T19:33:05.634Z"
-  },
-  {
-    "filename": "backup_classpad_manual_2026-08-28T19-32-46-562Z.sql",
-    "type": "manual",
-    "sizeBytes": 8907095,
-    "createdAt": "2026-08-28T19:32:46.854Z",
-    "uploadedToDrive": true,
-    "driveFileId": "16vpKF5e1-VYsOU5vfin-Ees1VyDcQQiP",
-    "driveLink": "https://drive.google.com/file/d/16vpKF5e1-VYsOU5vfin-Ees1VyDcQQiP/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-28T19:32:49.233Z"
-  },
-  {
-    "filename": "backup_classpad_manual_2026-08-28T19-32-30-328Z.sql",
-    "type": "manual",
-    "sizeBytes": 8907095,
-    "createdAt": "2026-08-28T19:32:30.643Z",
-    "uploadedToDrive": true,
-    "driveFileId": "1UF9rLYpXHYDNGJ8FIhQ1InB8H80Fn0Eu",
-    "driveLink": "https://drive.google.com/file/d/1UF9rLYpXHYDNGJ8FIhQ1InB8H80Fn0Eu/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-28T19:32:32.768Z"
-  },
-  {
-    "filename": "backup_classpad_manual_2026-08-28T19-32-28-832Z.sql",
-    "type": "manual",
-    "sizeBytes": 8907095,
-    "createdAt": "2026-08-28T19:32:29.130Z",
-    "uploadedToDrive": true,
-    "driveFileId": "1pPajOrZbMOEKDtdHa7f8uNXR-H-xX2ND",
-    "driveLink": "https://drive.google.com/file/d/1pPajOrZbMOEKDtdHa7f8uNXR-H-xX2ND/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-28T19:32:31.198Z"
-  },
-  {
-    "filename": "backup_classpad_manual_2026-08-28T19-32-27-374Z.sql",
-    "type": "manual",
-    "sizeBytes": 8907095,
-    "createdAt": "2026-08-28T19:32:27.722Z",
-    "uploadedToDrive": true,
-    "driveFileId": "18hoRy1r7uMThAmJlwyWPCNB0z3p2eUMJ",
-    "driveLink": "https://drive.google.com/file/d/18hoRy1r7uMThAmJlwyWPCNB0z3p2eUMJ/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-28T19:32:29.759Z"
-  },
-  {
-    "filename": "backup_classpad_manual_2026-08-28T19-32-25-523Z.sql",
-    "type": "manual",
-    "sizeBytes": 8907095,
-    "createdAt": "2026-08-28T19:32:26.249Z",
-    "uploadedToDrive": true,
-    "driveFileId": "10tCn9_4jGHQe6Q6Ov84Hr5UbL2HiSz-U",
-    "driveLink": "https://drive.google.com/file/d/10tCn9_4jGHQe6Q6Ov84Hr5UbL2HiSz-U/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-28T19:32:28.739Z"
-  },
-  {
-    "filename": "backup_classpad_manual_2026-08-28T19-25-23-374Z.sql",
-    "type": "manual",
-    "sizeBytes": 8907095,
-    "createdAt": "2026-08-28T19:25:23.889Z",
-    "uploadedToDrive": true,
-    "driveFileId": "189mvT2QIA0ewKg3sE80Zy9iRaxIb6vrc",
-    "driveLink": "https://drive.google.com/file/d/189mvT2QIA0ewKg3sE80Zy9iRaxIb6vrc/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-28T19:25:28.638Z"
-  },
-  {
-    "filename": "backup_classpad_manual_2026-08-28T19-22-45-048Z.sql",
-    "type": "manual",
-    "sizeBytes": 8904781,
-    "createdAt": "2026-08-28T19:22:45.630Z",
-    "uploadedToDrive": true,
-    "driveFileId": "1Qpo51ukqJ6UHXPfEiC3yuBDau-6n1iYC",
-    "driveLink": "https://drive.google.com/file/d/1Qpo51ukqJ6UHXPfEiC3yuBDau-6n1iYC/view?usp=drivesdk",
-    "driveUploadedAt": "2026-08-28T19:22:50.774Z"
+    "driveFileId": "1Ku5ft6HQ_IgxBq6uM7YPx_NZX4h_lahI",
+    "driveLink": "https://drive.google.com/file/d/1Ku5ft6HQ_IgxBq6uM7YPx_NZX4h_lahI/view?usp=drivesdk",
+    "driveUploadedAt": "2026-09-28T16:50:30.572Z"
   }
 ]

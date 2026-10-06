@@ -2,6 +2,11 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
+import zlib from 'zlib';
+import { promisify } from 'util';
+
+const gzip = promisify(zlib.gzip);
+const gunzip = promisify(zlib.gunzip);
 import cron from 'node-cron';
 import { google } from 'googleapis';
 import pool from '../config/database.js';
@@ -361,12 +366,31 @@ class BackupService {
       body: fs.createReadStream(filePath),
     };
 
-    const res = await drive.files.create({
-      requestBody: fileMetadata,
-      media: media,
-      fields: 'id, name, webViewLink',
-      supportsAllDrives: true,
-    });
+    let res;
+    try {
+      res = await drive.files.create({
+        requestBody: fileMetadata,
+        media: media,
+        fields: 'id, name, webViewLink',
+        supportsAllDrives: true,
+      });
+    } catch (err) {
+      // Token revocado o expirado — el usuario debe reconectar Google Drive
+      if (err.message?.includes('invalid_grant') || err.code === 400) {
+        // Marcar la conexión como desconectada en la config
+        const cfg = this.getConfig();
+        if (cfg.googleDrive) {
+          cfg.googleDrive.lastSyncStatus = 'error';
+          cfg.googleDrive.lastSyncError = 'Token inválido o revocado';
+          this.saveConfig(cfg);
+        }
+        throw new Error(
+          'La sesión de Google Drive expiró o fue revocada. ' +
+          'Por favor ve a Configuración → Copias de Seguridad y haz clic en "Conectar con Google Drive" para reconectar tu cuenta.'
+        );
+      }
+      throw err;
+    }
 
     // Actualizar metadata local
     const metaList = this.getMeta();
@@ -476,13 +500,14 @@ class BackupService {
 
     this.isBackingUp = true;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `backup_classpad_${type}_${timestamp}.sql`;
+    const filename = `backup_classpad_${type}_${timestamp}.sql.gz`;
     const filePath = path.join(BACKUPS_DIR, filename);
 
     try {
       console.log(`📦 Creando copia de seguridad [${type}]: ${filename}...`);
       const sqlData = await this.generateNativeSqlDump();
-      fs.writeFileSync(filePath, sqlData, 'utf8');
+      const compressed = await gzip(Buffer.from(sqlData, 'utf8'), { level: zlib.constants.Z_BEST_COMPRESSION });
+      fs.writeFileSync(filePath, compressed);
 
       const stats = fs.statSync(filePath);
       const backupEntry = {
@@ -512,7 +537,7 @@ class BackupService {
       }
       this.saveMeta(metaList);
 
-      console.log(`✅ Copia de seguridad creada con éxito (${(stats.size / 1024).toFixed(2)} KB).`);
+      console.log(`✅ Copia de seguridad creada con éxito (${(stats.size / 1024).toFixed(2)} KB comprimido).`);
       return backupEntry;
     } finally {
       this.isBackingUp = false;
@@ -531,14 +556,15 @@ class BackupService {
 
     this.isBackingUp = true;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `backup_classpad_${type}_${timestamp}.sql`;
+    const filename = `backup_classpad_${type}_${timestamp}.sql.gz`;
     const filePath = path.join(BACKUPS_DIR, filename);
 
     try {
       console.log(`📦 Creando copia de seguridad [${type}]: ${filename}...`);
       
       const sqlData = await this.generateNativeSqlDump();
-      fs.writeFileSync(filePath, sqlData, 'utf8');
+      const compressed = await gzip(Buffer.from(sqlData, 'utf8'), { level: zlib.constants.Z_BEST_COMPRESSION });
+      fs.writeFileSync(filePath, compressed);
 
       const stats = fs.statSync(filePath);
       const backupEntry = {
@@ -570,7 +596,7 @@ class BackupService {
       }
       this.saveMeta(metaList);
 
-      console.log(`✅ Copia de seguridad creada con éxito (${(stats.size / 1024).toFixed(2)} KB).`);
+      console.log(`✅ Copia de seguridad creada con éxito (${(stats.size / 1024).toFixed(2)} KB comprimido).`);
 
       // Subir a Google Drive automáticamente si está conectado (OAuth2 o Service Account)
       if (config.googleDrive?.enabled && (config.googleDrive?.tokens || config.googleDrive?.clientEmail)) {
@@ -644,7 +670,15 @@ class BackupService {
       throw new Error('Archivo de copia de seguridad no encontrado');
     }
 
-    const sqlContent = fs.readFileSync(filePath, 'utf8');
+    let sqlContent;
+    const rawBuffer = fs.readFileSync(filePath);
+    if (filename.endsWith('.gz')) {
+      const decompressed = await gunzip(rawBuffer);
+      sqlContent = decompressed.toString('utf8');
+    } else {
+      sqlContent = rawBuffer.toString('utf8');
+    }
+
     const client = await pool.connect();
     try {
       console.log(`🔄 Restaurando base de datos desde ${filename}...`);

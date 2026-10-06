@@ -52,13 +52,13 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
         u.email,
         u.cedula,
         sg.id as grade_id,
-        sg.parcial_1,
-        sg.parcial_2,
-        sg.recuperatoria,
-        sg.trabajos_practicos,
-        sg.examen_final,
-        sg.promedio,
-        sg.total,
+        ROUND(sg.parcial_1) as parcial_1,
+        ROUND(sg.parcial_2) as parcial_2,
+        ROUND(sg.recuperatoria) as recuperatoria,
+        ROUND(sg.trabajos_practicos) as trabajos_practicos,
+        ROUND(sg.examen_final) as examen_final,
+        ROUND(sg.promedio) as promedio,
+        ROUND(sg.total) as total,
         sg.habilitado_final,
         sg.habilitado_recuperacion,
         sg.is_published,
@@ -66,7 +66,7 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
         sg.updated_at,
         
         -- CALCULAR TP AUTOMÁTICAMENTE desde submissions (SUMA de todas las tareas calificadas)
-        COALESCE((
+        ROUND(COALESCE((
           SELECT SUM(s.grade)
           FROM submissions s
           INNER JOIN assignments a ON s.assignment_id = a.id
@@ -74,7 +74,7 @@ router.get('/course/:courseId', authMiddleware, async (req, res) => {
           AND s.student_id = u.id
           AND s.status = 'graded'
           AND s.grade IS NOT NULL
-        ), 0) as tp_calculated
+        ), 0)) as tp_calculated
         
       FROM users u
       INNER JOIN enrollments e ON u.id = e.student_id
@@ -652,15 +652,15 @@ router.put('/generate-tp/:courseId', authMiddleware, async (req, res) => {
         // Update TP for all students based on their task submissions
         const result = await pool.query(
             `UPDATE student_grades sg
-       SET trabajos_practicos = (
-         SELECT COALESCE(AVG(s.grade), 0)
+       SET trabajos_practicos = ROUND(COALESCE((
+         SELECT AVG(s.grade)
          FROM submissions s
          INNER JOIN assignments a ON s.assignment_id = a.id
          WHERE a.course_id = sg.course_id
          AND s.student_id = sg.student_id
          AND s.status = 'graded'
          AND s.grade IS NOT NULL
-       ),
+       ), 0)),
        updated_at = CURRENT_TIMESTAMP
        WHERE course_id = $1
        RETURNING *`,

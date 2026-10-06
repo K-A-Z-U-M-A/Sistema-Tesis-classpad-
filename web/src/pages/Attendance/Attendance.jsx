@@ -115,6 +115,10 @@ export default function Attendance() {
   const [selectedScheduledClassId, setSelectedScheduledClassId] = useState('');
   const qrCodeRef = useRef(null);
   const expandedSessionsRef = useRef(new Set());
+  // Estado separado del QR para que sus actualizaciones no re-renderizen el diálogo completo
+  const [liveQrToken, setLiveQrToken] = useState(null);
+  // Ref del EventSource activo para limpiar al desmontar
+  const sseRef = useRef(null);
 
   // Helper para obtener fecha actual en formato YYYY-MM-DD local
   const getTodayDateStr = () => {
@@ -191,6 +195,13 @@ export default function Attendance() {
     }
   }, [selectedSession]);
 
+  // Sincronizar liveQrToken cuando cambia la sesión seleccionada
+  useEffect(() => {
+    if (selectedSession?.qr_token) {
+      setLiveQrToken(selectedSession.qr_token);
+    }
+  }, [selectedSession?.id, selectedSession?.qr_token]);
+
   // Sincronizar ref con expandedSessions
   useEffect(() => {
     expandedSessionsRef.current = expandedSessions;
@@ -219,27 +230,100 @@ export default function Attendance() {
     }
   }, [selectedCourse]);
 
-  // Auto-refresh records and session when dialog is open (polling every 3 seconds)
+  // ── SSE + Polling Silencioso de Respaldo: Recibir actualizaciones en tiempo real cuando hay sesión activa abierta ──────
   useEffect(() => {
     if (!selectedSession || !selectedSession.is_active) return;
     const sessionId = selectedSession.id;
     const isDialogOpen = expandedSessions.has(sessionId);
-    if (!isDialogOpen) return; // Solo si el diálogo está abierto
+    if (!isDialogOpen) return;
 
-    // Cargar registros y actualizar sesión inmediatamente cuando se abre el diálogo
+    // Cargar registros iniciales al abrir el diálogo
     loadRecords(sessionId);
-    refreshSession(sessionId);
 
-    const intervalId = setInterval(() => {
-      // Usar ref para verificar el estado actual sin problemas de closure
-      if (expandedSessionsRef.current.has(sessionId)) {
-        loadRecords(sessionId);
-        refreshSession(sessionId); // También refrescar la sesión para obtener el QR actualizado
+    // Obtener el JWT para autenticar el EventSource vía query param
+    let rawToken = api.getToken();
+    if (typeof rawToken === 'string') {
+      rawToken = rawToken.replace(/^Bearer\s+/i, '').replace(/^"|"$/g, '').trim();
+    }
+
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+    const sseUrl = `${API_BASE}/attendance/sessions/${sessionId}/live?token=${encodeURIComponent(rawToken || '')}`;
+
+    let es = null;
+    try {
+      es = new EventSource(sseUrl);
+      sseRef.current = es;
+
+      es.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'attendance-update') {
+            // Actualizar QR sin re-renderizar todo el diálogo
+            if (payload.new_qr_token) {
+              setLiveQrToken(payload.new_qr_token);
+            }
+            // Agregar el nuevo registro al tope de la lista sin re-fetch
+            if (payload.record) {
+              setRecords((prev) => {
+                const exists = prev.some((r) => r.id === payload.record.id || r.student_id === payload.record.student_id);
+                return exists ? prev : [payload.record, ...prev];
+              });
+              setSessions((prev) =>
+                prev.map((s) =>
+                  s.id === sessionId
+                    ? { ...s, present_count: (s.present_count || 0) + 1, qr_token: payload.new_qr_token || s.qr_token }
+                    : s
+                )
+              );
+            }
+          }
+        } catch (e) {
+          console.error('[SSE] Error parsing event:', e);
+        }
+      };
+
+      es.onerror = (err) => {
+        console.warn('[SSE] EventSource aviso / reintento:', err);
+      };
+    } catch (err) {
+      console.warn('[SSE] Error inicializando EventSource:', err);
+    }
+
+    // Polling silencioso de respaldo cada 2.5 segundos que NO muestra spinner ni causa parpadeo
+    const silentPollInterval = setInterval(async () => {
+      try {
+        const [recordsRes, sessionsRes] = await Promise.all([
+          api.getSessionAttendanceRecords(sessionId),
+          selectedCourse ? api.getCourseAttendanceSessions(selectedCourse) : null
+        ]);
+
+        if (recordsRes?.success && Array.isArray(recordsRes.data)) {
+          setRecords(recordsRes.data);
+        }
+
+        if (sessionsRes?.success && Array.isArray(sessionsRes.data)) {
+          const updated = sessionsRes.data.find((s) => s.id === sessionId);
+          if (updated) {
+            if (updated.qr_token) {
+              setLiveQrToken(updated.qr_token);
+            }
+            setSessions(sessionsRes.data);
+          }
+        }
+      } catch (_) {
+        // Silencioso en background
       }
-    }, 3000); // Actualizar cada 3 segundos
+    }, 2500);
 
-    return () => clearInterval(intervalId);
-  }, [selectedSession?.id, selectedSession?.is_active, Array.from(expandedSessions).join(','), refreshSession]);
+    return () => {
+      if (es) {
+        es.close();
+      }
+      sseRef.current = null;
+      clearInterval(silentPollInterval);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSession?.id, selectedSession?.is_active, Array.from(expandedSessions).join(','), selectedCourse]);
 
   const loadCourses = async () => {
     try {
@@ -300,9 +384,9 @@ export default function Attendance() {
     }
   };
 
-  const loadRecords = async (sessionId) => {
+  const loadRecords = async (sessionId, silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await api.getSessionAttendanceRecords(sessionId);
       if (response.success) {
         setRecords(response.data);
@@ -318,10 +402,10 @@ export default function Attendance() {
       }
     } catch (error) {
       console.error('Error loading records:', error);
-      toast.error('Error al cargar los registros');
-      setRecords([]);
+      if (!silent) toast.error('Error al cargar los registros');
+      if (!silent) setRecords([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -423,6 +507,16 @@ export default function Attendance() {
           allowed_radius: 50,
           duration_minutes: 60
         });
+
+        // Llevar directamente al diálogo "Detalles de Sesión" de la nueva sesión creada
+        const newSession = response.data;
+        if (newSession) {
+          setSelectedSession(newSession);
+          setLiveQrToken(newSession.qr_token);
+          setExpandedSessions(new Set([newSession.id]));
+          loadRecords(newSession.id);
+        }
+
         loadSessions(selectedCourse);
       }
     } catch (error) {
@@ -759,10 +853,10 @@ export default function Attendance() {
     try {
       setLoading(true);
       
-      // Verificar que haya sesiones finalizadas
-      const allSessions = sessions.filter(s => s.course_id === selectedCourse && !s.is_active);
-      if (allSessions.length === 0) {
-        toast.info('No hay sesiones finalizadas para calcular estadísticas');
+      // Verificar que haya sesiones o clases programadas
+      const allSessions = sessions.filter(s => s.course_id === selectedCourse);
+      if (allSessions.length === 0 && scheduledClasses.length === 0) {
+        toast.info('No hay sesiones ni clases programadas para calcular estadísticas');
         return;
       }
       
@@ -796,13 +890,16 @@ export default function Attendance() {
     
     // Crear datos para Excel
     const excelData = [
-      ['Estudiante', 'Cédula', 'Total Sesiones', 'Presentes', 'Ausentes', 'Tardes', 'Justificados', 'Porcentaje (%)', 'Habilitado para Examen', 'Estado']
+      ['Estudiante', 'Cédula', 'Clases Programadas', 'Clases Asistidas', 'Sesiones Tomadas', 'Presentes', 'Ausentes', 'Tardes', 'Justificados', 'Porcentaje (%)', 'Habilitado para Examen', 'Estado']
     ];
     
     attendanceStats.forEach(stat => {
+      const attended = stat.attendedCount !== undefined ? stat.attendedCount : (stat.presentCount + stat.lateCount + stat.excusedCount);
       excelData.push([
         stat.studentName,
         stat.studentCedula,
+        stat.scheduledClasses || stat.totalSessions,
+        attended,
         stat.totalSessions,
         stat.presentCount,
         stat.absentCount,
@@ -1365,7 +1462,7 @@ export default function Attendance() {
         <DialogContent dividers>
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="body2">
-              <strong>Regla de Habilitación:</strong> Los estudiantes con menos del 60% de asistencia NO están habilitados para la primera parcial.
+              <strong>Regla de Habilitación:</strong> Los estudiantes necesitan al menos el 60% de asistencia sobre la cantidad de clases programadas para estar habilitados (ej: al menos 6 de 10 clases).
             </Typography>
           </Alert>
 
@@ -1415,12 +1512,18 @@ export default function Attendance() {
 
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>Total Sesiones:</Typography>
-                          <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem' }}>{stat.totalSessions}</Typography>
+                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>Clases Programadas:</Typography>
+                          <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem' }}>{stat.scheduledClasses || stat.totalSessions}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="caption" color="success.main" sx={{ fontSize: '0.75rem' }}>Presentes:</Typography>
-                          <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem' }}>{stat.presentCount}</Typography>
+                          <Typography variant="caption" color="success.main" sx={{ fontSize: '0.75rem' }}>Clases Asistidas:</Typography>
+                          <Typography variant="caption" fontWeight="bold" color="success.main" sx={{ fontSize: '0.75rem' }}>
+                            {stat.attendedCount !== undefined ? stat.attendedCount : (stat.presentCount + stat.lateCount + stat.excusedCount)}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>Sesiones Tomadas:</Typography>
+                          <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem' }}>{stat.totalSessions}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="caption" color="error.main" sx={{ fontSize: '0.75rem' }}>Ausentes:</Typography>
@@ -1510,7 +1613,7 @@ export default function Attendance() {
                     sx={{ p: 2, bgcolor: 'white', borderRadius: "16px", display: 'inline-block', position: 'relative' }}
                   >
                     <QRCodeSVG
-                      value={selectedSession.qr_token}
+                      value={liveQrToken || selectedSession.qr_token}
                       size={200}
                       level="H"
                     />

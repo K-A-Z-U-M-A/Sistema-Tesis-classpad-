@@ -10,6 +10,39 @@ import { createNotification } from './notifications.js';
 
 const router = express.Router();
 
+// Helper para calcular el progreso de avance académico de un curso (visión docente/institucional)
+async function calculateCourseInstitutionalProgress(courseId, studentCount, assignmentCount) {
+  try {
+    const [schedRes, sessRes, subsRes, gradesRes] = await Promise.all([
+      pool.query('SELECT COUNT(*) as c FROM course_calendar_classes WHERE course_id = $1', [courseId]),
+      pool.query('SELECT COUNT(*) as c FROM attendance_sessions WHERE course_id = $1', [courseId]),
+      pool.query('SELECT COUNT(*) as c FROM submissions s JOIN assignments a ON s.assignment_id = a.id WHERE a.course_id = $1', [courseId]),
+      pool.query('SELECT COUNT(*) as c FROM student_grades WHERE course_id = $1', [courseId])
+    ]);
+
+    const numSched = parseInt(schedRes.rows[0]?.c || '0', 10);
+    const numSess = parseInt(sessRes.rows[0]?.c || '0', 10);
+    const numSubs = parseInt(subsRes.rows[0]?.c || '0', 10);
+    const numGrades = parseInt(gradesRes.rows[0]?.c || '0', 10);
+
+    // 1. Clases dictadas vs planificadas (40% de peso)
+    const classRate = numSched > 0 ? Math.min(numSess / numSched, 1) : (numSess > 0 ? Math.min(numSess / 12, 1) : 0);
+    
+    // 2. Entregas de actividades recibidas vs esperadas (30% de peso)
+    const expectedSubs = studentCount * assignmentCount;
+    const subRate = expectedSubs > 0 ? Math.min(numSubs / expectedSubs, 1) : (assignmentCount > 0 ? 0.5 : 0);
+    
+    // 3. Actas de calificaciones cargadas vs alumnos matriculados (30% de peso)
+    const gradeRate = studentCount > 0 ? Math.min(numGrades / studentCount, 1) : 0;
+
+    const progress = Math.round((classRate * 40) + (subRate * 30) + (gradeRate * 30));
+    return Math.min(Math.max(progress, 0), 100);
+  } catch (error) {
+    console.error('Error calculando progreso institucional del curso:', error);
+    return 0;
+  }
+}
+
 // GET /api/courses - Get user's courses (ONLY ACTIVE)
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -55,10 +88,15 @@ router.get('/', authMiddleware, async (req, res) => {
           `, [course.id])
         ]);
 
+        const numStudents = parseInt(studentCount.rows[0]?.count || '0', 10);
+        const numAssignments = parseInt(assignmentCount.rows[0]?.count || '0', 10);
+        const progress = await calculateCourseInstitutionalProgress(course.id, numStudents, numAssignments);
+
         return {
           ...course,
-          student_count: parseInt(studentCount.rows[0]?.count || '0', 10),
-          assignment_count: parseInt(assignmentCount.rows[0]?.count || '0', 10),
+          student_count: numStudents,
+          assignment_count: numAssignments,
+          progress,
           students: studentsResult.rows,
           teacher: {
             id: course.owner_id,
@@ -107,11 +145,16 @@ router.get('/', authMiddleware, async (req, res) => {
           `, [course.id])
         ]);
 
+        const numStudents = parseInt(studentCount.rows[0]?.count || '0', 10);
+        const numAssignments = parseInt(assignmentCount.rows[0]?.count || '0', 10);
+        const progress = await calculateCourseInstitutionalProgress(course.id, numStudents, numAssignments);
+
         return {
           ...course,
           owner_photo: formatAvatarUrl(course.owner_id, course.owner_photo),
-          student_count: parseInt(studentCount.rows[0]?.count || '0', 10),
-          assignment_count: parseInt(assignmentCount.rows[0]?.count || '0', 10),
+          student_count: numStudents,
+          assignment_count: numAssignments,
+          progress,
           students: studentsResult.rows.map(s => ({ ...s, photo_url: formatAvatarUrl(s.id, s.photo_url) })),
           teacher: {
             id: course.owner_id,
@@ -138,6 +181,7 @@ router.get('/', authMiddleware, async (req, res) => {
       );
 
       // Get counts and students for each course
+      const studentId = req.user.id;
       courses = await Promise.all(result.rows.map(async (course) => {
         const [studentCount, assignmentCount, studentsResult] = await Promise.all([
           pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
@@ -162,11 +206,63 @@ router.get('/', authMiddleware, async (req, res) => {
           `, [course.id])
         ]);
 
+        const numStudents = parseInt(studentCount.rows[0]?.count || '0', 10);
+        const numAssignments = parseInt(assignmentCount.rows[0]?.count || '0', 10);
+
+        // Progreso para estudiante
+        let submissionRate = 0;
+        if (numAssignments > 0) {
+          const submittedResult = await pool.query(
+            `SELECT COUNT(*) as count FROM submissions s
+             JOIN assignments a ON s.assignment_id = a.id
+             WHERE a.course_id = $1 AND a.status = 'published' AND s.student_id = $2`,
+            [course.id, studentId]
+          );
+          submissionRate = parseInt(submittedResult.rows[0]?.count || '0', 10) / numAssignments;
+        }
+
+        let attendanceRate = 0;
+        try {
+          const sessionsResult = await pool.query(
+            'SELECT COUNT(*) as count FROM attendance_sessions WHERE course_id = $1',
+            [course.id]
+          );
+          const totalSessions = parseInt(sessionsResult.rows[0]?.count || '0', 10);
+          if (totalSessions > 0) {
+            const attendedResult = await pool.query(
+              `SELECT COUNT(*) as count FROM attendance_records r
+               JOIN attendance_sessions s ON r.session_id = s.id
+               WHERE s.course_id = $1 AND r.student_id = $2 AND r.status IN ('present', 'late')`,
+              [course.id, studentId]
+            );
+            attendanceRate = parseInt(attendedResult.rows[0]?.count || '0', 10) / totalSessions;
+          }
+        } catch (_) {}
+
+        let gradeCompleteness = 0;
+        try {
+          const gradeResult = await pool.query(
+            'SELECT parcial_1, parcial_2, trabajos_practicos, examen_final FROM student_grades WHERE course_id = $1 AND student_id = $2',
+            [course.id, studentId]
+          );
+          if (gradeResult.rows.length > 0) {
+            const g = gradeResult.rows[0];
+            const fields = [g.parcial_1, g.parcial_2, g.trabajos_practicos, g.examen_final];
+            const filled = fields.filter(f => f !== null && f !== undefined).length;
+            gradeCompleteness = filled / fields.length;
+          }
+        } catch (_) {}
+
+        const progress = Math.min(Math.round(
+          (submissionRate * 40) + (attendanceRate * 30) + (gradeCompleteness * 30)
+        ), 100);
+
         return {
           ...course,
           owner_photo: formatAvatarUrl(course.owner_id, course.owner_photo),
-          student_count: parseInt(studentCount.rows[0].count),
-          assignment_count: parseInt(assignmentCount.rows[0].count),
+          student_count: numStudents,
+          assignment_count: numAssignments,
+          progress,
           students: studentsResult.rows.map(s => ({ ...s, photo_url: formatAvatarUrl(s.id, s.photo_url) })),
           teacher: {
             id: course.owner_id,
@@ -519,17 +615,73 @@ router.get('/my-courses', authMiddleware, async (req, res) => {
       [req.user.id]
     );
 
-    // Get counts for each course
+    // Get counts and progress for each course
+    const studentId = req.user.id;
     const courses = await Promise.all(result.rows.map(async (course) => {
       const [studentCount, assignmentCount] = await Promise.all([
         pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
         pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND status = $2', [course.id, 'published'])
       ]);
 
+      const totalAssignments = parseInt(assignmentCount.rows[0].count);
+
+      // --- Progress calculation ---
+      // 1. Submission rate (40% weight): submitted / total published assignments
+      let submissionRate = 0;
+      if (totalAssignments > 0) {
+        const submittedResult = await pool.query(
+          `SELECT COUNT(*) as count FROM submissions s
+           JOIN assignments a ON s.assignment_id = a.id
+           WHERE a.course_id = $1 AND a.status = 'published' AND s.student_id = $2`,
+          [course.id, studentId]
+        );
+        submissionRate = parseInt(submittedResult.rows[0].count) / totalAssignments;
+      }
+
+      // 2. Attendance rate (30% weight): present+late / total sessions
+      let attendanceRate = 0;
+      try {
+        const sessionsResult = await pool.query(
+          'SELECT COUNT(*) as count FROM attendance_sessions WHERE course_id = $1',
+          [course.id]
+        );
+        const totalSessions = parseInt(sessionsResult.rows[0].count);
+        if (totalSessions > 0) {
+          const attendedResult = await pool.query(
+            `SELECT COUNT(*) as count FROM attendance_records r
+             JOIN attendance_sessions s ON r.session_id = s.id
+             WHERE s.course_id = $1 AND r.student_id = $2 AND r.status IN ('present', 'late')`,
+            [course.id, studentId]
+          );
+          attendanceRate = parseInt(attendedResult.rows[0].count) / totalSessions;
+        }
+      } catch (_) { /* attendance tables may not exist */ }
+
+      // 3. Academic grade completeness (30% weight): how many grade fields are filled
+      let gradeCompleteness = 0;
+      try {
+        const gradeResult = await pool.query(
+          'SELECT parcial_1, parcial_2, trabajos_practicos, examen_final FROM student_grades WHERE course_id = $1 AND student_id = $2',
+          [course.id, studentId]
+        );
+        if (gradeResult.rows.length > 0) {
+          const g = gradeResult.rows[0];
+          const fields = [g.parcial_1, g.parcial_2, g.trabajos_practicos, g.examen_final];
+          const filled = fields.filter(f => f !== null && f !== undefined).length;
+          gradeCompleteness = filled / fields.length;
+        }
+      } catch (_) { /* student_grades table may not exist */ }
+
+      // Weighted progress: 40% submissions + 30% attendance + 30% grades
+      const progress = Math.round(
+        (submissionRate * 40) + (attendanceRate * 30) + (gradeCompleteness * 30)
+      );
+
       return {
         ...course,
         student_count: parseInt(studentCount.rows[0].count),
-        assignment_count: parseInt(assignmentCount.rows[0].count)
+        assignment_count: totalAssignments,
+        progress: Math.min(progress, 100)
       };
     }));
 

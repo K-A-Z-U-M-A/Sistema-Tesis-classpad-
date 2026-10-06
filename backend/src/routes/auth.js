@@ -282,7 +282,7 @@ router.get('/google', (req, res, next) => {
     try {
       const u = new URL(referer);
       clientOrigin = `${u.protocol}//${u.host}`;
-    } catch (_) {}
+    } catch (_) { }
   }
   if (!clientOrigin) {
     clientOrigin = isNgrokOrRemote ? `${protocol}://${host}` : (process.env.CORS_ORIGIN?.split(',')[0] || 'https://localhost:5173');
@@ -306,9 +306,9 @@ router.get('/google/callback', (req, res, next) => {
     ? `${protocol}://${host}/api/auth/google/callback`
     : (process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback');
 
-  passport.authenticate('google', { 
+  passport.authenticate('google', {
     session: false,
-    callbackURL 
+    callbackURL
   }, async (err, user, info) => {
     if (err || !user) {
       console.error('Google OAuth callback error:', err || info);

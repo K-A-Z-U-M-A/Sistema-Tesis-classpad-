@@ -8,6 +8,27 @@ import { isUuid, isIntegerString, isCourseTeacher, isCourseStudent } from '../ut
 
 const router = express.Router();
 
+// ── SSE: mapa global de clientes por sesión ──────────────────────────────────
+// sseClients: Map<sessionId, Set<res>>
+const sseClients = new Map();
+
+function notifySession(sessionId, payload) {
+  const sid = String(sessionId);
+  const clients = sseClients.get(sid);
+  console.log(`📡 [SSE] notifySession for session ${sid}. Connected clients: ${clients ? clients.size : 0}`);
+  if (!clients || clients.size === 0) return;
+  const data = JSON.stringify(payload);
+  for (const res of clients) {
+    try {
+      res.write(`data: ${data}\n\n`);
+    } catch (err) {
+      console.error(`❌ [SSE] Error writing to client for session ${sid}:`, err.message);
+      clients.delete(res);
+    }
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Helper function to calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000; // Earth's radius in meters
@@ -442,7 +463,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
       [session.id, session.course_id, req.user.id, latitude, longitude, qr_token]
     );
 
-    // Generate new QR token to prevent reuse/fraud
+    // Generate new QR token to prevent reuse/fraud (QR de un solo uso)
     const newQrToken = crypto.randomBytes(32).toString('hex');
     await pool.query(
       `UPDATE attendance_sessions 
@@ -450,6 +471,27 @@ router.post('/scan', authMiddleware, async (req, res) => {
        WHERE id = $2`,
       [newQrToken, session.id]
     );
+
+    // Obtener datos completos del alumno para el SSE
+    const studentResult = await pool.query(
+      `SELECT u.id, u.display_name, u.photo_url, u.email
+       FROM users u WHERE u.id = $1`,
+      [req.user.id]
+    );
+    const studentData = studentResult.rows[0] || {};
+
+    // ── Notificar al profesor vía SSE ────────────────────────────────────────
+    notifySession(session.id, {
+      type: 'attendance-update',
+      new_qr_token: newQrToken,
+      record: {
+        ...recordResult.rows[0],
+        display_name: studentData.display_name,
+        photo_url: studentData.photo_url,
+        email: studentData.email
+      }
+    });
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Audit Log
     await logAction({
@@ -465,7 +507,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
       success: true,
       message: 'Asistencia registrada exitosamente',
       data: recordResult.rows[0],
-      new_qr_token: newQrToken // Return new token for frontend update
+      new_qr_token: newQrToken
     });
   } catch (error) {
     console.error('❌ Error scanning QR:', error);
@@ -479,6 +521,60 @@ router.post('/scan', authMiddleware, async (req, res) => {
       }
     });
   }
+});
+
+// GET /api/attendance/sessions/:sessionId/live - SSE stream para el profesor
+// El profesor se conecta aquí y recibe push en tiempo real cuando un alumno escanea.
+// Autenticación: token JWT en query param ?token=... (EventSource no admite headers).
+router.get('/sessions/:sessionId/live', authMiddleware, async (req, res) => {
+  const { sessionId } = req.params;
+
+  // Verificar que quien se suscribe es el profesor de la sesión
+  const sessionResult = await pool.query(
+    `SELECT course_id FROM attendance_sessions WHERE id = $1 AND is_active = true`,
+    [sessionId]
+  );
+  if (sessionResult.rows.length === 0) {
+    return res.status(404).json({ error: { message: 'Sesión no encontrada o inactiva', code: 'SESSION_NOT_FOUND' } });
+  }
+  const { course_id } = sessionResult.rows[0];
+  const isTeacher = await isCourseTeacher(req.user.id, course_id);
+  if (!isTeacher) {
+    return res.status(403).json({ error: { message: 'Solo el profesor puede suscribirse al stream', code: 'ACCESS_DENIED' } });
+  }
+
+  // Cabeceras SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // evitar buffering en nginx/ngrok
+  res.flushHeaders();
+
+  // Enviar cabecera de reconexión y primer comentario para vaciar el buffer inmediatamente
+  res.write('retry: 3000\n\n');
+  res.write(': connected\n\n');
+
+  // Registrar cliente
+  const sid = String(sessionId);
+  if (!sseClients.has(sid)) sseClients.set(sid, new Set());
+  sseClients.get(sid).add(res);
+  console.log(`🔌 [SSE] Client connected to session ${sid}. Total clients: ${sseClients.get(sid).size}`);
+
+  // Heartbeat cada 15 s para mantener la conexión viva
+  const heartbeat = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch (_) { /* conexión cerrada */ }
+  }, 15000);
+
+  // Limpiar al desconectar
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    const clients = sseClients.get(sid);
+    if (clients) {
+      clients.delete(res);
+      console.log(`🔌 [SSE] Client disconnected from session ${sid}. Remaining clients: ${clients.size}`);
+      if (clients.size === 0) sseClients.delete(sid);
+    }
+  });
 });
 
 // POST /api/attendance/manual - Manually record attendance (for teachers)
@@ -822,17 +918,59 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
 
     const cast = isUuid(courseId) ? '::uuid' : '';
 
-    // Get all finished sessions for the course (only existing, non-deleted sessions)
+    // Obtener cantidad de clases programadas del curso (course_calendar_classes o school_calendars)
+    let totalScheduledClasses = 0;
+    try {
+      const scheduledCountRes = await pool.query(
+        `SELECT COUNT(*) as count FROM course_calendar_classes WHERE course_id = $1${cast}`,
+        [courseId]
+      );
+      totalScheduledClasses = parseInt(scheduledCountRes.rows[0]?.count, 10) || 0;
+
+      // Si no hay clases individuales en course_calendar_classes, verificar calendario escolar
+      if (totalScheduledClasses === 0) {
+        const calRes = await pool.query(
+          `SELECT sc.start_date, sc.end_date, c.class_days 
+           FROM school_calendars sc
+           JOIN courses c ON sc.course_id = c.id
+           WHERE sc.course_id = $1${cast}`,
+          [courseId]
+        );
+        if (calRes.rows.length > 0) {
+          const { start_date, end_date, class_days } = calRes.rows[0];
+          if (start_date && end_date && Array.isArray(class_days) && class_days.length > 0) {
+            const holidaysRes = await pool.query(`SELECT effective_date FROM paraguay_holidays`);
+            const DAY_MAP = { 0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday' };
+            const holidaySet = new Set(holidaysRes.rows.map(h => new Date(h.effective_date).toISOString().split('T')[0]));
+            let cur = new Date(start_date);
+            const end = new Date(end_date);
+            let count = 0;
+            while (cur <= end) {
+              const dName = DAY_MAP[cur.getDay()];
+              const dStr = cur.toISOString().split('T')[0];
+              if (class_days.includes(dName) && !holidaySet.has(dStr)) {
+                count++;
+              }
+              cur.setDate(cur.getDate() + 1);
+            }
+            if (count > 0) totalScheduledClasses = count;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Error al obtener clases programadas para estadísticas:', err.message);
+    }
+
+    // Get all sessions for the course (existing, non-deleted sessions)
     const sessionsResult = await pool.query(
-      `SELECT id, title, start_time 
+      `SELECT id, title, start_time, is_active 
        FROM attendance_sessions 
-       WHERE course_id = $1${cast} AND is_active = false
+       WHERE course_id = $1${cast}
        ORDER BY start_time ASC`,
       [courseId]
     );
 
     // Clean up orphaned records (records without existing sessions) - one-time cleanup
-    // This ensures data integrity
     await pool.query(
       `DELETE FROM attendance_records ar
        WHERE ar.course_id = $1${cast}
@@ -845,12 +983,15 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
 
     const sessions = sessionsResult.rows;
 
-    if (sessions.length === 0) {
+    if (sessions.length === 0 && totalScheduledClasses === 0) {
       return res.json({
         success: true,
         data: []
       });
     }
+
+    // El divisor base para el cálculo del promedio: clases programadas (o sesiones tomadas si no se programaron clases)
+    const baseTotalClasses = totalScheduledClasses > 0 ? totalScheduledClasses : Math.max(sessions.length, 1);
 
     // Get all students in the course (from both enrollments and course_students)
     let studentsResult;
@@ -891,60 +1032,63 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
 
     // For each student, calculate attendance statistics
     for (const student of students) {
-      let totalSessions = sessions.length;
       let presentCount = 0;
       let absentCount = 0;
       let lateCount = 0;
       let excusedCount = 0;
 
-      // Get all records for this student across all sessions
-      // Only include records that belong to existing sessions (prevent orphaned records)
       const sessionIds = sessions.map(s => s.id);
-      if (sessionIds.length === 0) {
-        // No sessions, skip this student
-        continue;
+      let recordsMap = new Map();
+
+      if (sessionIds.length > 0) {
+        const recordsResult = await pool.query(
+          `SELECT ar.session_id, ar.status 
+           FROM attendance_records ar
+           INNER JOIN attendance_sessions as_ ON ar.session_id = as_.id
+           WHERE ar.student_id = $1 
+             AND ar.session_id = ANY($2::int[])
+             AND as_.course_id = $3${cast}`,
+          [student.id, sessionIds, courseId]
+        );
+
+        recordsResult.rows.forEach(record => {
+          recordsMap.set(record.session_id, record.status);
+        });
+
+        // Count attendance by status for registered sessions
+        for (const session of sessions) {
+          const status = recordsMap.get(session.id);
+          if (status === 'present') presentCount++;
+          else if (status === 'absent') absentCount++;
+          else if (status === 'late') lateCount++;
+          else if (status === 'excused') excusedCount++;
+          else absentCount++; // No record = absent
+        }
       }
 
-      const recordsResult = await pool.query(
-        `SELECT ar.session_id, ar.status 
-         FROM attendance_records ar
-         INNER JOIN attendance_sessions as_ ON ar.session_id = as_.id
-         WHERE ar.student_id = $1 
-           AND ar.session_id = ANY($2::int[])
-           AND as_.course_id = $3${cast}`,
-        [student.id, sessionIds, courseId]
-      );
+      // Clases participadas/asistidas (presente, tarde o justificado)
+      const attendedCount = presentCount + lateCount + excusedCount;
 
-      const recordsMap = new Map();
-      recordsResult.rows.forEach(record => {
-        recordsMap.set(record.session_id, record.status);
-      });
-
-      // Count attendance by status
-      for (const session of sessions) {
-        const status = recordsMap.get(session.id);
-        if (status === 'present') presentCount++;
-        else if (status === 'absent') absentCount++;
-        else if (status === 'late') lateCount++;
-        else if (status === 'excused') excusedCount++;
-        else absentCount++; // No record = absent
-      }
-
-      // Calculate percentage: (Present + Late + Excused) / Total Sessions
-      const attendancePercentage = totalSessions > 0
-        ? ((presentCount + lateCount + excusedCount) / totalSessions) * 100
+      // Calcular porcentaje de asistencia: Asistidas / Total de Clases Programadas
+      const attendancePercentage = baseTotalClasses > 0
+        ? (attendedCount / baseTotalClasses) * 100
         : 0;
+
+      // Habilitado si alcanza al menos el 60% de las clases programadas (ej: 6 de 10)
       const isEnabled = attendancePercentage >= 60;
 
       stats.push({
         studentId: student.id,
         studentName: student.display_name,
         studentCedula: student.cedula || '',
-        totalSessions,
+        totalSessions: sessions.length,
+        scheduledClasses: totalScheduledClasses > 0 ? totalScheduledClasses : sessions.length,
+        baseTotalClasses,
         presentCount,
         absentCount,
         lateCount,
         excusedCount,
+        attendedCount,
         attendancePercentage: Math.round(attendancePercentage * 100) / 100,
         isEnabled,
         isLowAverage: attendancePercentage < 60

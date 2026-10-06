@@ -45,7 +45,7 @@ export async function exportGradesToExcel(grades, courseInfo) {
         'Hab. Final',
         'Hab. Recup',
         'Final',
-        'Promedio',
+        'Puntaje Final',
         'Publicado'
     ];
 
@@ -105,16 +105,16 @@ export async function exportGradesToExcel(grades, courseInfo) {
                 }
             }
 
-            // Highlight promedio
+            // Highlight puntaje final
             if (colNumber === 11 && cell.value) {
-                const promedio = parseFloat(cell.value);
-                if (promedio >= 6) {
+                const puntaje = parseFloat(cell.value);
+                if (puntaje >= 60) {
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
                         fgColor: { argb: 'FFC8E6C9' }
                     };
-                } else if (promedio >= 4) {
+                } else if (puntaje >= 40) {
                     cell.fill = {
                         type: 'pattern',
                         pattern: 'solid',
@@ -143,7 +143,7 @@ export async function exportGradesToExcel(grades, courseInfo) {
         { width: 12 },  // Hab. Final
         { width: 12 },  // Hab. Recup
         { width: 8 },   // Final
-        { width: 10 },  // Promedio
+        { width: 14 },  // Puntaje Final
         { width: 10 }   // Publicado
     ];
 

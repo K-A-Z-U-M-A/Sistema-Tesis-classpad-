@@ -119,7 +119,7 @@ router.get('/course/:courseId/excel', authMiddleware, async (req, res) => {
             'Hab. Final',
             'Hab. Recup',
             'Final',
-            'Promedio'
+            'Puntaje Final'
         ];
 
         const headerRow = worksheet.getRow(4);
@@ -177,16 +177,16 @@ router.get('/course/:courseId/excel', authMiddleware, async (req, res) => {
                     }
                 }
 
-                // Highlight promedio
+                // Highlight puntaje final
                 if (colNumber === 11 && cell.value) {
-                    const promedio = parseFloat(cell.value);
-                    if (promedio >= 6) {
+                    const puntaje = parseFloat(cell.value);
+                    if (puntaje >= 60) {
                         cell.fill = {
                             type: 'pattern',
                             pattern: 'solid',
                             fgColor: { argb: 'FFC8E6C9' }
                         };
-                    } else if (promedio >= 4) {
+                    } else if (puntaje >= 40) {
                         cell.fill = {
                             type: 'pattern',
                             pattern: 'solid',
@@ -215,7 +215,7 @@ router.get('/course/:courseId/excel', authMiddleware, async (req, res) => {
             { width: 12 },  // Hab. Final
             { width: 12 },  // Hab. Recup
             { width: 8 },   // Final
-            { width: 10 }   // Promedio
+            { width: 14 }   // Puntaje Final
         ];
 
         // Generate buffer
@@ -330,7 +330,7 @@ router.get('/course/:courseId/pdf', authMiddleware, async (req, res) => {
         doc.text('TP', 350, tableTop);
         doc.text('Total', 380, tableTop);
         doc.text('Final', 420, tableTop);
-        doc.text('Prom', 460, tableTop);
+        doc.text('Ptje Final', 460, tableTop);
 
         // Draw line under headers
         doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
