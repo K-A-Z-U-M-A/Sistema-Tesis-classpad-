@@ -1,0 +1,28 @@
+{
+  "name": "sistema-tesis-classpad",
+  "version": "1.0.0",
+  "description": "Plataforma educativa multiplataforma similar a Google Classroom",
+  "main": "index.js",
+  "scripts": {
+    "dev": "cd web && npm run dev",
+    "dev:web": "cd web && npm run dev",
+    "dev:mobile": "cd mobile && npm start",
+    "dev:functions": "cd functions && npm run serve",
+    "build:web": "cd web && npm run build",
+    "build:mobile": "cd mobile && npm run build",
+    "build:functions": "cd functions && npm run build",
+    "deploy:web": "cd web && npm run build && firebase deploy --only hosting",
+    "deploy:functions": "cd functions && npm run build && firebase deploy --only functions",
+    "install:all": "npm install && cd web && npm install && cd ../mobile && npm install && cd ../functions && npm install",
+    "setup": "npm run install:all && echo 'Configura Firebase y ejecuta: npm run dev'",
+    "start": "npm run dev"
+  },
+  "keywords": ["education", "classroom", "firebase", "react", "react-native"],
+  "author": "Tesis Classpad",
+  "license": "MIT",
+  "workspaces": [
+    "web",
+    "mobile",
+    "functions"
+  ]
+} 
