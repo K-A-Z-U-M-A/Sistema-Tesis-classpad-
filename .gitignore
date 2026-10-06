@@ -11,6 +11,12 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# SSL/TLS certificates and private keys
+*.pem
+*.key
+*.cert
+*.crt
+
 # Documentation files (local)
 *.md
 !README.md
