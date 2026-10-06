@@ -115,6 +115,11 @@ uploads/
 *.backup
 *.old
 
+# Sensitive backup config (contains OAuth tokens)
+backend/backups/backup-config.json
+backend/backups/*.sql.gz
+backend/backups/*.sql
+
 # Test files
 test-results/
 coverage/
