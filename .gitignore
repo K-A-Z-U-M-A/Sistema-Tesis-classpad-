@@ -169,3 +169,16 @@ tests-e2e/usability/data/entrevista_final_reales.csv
 tests-e2e/analysis/human-usability-results/
 backend/verify-usability-data.js
 
+# ── Limpieza de historial: artefactos que NO deben versionarse ──────────────
+# Restos de git filter-branch (contienen copias antiguas del árbol y refs)
+.git-rewrite/
+
+# Instaladores/binarios pesados descargados localmente
+temp_postgres/
+*.zip
+
+# Salidas generadas por Playwright (reports de UI) y resultados de tests
+tests-e2e/reports/
+tests-e2e/test-results/
+tests-e2e/playwright-report/
+

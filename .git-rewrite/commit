@@ -1,7 +1,0 @@
-tree 80a36c95856fdfa14ae2311ddaa7a90aa7f7644c
-parent 7b1a5da1935015bc05398ce5d180313f643a6901
-parent 8a0eda0b04cc5ef886e192dbcdb314530c36f8ac
-author K-A-Z-U-M-A <c1e2s3a4r.2002@gmail.com> 1756313661 -0300
-committer K-A-Z-U-M-A <c1e2s3a4r.2002@gmail.com> 1756313661 -0300
-
-Resolve merge conflict in mobile/package.json and add mobile changes
