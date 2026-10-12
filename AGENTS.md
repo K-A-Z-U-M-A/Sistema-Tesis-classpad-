@@ -52,6 +52,10 @@ npm run test:e2e:headed           # Playwright con navegador visible
 - **`git reset` anula un `git rm --cached` previo.** Si des-trackeas un archivo,
   haces `reset` y commiteas, sigue trackeado. Tras commitear, verifica con
   `git ls-tree -r --name-only HEAD | grep <ruta>`.
+- **`if (comando-nativo) { … }` en PowerShell evalúa el *stdout*, no el código de
+  salida.** Con `git check-ignore -q` (que no imprime nada) siempre da falso, y
+  parece que un fichero no está ignorado cuando sí lo está. Comprueba con
+  `$LASTEXITCODE -eq 0` o quitando el `-q`.
 - **Los heredocs `<<EOF` no funcionan en PowerShell.** Para mensajes de commit
   multilínea usa `git commit -F <archivo>`.
 - **`git filter-repo` y Python no están instalados.** Para reescribir historial

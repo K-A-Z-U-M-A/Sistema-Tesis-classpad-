@@ -82,3 +82,9 @@ No confundir `backend/services/` con `backend/src/services/`: son dos carpetas d
 `npm --prefix backend run dev` (nodemon). Para probar un endpoint suelto hay scripts
 listos en `backend/scripts/` (`test-connection.js`, `test-login.js`, `test-api-login.js`).
 Antes de asumir que un bug es de base de datos, ejecutar `test-connection.js`.
+
+**El backend lanza ngrok él solo** al arrancar (ver `src/index.js`): imprime
+`🌍 ngrok activo: https://…ngrok-free.dev`. No hace falta `npm run dev:ngrok` ni
+ningún paso extra para tener túnel; ese script solo añade el proceso `NGROK` al
+panel de `concurrently` para verlo por separado. Si ngrok no aparece, es que el
+backend no llegó a arrancar, no que falte el script.
