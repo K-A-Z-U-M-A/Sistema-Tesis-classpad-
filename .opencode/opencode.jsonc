@@ -8,12 +8,15 @@
 
   "permissions": [
     // ── Credenciales ────────────────────────────────────────────────────────
-    // Los .env reales no se leen ni se escriben. El allow de .env.example va
-    // DESPUÉS para que la plantilla siga siendo consultable.
+    // .env real: NO se lee con la herramienta `read` (así las credenciales no
+    // entran en el contexto del modelo), pero SÍ se puede editar, para poder
+    // rotar valores sin salir de la sesión. El riesgo de subirlas por error
+    // ya lo cubre el .gitignore, que sí las ignora.
     { "action": "read", "resource": "*.env", "effect": "deny" },
     { "action": "read", "resource": "*.env.*", "effect": "deny" },
-    { "action": "edit", "resource": "*.env", "effect": "deny" },
-    { "action": "edit", "resource": "*.env.*", "effect": "deny" },
+    { "action": "edit", "resource": "*.env", "effect": "allow" },
+    { "action": "edit", "resource": "*.env.*", "effect": "allow" },
+    // La plantilla sí es legible y editable: no contiene secretos reales.
     { "action": "read", "resource": "*.env.example", "effect": "allow" },
 
     // ── Datos de personas (estudio de usabilidad) ───────────────────────────
