@@ -103,7 +103,11 @@ router.put('/holidays/:id', authMiddleware, async (req, res) => {
     }
 
     const original = existing.rows[0];
-    const isMoved = effective_date !== original.original_date.toISOString().split('T')[0];
+    // Comparar en hora local para evitar que UTC midnight desplace el día en zonas UTC-X
+    const originalDateStr = original.original_date instanceof Date
+      ? original.original_date.toLocaleDateString('sv-SE')   // 'sv-SE' → YYYY-MM-DD en hora local
+      : String(original.original_date).split('T')[0];
+    const isMoved = effective_date !== originalDateStr;
 
     const result = await pool.query(
       `UPDATE paraguay_holidays

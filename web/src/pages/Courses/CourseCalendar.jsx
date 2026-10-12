@@ -1504,17 +1504,18 @@ const CourseCalendar = () => {
                   <Box sx={{ maxHeight: 300, overflowY: 'auto', pr: 0.5 }}>
                     {holidays
                       .filter((h) => {
-                        const hYear = new Date(h.effective_date).getFullYear();
+                        const hYear = parseLocalDate(h.effective_date.split('T')[0]).getFullYear();
                         return hYear === currentMonth.getFullYear();
                       })
                       .map((h) => {
                         const effectiveDateStr = h.effective_date?.split('T')[0];
+                        const effectiveLocalDate = parseLocalDate(effectiveDateStr);
                         const isInClassDay = classDateSet.has(effectiveDateStr);
                         return (
                           <Box key={h.id} display="flex" alignItems="flex-start" gap={1} mb={1.25} sx={{ p: 1, borderRadius: 1.5, backgroundColor: isInClassDay ? 'rgba(211,47,47,0.08)' : 'action.hover', border: isInClassDay ? '1px solid rgba(211,47,47,0.3)' : '1px solid transparent' }}>
                             <Box sx={{ minWidth: 44, height: 44, borderRadius: 1.5, backgroundColor: '#d32f2f', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1.2 }}>
-                              <Typography variant="caption" fontWeight={700} sx={{ fontSize: '0.65rem' }}>{MONTH_NAMES[new Date(effectiveDateStr).getMonth()]?.slice(0, 3).toUpperCase()}</Typography>
-                              <Typography variant="body2" fontWeight={900} sx={{ fontSize: '0.95rem' }}>{new Date(effectiveDateStr).getDate()}</Typography>
+                              <Typography variant="caption" fontWeight={700} sx={{ fontSize: '0.65rem' }}>{MONTH_NAMES[effectiveLocalDate.getMonth()]?.slice(0, 3).toUpperCase()}</Typography>
+                              <Typography variant="body2" fontWeight={900} sx={{ fontSize: '0.95rem' }}>{effectiveLocalDate.getDate()}</Typography>
                             </Box>
                             <Box flex={1} minWidth={0}>
                               <Typography variant="body2" fontWeight={600} noWrap>{h.name}</Typography>
@@ -1546,7 +1547,7 @@ const CourseCalendar = () => {
                           </Box>
                         );
                       })}
-                    {holidays.filter((h) => new Date(h.effective_date).getFullYear() === currentMonth.getFullYear()).length === 0 && (
+                    {holidays.filter((h) => parseLocalDate(h.effective_date.split('T')[0]).getFullYear() === currentMonth.getFullYear()).length === 0 && (
                       <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
                         No hay feriados para {currentMonth.getFullYear()}
                       </Typography>

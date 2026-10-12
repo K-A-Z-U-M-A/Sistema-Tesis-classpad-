@@ -1714,8 +1714,8 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
         try {
           const submissionsResult = await pool.query(
             `SELECT 
-                    COUNT(*) as total_submissions,
-                    COUNT(CASE WHEN s.grade IS NOT NULL THEN 1 END) as graded_count
+                    COUNT(DISTINCT (s.student_id, s.assignment_id)) as total_submissions,
+                    COUNT(DISTINCT CASE WHEN s.grade IS NOT NULL THEN (s.student_id, s.assignment_id) END) as graded_count
              FROM submissions s
              JOIN assignments a ON s.assignment_id = a.id
              WHERE a.course_id::text = $1::text`,
@@ -1725,9 +1725,13 @@ router.get('/me/statistics', authMiddleware, async (req, res) => {
           gradedSubmissions = parseInt(submissionsResult.rows[0]?.graded_count || '0', 10);
 
           // Calcular tasa de participación: entregas / (tareas publicadas * estudiantes)
+          // Se limita a 100% para evitar valores desproporcionados por reentregas o datos de prueba
           const expectedSubmissions = publishedAssignments * studentCount;
           if (expectedSubmissions > 0) {
-            participationRate = Math.round((submissionCount / expectedSubmissions) * 100 * 10) / 10;
+            participationRate = Math.min(
+              Math.round((submissionCount / expectedSubmissions) * 100 * 10) / 10,
+              100
+            );
           }
         } catch (err) {
           console.warn(`Error calculating submissions for course ${courseId}:`, err.message);
