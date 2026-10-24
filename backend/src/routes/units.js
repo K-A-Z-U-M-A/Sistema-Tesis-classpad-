@@ -5,57 +5,9 @@ import { createNotification } from './notifications.js';
 import { upload, getFileInfo, validateFileSize, getMaterialTypeFromMime, isValidMaterialType } from '../services/storage.js';
 import { logAction } from '../utils/auditLogger.js';
 
+import { isUuid, isIntegerString, isCourseTeacher, hasCourseAccess } from '../utils/uuid.js';
+
 const router = express.Router();
-
-// Helpers for ID validation
-function isIntegerString(value) {
-  return typeof value === 'string' && /^\d+$/.test(value);
-}
-
-function isUuid(value) {
-  // Accept standard UUID v1-v5 format
-  return (
-    typeof value === 'string' &&
-    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(value)
-  );
-}
-
-// Helper functions are now imported from storage service
-
-// Multer configuration is now handled by storage service
-
-// Helper function to check if user is teacher of course
-async function isCourseTeacher(userId, courseId) {
-  const courseCast = isUuid(courseId) ? '::uuid' : '';
-  const userCast = isUuid(userId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     WHERE c.id = $1${courseCast} AND (c.owner_id = $2${userCast} OR ct.teacher_id = $2${userCast})`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
-
-// Helper function to check if user has access to course
-async function hasCourseAccess(userId, courseId) {
-  const courseCast = isUuid(courseId) ? '::uuid' : '';
-  const userCast = isUuid(userId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     LEFT JOIN course_students cs ON c.id = cs.course_id
-     LEFT JOIN enrollments e ON c.id = e.course_id
-     WHERE c.id = $1${courseCast} AND (
-       c.owner_id = $2${userCast} OR 
-       ct.teacher_id = $2${userCast} OR 
-       (cs.student_id = $2${userCast} AND cs.status = 'active') OR
-       (e.student_id = $2${userCast} AND e.status = 'active')
-     )`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
 
 // GET /api/units/:courseId - Get units for a course
 
@@ -156,10 +108,7 @@ router.get('/:id/materials', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
     }
     const courseId = unitRes.rows[0].course_id;
-    console.log(`🔍 Unit ${unitId} belongs to course ${courseId}`);
-    console.log(`🔍 Checking access for user ${req.user.id} to course ${courseId}`);
     const access = await hasCourseAccess(req.user.id, courseId);
-    console.log(`🔍 Access result: ${access}`);
     if (!access) {
       return res.status(403).json({ error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' } });
     }
@@ -193,10 +142,7 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
     }
     const courseId = unitRes.rows[0].course_id;
-    console.log(`🔍 Unit ${unitId} belongs to course ${courseId}`);
-    console.log(`🔍 Checking access for user ${req.user.id} to course ${courseId}`);
     const access = await hasCourseAccess(req.user.id, courseId);
-    console.log(`🔍 Access result: ${access}`);
     if (!access) {
       return res.status(403).json({ error: { message: 'No tienes acceso a este curso', code: 'ACCESS_DENIED' } });
     }
@@ -257,9 +203,7 @@ router.get('/:id/assignments', authMiddleware, async (req, res) => {
 // POST /api/units/:id/assignments - Create assignment in a unit (teachers only)
 router.post('/:id/assignments', authMiddleware, async (req, res) => {
   try {
-    console.log('🔍 Creating assignment - Request body:', JSON.stringify(req.body, null, 2));
     const unitId = req.params.id;
-    console.log('🔍 Unit ID:', unitId, 'isUuid:', isUuid(unitId), 'isIntegerString:', isIntegerString(unitId));
 
     if (!(isIntegerString(unitId) || isUuid(unitId))) {
       return res.status(400).json({
@@ -269,13 +213,11 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
 
     // Find course for the unit
     const cast = isUuid(unitId) ? '::uuid' : '';
-    console.log('🔍 Querying unit with cast:', cast);
     const unitRes = await pool.query(`SELECT course_id FROM units WHERE id = $1${cast}`, [unitId]);
     if (unitRes.rows.length === 0) {
       return res.status(404).json({ error: { message: 'Unidad no encontrada', code: 'UNIT_NOT_FOUND' } });
     }
     const courseId = unitRes.rows[0].course_id;
-    console.log('🔍 Course ID:', courseId, 'isUuid:', isUuid(courseId));
 
     // Only teachers
     const isTeacher = await isCourseTeacher(req.user.id, courseId);
@@ -309,19 +251,6 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
     const unitIdCast = isUuid(unitId) ? '::uuid' : '';
     const userIdCast = isUuid(req.user.id) ? '::uuid' : '';
 
-    console.log('🔍 Inserting assignment with casts:', {
-      courseIdCast,
-      unitIdCast,
-      userIdCast,
-      courseId,
-      unitId,
-      userId: req.user.id,
-      title,
-      is_published,
-      normalizedDueDate,
-      points: points || 100
-    });
-
     let result;
     try {
       result = await pool.query(
@@ -330,7 +259,6 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
          RETURNING *`,
         [courseId, unitId, title, description || null, instructions || null, normalizedDueDate, points || 100, is_published, req.user.id]
       );
-      console.log('✅ Assignment created successfully:', result.rows[0]?.id);
     } catch (insertError) {
       console.error('❌ Error inserting assignment:', insertError);
       console.error('❌ Insert error details:', {
@@ -364,7 +292,6 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
       } catch (assignmentStudentError) {
         // If table doesn't exist, try to create it
         if (assignmentStudentError.code === '42P01') {
-          console.log('⚠️ assignment_students table does not exist, attempting to create it...');
           try {
             // Determine if we're using UUIDs or INTEGERs
             const assignmentIdIsUuid = isUuid(assignment.id);
@@ -398,7 +325,6 @@ router.post('/:id/assignments', authMiddleware, async (req, res) => {
                 CREATE INDEX IF NOT EXISTS idx_assignment_students_student_id ON assignment_students(student_id);
               `);
             }
-            console.log('✅ assignment_students table created successfully');
 
             // Retry the insert
             const assignmentStudentPromises = target_student_ids.map(studentId => {
@@ -611,27 +537,33 @@ router.post('/', authMiddleware, async (req, res) => {
     const course = courseResult.rows[0];
 
     // Get all students in the course
+    const isCourseUuid = isUuid(course_id);
+    const courseCast = isCourseUuid ? '::uuid' : '';
     const studentsResult = await pool.query(
       `SELECT DISTINCT student_id as user_id 
-       FROM enrollments 
-       WHERE course_id = $1 AND status = 'active'`,
+       FROM (
+         SELECT student_id FROM course_students WHERE course_id = $1${courseCast} AND status = 'active'
+         UNION
+         SELECT student_id FROM enrollments WHERE course_id = $1${courseCast} AND status = 'active'
+       ) s`,
       [course_id]
     );
 
     // Create notifications for all students
     const notificationPromises = studentsResult.rows.map(student => {
       const title = 'Nueva unidad disponible';
-      const messageText = `Se ha creado una nueva unidad "${unit.title}" en ${course.name}. ${description ? `Descripción: ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}` : ''}`;
+      const messageText = `Se ha creado una nueva unidad "${unit.title}" en ${course?.name || 'el curso'}. ${description ? `Descripción: ${description.substring(0, 100)}${description.length > 100 ? '...' : ''}` : ''}`;
 
       return createNotification(
         student.user_id,
-        'announcement',
+        'unit',
         title,
         messageText,
         course_id,
-        null,
+        unit.id,
         'unit',
-        'normal'
+        'normal',
+        { unitTitle: unit.title, description: description || '' }
       );
     });
 

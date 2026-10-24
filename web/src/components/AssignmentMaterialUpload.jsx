@@ -61,6 +61,7 @@ const AssignmentMaterialUpload = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (uploading) return;
     setError('');
     setUploading(true);
 

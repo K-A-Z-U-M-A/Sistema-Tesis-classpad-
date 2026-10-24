@@ -72,7 +72,6 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
         // Por seguridad, siempre responder éxito aunque el usuario no exista
         // Esto previene enumerar usuarios válidos
         if (userResult.rows.length === 0) {
-            console.log(`⚠️ Intento de recuperación para email no existente: ${normalizedEmail}`);
             return res.json({
                 data: {
                     message: 'Si el email existe, recibirás un código de recuperación',
@@ -85,7 +84,6 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
 
         // Verificar que el usuario tenga configurado un correo de recuperación
         if (!user.recovery_email) {
-            console.log(`⚠️ Usuario ${user.id} no tiene correo de recuperación configurado`);
             return res.status(400).json({
                 error: {
                     message: 'No tienes configurado un correo de recuperación. Configúralo en Ajustes → Seguridad',
@@ -113,11 +111,8 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
                 code,
                 user.display_name
             );
-            console.log(`📧 Código enviado a recovery_email: ${user.recovery_email} para usuario ${user.email}`);
         }
         // TODO: Implementar envío por SMS cuando esté disponible
-
-        console.log(`✅ Código de recuperación generado para usuario ${user.id}`);
 
         res.json({
             data: {
@@ -249,8 +244,6 @@ router.post('/verify-reset-code', verifyCodeLimiter, async (req, res) => {
             [resetCode.id]
         );
 
-        console.log(`✅ Código verificado exitosamente para usuario ${userId}`);
-
         res.json({
             data: {
                 message: 'Código verificado exitosamente',
@@ -353,17 +346,12 @@ router.post('/reset-password', async (req, res) => {
 
         // Hash de nueva contraseña
         const newPasswordHash = await passwordService.hashPassword(newPassword);
-        console.log(`🔐 Hash generado para usuario ${user.id}`);
-        console.log(`🔐 Longitud del hash: ${newPasswordHash.length}`);
 
         // Actualizar contraseña
         const updateResult = await pool.query(
             'UPDATE users SET password_hash = $1, has_password = true WHERE id = $2 RETURNING id, email, has_password',
             [newPasswordHash, user.id]
         );
-
-        console.log(`🔐 Resultado de UPDATE:`, updateResult.rows[0]);
-        console.log(`🔐 Filas afectadas: ${updateResult.rowCount}`);
 
         // Invalidar todos los tokens JWT del usuario (logout de todas las sesiones)
         tokenService.invalidateUserTokens(user.id);
@@ -376,8 +364,6 @@ router.post('/reset-password', async (req, res) => {
 
         // Enviar notificación de cambio de contraseña
         await emailService.sendPasswordChangedNotification(user.email, user.display_name);
-
-        console.log(`✅ Contraseña actualizada para usuario ${user.id}`);
 
         res.json({
             data: {
@@ -453,8 +439,6 @@ router.post('/resend-code', forgotPasswordLimiter, async (req, res) => {
 
         // Enviar código
         await emailService.sendPasswordResetCode(user.email, code, user.display_name);
-
-        console.log(`✅ Código reenviado para usuario ${user.id}`);
 
         res.json({
             data: {

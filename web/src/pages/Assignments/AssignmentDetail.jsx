@@ -171,28 +171,21 @@ const AssignmentDetail = () => {
 
 
   return (
-    <Container maxWidth="md" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       {/* Header */}
       <Box sx={{ mb: { xs: 2, sm: 4 } }}>
         <Button 
+          size="small"
           startIcon={<ArrowBack />} 
           onClick={() => navigate(`/courses/${courseId}`)}
-          sx={{ 
-            mb: { xs: 2, sm: 3 },
-            color: 'text.secondary',
-            '&:hover': {
-              backgroundColor: 'action.hover',
-              color: 'text.primary'
-            },
-            fontSize: { xs: '0.875rem', sm: '1rem' }
-          }}
+          sx={{ mb: 2, color: 'text.secondary' }}
         >
           Volver al curso
         </Button>
         
         <Paper elevation={1} sx={{ 
           p: { xs: 2, sm: 3 }, 
-          borderRadius: 3,
+          borderRadius: "20px",
           mb: 3
         }}>
           <Box sx={{ 
@@ -204,15 +197,15 @@ const AssignmentDetail = () => {
           }}>
             <Box sx={{ flex: 1, width: '100%' }}>
               <Typography 
-                variant="h4" 
+                variant="h1" 
                 component="h1" 
                 gutterBottom
                 sx={{ 
-                  fontWeight: 600,
+                  fontWeight: 700,
                   mb: 2,
                   color: 'text.primary',
-                  fontSize: { xs: '1.5rem', sm: '2.125rem' },
-                  lineHeight: { xs: 1.3, sm: 1.4 }
+                  fontSize: { xs: '1.4rem', sm: '1.75rem' },
+                  lineHeight: 1.2
                 }}
               >
                 {assignment?.title || 'Cargando...'}
@@ -295,7 +288,7 @@ const AssignmentDetail = () => {
 
 
       {/* Información general de la tarea */}
-      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3 }}>
+      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: "20px" }}>
         <Typography 
           variant="h6" 
           sx={{ 
@@ -320,7 +313,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -350,7 +343,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -384,7 +377,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -414,7 +407,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -444,7 +437,7 @@ const AssignmentDetail = () => {
               p: { xs: 1.5, sm: 2 }, 
               border: '1px solid',
               borderColor: 'divider',
-              borderRadius: 2,
+              borderRadius: "16px",
               textAlign: 'center'
             }}>
               <Typography 
@@ -472,7 +465,7 @@ const AssignmentDetail = () => {
       </Paper>
 
       {/* Descripción e Instrucciones */}
-      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3 }}>
+      <Paper elevation={1} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: "20px" }}>
         <Typography 
           variant="h6" 
           sx={{ 
@@ -527,7 +520,7 @@ const AssignmentDetail = () => {
       </Paper>
 
       {/* Materiales */}
-      <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: 3 }}>
+      <Paper elevation={2} sx={{ p: { xs: 2, sm: 3 }, mb: 3, borderRadius: "20px" }}>
         <Box sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -684,7 +677,7 @@ const AssignmentDetail = () => {
         onClose={() => setUploadDialogOpen(false)}
         onSuccess={handleMaterialUploadSuccess}
       />
-    </Container>
+    </Box>
   );
 };
 

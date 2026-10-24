@@ -11,9 +11,21 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# SSL/TLS certificates and private keys
+*.pem
+*.key
+*.cert
+*.crt
+
 # Documentation files (local)
 *.md
 !README.md
+# Instrucciones para agentes: SI deben versionarse para que todo el equipo
+# (y cualquier herramienta de IA) reciba las mismas directrices.
+!AGENTS.md
+!backend/AGENTS.md
+!web/AGENTS.md
+!.opencode/skills/**/SKILL.md
 
 # Build outputs
 dist/
@@ -87,6 +99,7 @@ dist
 # Gatsby files
 .cache/
 public
+!web/public/
 
 # Storybook build outputs
 .out
@@ -113,6 +126,11 @@ uploads/
 *.bak
 *.backup
 *.old
+
+# Sensitive backup config (contains OAuth tokens)
+backend/backups/backup-config.json
+backend/backups/*.sql.gz
+backend/backups/*.sql
 
 # Test files
 test-results/
@@ -144,3 +162,30 @@ coverage/
 ehthumbs.db
 Thumbs.db
 node_modules
+
+backend/hashes-output.txt
+
+# ── Usabilidad: archivos con datos de participantes (NO subir al repo) ──────
+tests-e2e/usability/data/credenciales_moderador.csv
+tests-e2e/.env.usabilidad
+tests-e2e/usability/data/participantes_reales.csv
+tests-e2e/usability/data/observaciones_reales.csv
+tests-e2e/usability/data/sus_responses_reales.csv
+tests-e2e/usability/data/entrevista_final_reales.csv
+tests-e2e/analysis/human-usability-results/
+backend/verify-usability-data.js
+
+# ── Limpieza de historial: artefactos que NO deben versionarse ──────────────
+# Restos de git filter-branch (contienen copias antiguas del árbol y refs)
+.git-rewrite/
+
+# Instaladores/binarios pesados descargados localmente
+temp_postgres/
+*.zip
+
+# Salidas generadas por Playwright (reports de UI) y resultados de tests
+tests-e2e/reports/
+tests-e2e/test-results/
+tests-e2e/playwright-report/
+tests-e2e/screenshots/
+

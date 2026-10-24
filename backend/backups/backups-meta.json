@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "backup_classpad_auto_2026-10-15T19-00-00-014Z.sql.gz",
+    "type": "auto",
+    "sizeBytes": 6437163,
+    "createdAt": "2026-10-15T19:00:01.696Z",
+    "uploadedToDrive": true,
+    "driveFileId": "1m8Zv4AmW1RPogs86hOGet8v887KTCgYn",
+    "driveLink": "https://drive.google.com/file/d/1m8Zv4AmW1RPogs86hOGet8v887KTCgYn/view?usp=drivesdk",
+    "driveUploadedAt": "2026-10-15T19:00:07.849Z"
+  },
+  {
+    "filename": "backup_classpad_manual_2026-09-29T22-48-47-325Z.sql.gz",
+    "type": "manual",
+    "sizeBytes": 6433811,
+    "createdAt": "2026-09-29T22:48:48.266Z",
+    "uploadedToDrive": true,
+    "driveFileId": "1DCzcIsxcPih7j4ry-4_iokq3h3lYZFVj",
+    "driveLink": "https://drive.google.com/file/d/1DCzcIsxcPih7j4ry-4_iokq3h3lYZFVj/view?usp=drivesdk",
+    "driveUploadedAt": "2026-09-29T22:49:10.866Z"
+  },
+  {
+    "filename": "backup_classpad_manual_2026-09-28T16-50-22-130Z.sql.gz",
+    "type": "manual",
+    "sizeBytes": 6429470,
+    "createdAt": "2026-09-28T16:50:22.670Z",
+    "uploadedToDrive": true,
+    "driveFileId": "1Ku5ft6HQ_IgxBq6uM7YPx_NZX4h_lahI",
+    "driveLink": "https://drive.google.com/file/d/1Ku5ft6HQ_IgxBq6uM7YPx_NZX4h_lahI/view?usp=drivesdk",
+    "driveUploadedAt": "2026-09-28T16:50:30.572Z"
+  }
+]

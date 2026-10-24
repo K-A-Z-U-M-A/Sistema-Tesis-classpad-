@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background gradient from deep bright blue to vibrant emerald green -->
+    <linearGradient id="bgGrad" x1="0%" y1="10%" x2="100%" y2="90%">
+      <stop offset="0%" stop-color="#0057E7"/>
+      <stop offset="45%" stop-color="#0080BD"/>
+      <stop offset="100%" stop-color="#00C853"/>
+    </linearGradient>
+  </defs>
+
+  <!-- iOS-style Squircle -->
+  <rect x="16" y="16" width="480" height="480" rx="112" ry="112" fill="url(#bgGrad)"/>
+
+  <!-- Graduation Cap (Enlarged inside) -->
+  <g fill="#070C34" transform="translate(256, 256) scale(1.32) translate(-256, -252)">
+    <!-- Top diamond / mortarboard plate -->
+    <polygon points="256,174 336,226 256,278 176,226"/>
+
+    <!-- Headband / Lower collar -->
+    <polygon points="204,264 256,296 308,264 308,298 256,332 204,298"/>
+
+    <!-- Right-side hanging tassel -->
+    <polygon points="320,236 336,226 336,298 320,298"/>
+  </g>
+</svg>

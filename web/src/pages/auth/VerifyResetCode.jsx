@@ -128,7 +128,7 @@ const VerifyResetCode = () => {
                     transition={{ duration: 0.5 }}
                     style={{ width: '100%' }}
                 >
-                    <Card sx={{ borderRadius: 3, boxShadow: 3 }}>
+                    <Card sx={{ borderRadius: "20px", boxShadow: 3 }}>
                         <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
                             {/* Header */}
                             <Box sx={{ textAlign: 'center', mb: 4 }}>
@@ -193,7 +193,7 @@ const VerifyResetCode = () => {
                                 disabled={loading || code.length !== 6}
                                 sx={{
                                     py: 1.5,
-                                    borderRadius: 2,
+                                    borderRadius: "16px",
                                     textTransform: 'none',
                                     fontSize: '1rem',
                                     fontWeight: 'bold',
@@ -216,7 +216,7 @@ const VerifyResetCode = () => {
                                 disabled={resending}
                                 sx={{
                                     py: 1.5,
-                                    borderRadius: 2,
+                                    borderRadius: "16px",
                                     textTransform: 'none',
                                     fontSize: '0.9rem'
                                 }}

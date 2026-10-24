@@ -8,6 +8,7 @@ interface AuthContextType {
   currentUser: User | null; // Alias para compatibilidad
   userProfile: User | null; // Alias para compatibilidad
   profileComplete: boolean | null;
+  mustChangePassword: boolean;
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
@@ -18,6 +19,7 @@ interface AuthContextType {
   updateUserProfile: (data: Partial<User>) => Promise<void>;
   handleGoogleCallback: (token: string, user: any) => Promise<boolean>;
   checkProfileComplete: () => Promise<boolean>;
+  clearMustChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,6 +41,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+
   // Inicializar autenticación al montar el componente
   // IMPORTANTE: Solo se ejecuta una vez al montar, no reacciona a cambios externos
   useEffect(() => {
@@ -46,7 +49,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     authStore.initializeAuth();
 
     // NO escuchar eventos de storage - cada pestaña es independiente
-    // Esto previene que cambios en otras pestañas afecten esta
+    // Esto previene que cambios en otras pestañas afecte esta
 
     return () => {
       // Cleanup si es necesario
@@ -64,11 +67,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   }, [authStore.loading, authStore.user, authStore.error, location.pathname, navigate]);
 
+  // Redirigir obligatoriamente a /settings si el docente debe cambiar su contraseña.
+  // Se permite permanecer en /settings y rutas de auth para no crear un bucle.
+  useEffect(() => {
+    const exemptPaths = ['/settings', '/login', '/signup', '/auth/callback', '/forgot-password', '/reset-password', '/verify-reset-code'];
+    const isExempt = exemptPaths.some(p => location.pathname.startsWith(p));
+
+    if (
+      !authStore.loading &&
+      authStore.user &&
+      authStore.mustChangePassword &&
+      !isExempt
+    ) {
+      navigate('/settings', { replace: true });
+    }
+  }, [authStore.loading, authStore.user, authStore.mustChangePassword, location.pathname, navigate]);
+
   const value: AuthContextType = {
     user: authStore.user,
     currentUser: authStore.user, // Alias para compatibilidad
     userProfile: authStore.user, // Alias para compatibilidad
     profileComplete: authStore.profileComplete,
+    mustChangePassword: authStore.mustChangePassword,
     loading: authStore.loading,
     error: authStore.error,
     login: async (email: string, password: string) => {
@@ -90,6 +110,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return false; // Fallback if void was returned
     },
     checkProfileComplete: authStore.checkProfileComplete,
+    clearMustChangePassword: authStore.clearMustChangePassword,
   };
 
   return (

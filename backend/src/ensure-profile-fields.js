@@ -25,12 +25,9 @@ export default async function ensureProfileFields() {
     
     // Si falta cedula, agregarla primero (de la migración 011)
     if (!existingColumns.includes('cedula')) {
-      console.log('⚠️ Columna cedula no encontrada. Agregándola...');
       try {
         await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS cedula VARCHAR(20);`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_cedula ON users(cedula);`);
-        console.log('✅ Columna cedula agregada exitosamente');
-        // Actualizar la lista de columnas existentes
         existingColumns.push('cedula');
       } catch (error) {
         console.error('❌ Error agregando columna cedula:', error.message);
@@ -41,12 +38,10 @@ export default async function ensureProfileFields() {
     const hasAllColumns = requiredColumns.every(col => existingColumns.includes(col));
     
     if (hasAllColumns) {
-      console.log('✅ Campos de perfil ya existen en la tabla users');
       return;
     }
     
-    console.log('⚠️ Campos de perfil no encontrados. Ejecutando migración...');
-    
+
     // Leer y ejecutar la migración
     const migrationPath = path.join(__dirname, 'migrations', '013_add_user_profile_fields.sql');
     
@@ -60,8 +55,6 @@ export default async function ensureProfileFields() {
     // Ejecutar la migración
     await pool.query(migrationSQL);
     
-    console.log('✅ Migración de campos de perfil completada exitosamente');
-    
     // Verificar que las columnas se crearon
     const verifyCheck = await pool.query(`
       SELECT column_name 
@@ -72,7 +65,6 @@ export default async function ensureProfileFields() {
       ORDER BY column_name
     `);
     
-    console.log('📊 Columnas de perfil creadas:');
     verifyCheck.rows.forEach(row => {
       console.log(`   ✓ ${row.column_name}`);
     });

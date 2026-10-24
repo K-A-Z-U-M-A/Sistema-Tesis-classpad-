@@ -55,12 +55,13 @@ import {
   FileDownload,
   Assessment,
   Warning,
-  Done,
-  Clear,
   ExpandMore,
   ExpandLess,
   Visibility,
-  ArrowBack
+  ArrowBack,
+  AutoAwesome,
+  EventAvailable,
+  Done
 } from '@mui/icons-material';
 import { QRCodeSVG } from 'qrcode.react';
 import { motion } from 'framer-motion';
@@ -89,7 +90,7 @@ export default function Attendance() {
   const [activeTab, setActiveTab] = useState(0);
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [courseSearchTerm, setCourseSearchTerm] = useState('');
-
+  
   const [sessionForm, setSessionForm] = useState({
     title: '',
     description: '',
@@ -110,22 +111,78 @@ export default function Attendance() {
   const [attendanceStats, setAttendanceStats] = useState([]);
   const [showStats, setShowStats] = useState(false);
   const [expandedSessions, setExpandedSessions] = useState(new Set());
+  const [scheduledClasses, setScheduledClasses] = useState([]);
+  const [selectedScheduledClassId, setSelectedScheduledClassId] = useState('');
   const qrCodeRef = useRef(null);
   const expandedSessionsRef = useRef(new Set());
+  // Estado separado del QR para que sus actualizaciones no re-renderizen el diálogo completo
+  const [liveQrToken, setLiveQrToken] = useState(null);
+  // Ref del EventSource activo para limpiar al desmontar
+  const sseRef = useRef(null);
+
+  // Helper para obtener fecha actual en formato YYYY-MM-DD local
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper para obtener fecha actual formateada en español
+  const getTodayFormattedLong = () => {
+    return new Date().toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
+  // Helper para encontrar la clase programada más cercana a la fecha de hoy
+  const getClosestScheduledClass = (classesList) => {
+    if (!classesList || classesList.length === 0) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+
+    let closest = null;
+    let minDiff = Infinity;
+
+    for (const c of classesList) {
+      if (!c.class_date) continue;
+      const dateStr = typeof c.class_date === 'string' ? c.class_date.split('T')[0] : '';
+      if (!dateStr) continue;
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const classDate = new Date(y, m - 1, d);
+      classDate.setHours(0, 0, 0, 0);
+
+      const diff = Math.abs(classDate.getTime() - todayTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = c;
+      }
+    }
+
+    return closest;
+  };
 
   // Load courses on mount
   useEffect(() => {
     loadCourses();
   }, []);
 
-  // Load sessions when course changes
+  // Load sessions and scheduled classes when course changes
   useEffect(() => {
     if (selectedCourse) {
       loadSessions(selectedCourse);
       loadStudents(selectedCourse);
+      loadScheduledClasses(selectedCourse);
     } else {
       setSessions([]);
       setStudents([]);
+      setScheduledClasses([]);
+      setSelectedScheduledClassId('');
     }
   }, [selectedCourse]);
 
@@ -137,6 +194,13 @@ export default function Attendance() {
       setRecords([]);
     }
   }, [selectedSession]);
+
+  // Sincronizar liveQrToken cuando cambia la sesión seleccionada
+  useEffect(() => {
+    if (selectedSession?.qr_token) {
+      setLiveQrToken(selectedSession.qr_token);
+    }
+  }, [selectedSession?.id, selectedSession?.qr_token]);
 
   // Sincronizar ref con expandedSessions
   useEffect(() => {
@@ -166,34 +230,111 @@ export default function Attendance() {
     }
   }, [selectedCourse]);
 
-  // Auto-refresh records and session when dialog is open (polling every 3 seconds)
+  // ── SSE + Polling Silencioso de Respaldo: Recibir actualizaciones en tiempo real cuando hay sesión activa abierta ──────
   useEffect(() => {
     if (!selectedSession || !selectedSession.is_active) return;
     const sessionId = selectedSession.id;
     const isDialogOpen = expandedSessions.has(sessionId);
-    if (!isDialogOpen) return; // Solo si el diálogo está abierto
+    if (!isDialogOpen) return;
 
-    // Cargar registros y actualizar sesión inmediatamente cuando se abre el diálogo
+    // Cargar registros iniciales al abrir el diálogo
     loadRecords(sessionId);
-    refreshSession(sessionId);
 
-    const intervalId = setInterval(() => {
-      // Usar ref para verificar el estado actual sin problemas de closure
-      if (expandedSessionsRef.current.has(sessionId)) {
-        loadRecords(sessionId);
-        refreshSession(sessionId); // También refrescar la sesión para obtener el QR actualizado
+    // Obtener el JWT para autenticar el EventSource vía query param
+    let rawToken = api.getToken();
+    if (typeof rawToken === 'string') {
+      rawToken = rawToken.replace(/^Bearer\s+/i, '').replace(/^"|"$/g, '').trim();
+    }
+
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+    const sseUrl = `${API_BASE}/attendance/sessions/${sessionId}/live?token=${encodeURIComponent(rawToken || '')}`;
+
+    let es = null;
+    try {
+      es = new EventSource(sseUrl);
+      sseRef.current = es;
+
+      es.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'attendance-update') {
+            // Actualizar QR sin re-renderizar todo el diálogo
+            if (payload.new_qr_token) {
+              setLiveQrToken(payload.new_qr_token);
+            }
+            // Agregar el nuevo registro al tope de la lista sin re-fetch
+            if (payload.record) {
+              setRecords((prev) => {
+                const exists = prev.some((r) => r.id === payload.record.id || r.student_id === payload.record.student_id);
+                return exists ? prev : [payload.record, ...prev];
+              });
+              setSessions((prev) =>
+                prev.map((s) =>
+                  s.id === sessionId
+                    ? { ...s, present_count: (s.present_count || 0) + 1, qr_token: payload.new_qr_token || s.qr_token }
+                    : s
+                )
+              );
+            }
+          }
+        } catch (e) {
+          console.error('[SSE] Error parsing event:', e);
+        }
+      };
+
+      es.onerror = (err) => {
+        console.warn('[SSE] EventSource aviso / reintento:', err);
+      };
+    } catch (err) {
+      console.warn('[SSE] Error inicializando EventSource:', err);
+    }
+
+    // Polling silencioso de respaldo cada 2.5 segundos que NO muestra spinner ni causa parpadeo
+    const silentPollInterval = setInterval(async () => {
+      try {
+        const [recordsRes, sessionsRes] = await Promise.all([
+          api.getSessionAttendanceRecords(sessionId),
+          selectedCourse ? api.getCourseAttendanceSessions(selectedCourse) : null
+        ]);
+
+        if (recordsRes?.success && Array.isArray(recordsRes.data)) {
+          setRecords(recordsRes.data);
+        }
+
+        if (sessionsRes?.success && Array.isArray(sessionsRes.data)) {
+          const updated = sessionsRes.data.find((s) => s.id === sessionId);
+          if (updated) {
+            if (updated.qr_token) {
+              setLiveQrToken(updated.qr_token);
+            }
+            setSessions(sessionsRes.data);
+          }
+        }
+      } catch (_) {
+        // Silencioso en background
       }
-    }, 3000); // Actualizar cada 3 segundos
+    }, 2500);
 
-    return () => clearInterval(intervalId);
-  }, [selectedSession?.id, selectedSession?.is_active, Array.from(expandedSessions).join(','), refreshSession]);
+    return () => {
+      if (es) {
+        es.close();
+      }
+      sseRef.current = null;
+      clearInterval(silentPollInterval);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSession?.id, selectedSession?.is_active, Array.from(expandedSessions).join(','), selectedCourse]);
 
   const loadCourses = async () => {
     try {
       setLoading(true);
-      if (userProfile?.role === 'teacher') {
-        const response = await api.request('/courses');
-        if (response.success) setCourses(response.data);
+      const response = await api.request('/courses');
+      if (response.success) {
+        const courseList = response.data || [];
+        setCourses(courseList);
+        if (courseList.length === 1 && !selectedCourse) {
+          setSelectedCourse(courseList[0].id);
+        }
       }
     } catch (error) {
       console.error('Error loading courses:', error);
@@ -227,13 +368,29 @@ export default function Attendance() {
     }
   };
 
-  const loadRecords = async (sessionId) => {
+  const loadScheduledClasses = async (courseId) => {
     try {
-      setLoading(true);
+      const response = await api.getCourseScheduledClasses(courseId);
+      if (response.success && Array.isArray(response.data)) {
+        setScheduledClasses(response.data);
+        return response.data;
+      }
+      setScheduledClasses([]);
+      return [];
+    } catch (error) {
+      console.warn('Error loading scheduled classes:', error);
+      setScheduledClasses([]);
+      return [];
+    }
+  };
+
+  const loadRecords = async (sessionId, silent = false) => {
+    try {
+      if (!silent) setLoading(true);
       const response = await api.getSessionAttendanceRecords(sessionId);
       if (response.success) {
         setRecords(response.data);
-
+        
         // Initialize manual attendance form with all students
         const allStudents = students || [];
         const initialForm = {};
@@ -245,10 +402,10 @@ export default function Attendance() {
       }
     } catch (error) {
       console.error('Error loading records:', error);
-      toast.error('Error al cargar los registros');
-      setRecords([]);
+      if (!silent) toast.error('Error al cargar los registros');
+      if (!silent) setRecords([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -317,10 +474,9 @@ export default function Attendance() {
       toast.error('Selecciona un curso');
       return;
     }
-    if (!sessionForm.title) {
-      toast.error('El título es requerido');
-      return;
-    }
+
+    const selectedClass = scheduledClasses.find(c => c.id === selectedScheduledClassId);
+    const finalTitle = selectedClass?.title || sessionForm.title || `Clase del ${getTodayFormattedLong()}`;
 
     if (sessionForm.location_required && (!sessionForm.allowed_latitude || !sessionForm.allowed_longitude)) {
       toast.error('La latitud y longitud son requeridas cuando la ubicación es obligatoria');
@@ -332,6 +488,8 @@ export default function Attendance() {
       const response = await api.createAttendanceSession({
         course_id: selectedCourse,
         ...sessionForm,
+        title: finalTitle,
+        description: sessionForm.description || '',
         allowed_latitude: sessionForm.location_required ? parseFloat(sessionForm.allowed_latitude) : null,
         allowed_longitude: sessionForm.location_required ? parseFloat(sessionForm.allowed_longitude) : null
       });
@@ -339,6 +497,7 @@ export default function Attendance() {
       if (response.success) {
         toast.success('Sesión de asistencia creada exitosamente');
         setCreateDialogOpen(false);
+        setSelectedScheduledClassId('');
         setSessionForm({
           title: '',
           description: '',
@@ -348,6 +507,16 @@ export default function Attendance() {
           allowed_radius: 50,
           duration_minutes: 60
         });
+
+        // Llevar directamente al diálogo "Detalles de Sesión" de la nueva sesión creada
+        const newSession = response.data;
+        if (newSession) {
+          setSelectedSession(newSession);
+          setLiveQrToken(newSession.qr_token);
+          setExpandedSessions(new Set([newSession.id]));
+          loadRecords(newSession.id);
+        }
+
         loadSessions(selectedCourse);
       }
     } catch (error) {
@@ -388,7 +557,7 @@ export default function Attendance() {
       const response = await api.request(`/attendance/sessions/${sessionId}?permanent=true`, {
         method: 'DELETE'
       });
-
+      
       if (response.success) {
         toast.success('Sesión eliminada exitosamente');
         loadSessions(selectedCourse);
@@ -449,6 +618,48 @@ export default function Attendance() {
     }
   };
 
+  // Abrir diálogo de creación de sesión QR con clase más próxima precargada
+  const openCreateQRDialog = async (courseId = selectedCourse) => {
+    if (!courseId) {
+      toast.error('Selecciona un curso');
+      return;
+    }
+
+    let classesList = scheduledClasses;
+    if (!classesList || classesList.length === 0) {
+      classesList = await loadScheduledClasses(courseId);
+    }
+
+    const closestClass = getClosestScheduledClass(classesList);
+    const formattedDate = getTodayFormattedLong();
+
+    if (closestClass) {
+      setSessionForm({
+        title: closestClass.title || `Clase del ${formattedDate}`,
+        description: closestClass.description || '',
+        location_required: false,
+        allowed_latitude: '',
+        allowed_longitude: '',
+        allowed_radius: 50,
+        duration_minutes: 60
+      });
+      setSelectedScheduledClassId(closestClass.id);
+    } else {
+      setSessionForm({
+        title: `Clase del ${formattedDate}`,
+        description: '',
+        location_required: false,
+        allowed_latitude: '',
+        allowed_longitude: '',
+        allowed_radius: 50,
+        duration_minutes: 60
+      });
+      setSelectedScheduledClassId('');
+    }
+
+    setCreateDialogOpen(true);
+  };
+
   // Crear sesión de asistencia por lista
   const handleCreateListAttendanceSession = async () => {
     if (!selectedCourse) {
@@ -458,20 +669,30 @@ export default function Attendance() {
 
     try {
       setLoading(true);
+      let classesList = scheduledClasses;
+      if (!classesList || classesList.length === 0) {
+        classesList = await loadScheduledClasses(selectedCourse);
+      }
+
+      const closestClass = getClosestScheduledClass(classesList);
       const now = new Date();
-      const sessionTitle = `Asistencia por Lista - ${now.toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })}`;
+      const formattedDate = now.toLocaleDateString('es-ES', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric'
+      });
+
+      const sessionTitle = closestClass
+        ? `${closestClass.title} (${formattedDate})`
+        : `Asistencia - ${formattedDate}`;
+
+      const sessionDescription = closestClass?.description || '';
 
       // Crear sesión de asistencia
       const response = await api.createAttendanceSession({
         course_id: selectedCourse,
         title: sessionTitle,
-        description: 'Asistencia tomada mediante lista manual',
+        description: sessionDescription,
         location_required: false,
         duration_minutes: 0 // Sin límite de tiempo
       });
@@ -479,7 +700,7 @@ export default function Attendance() {
       if (response.success) {
         const newSession = response.data;
         setCurrentListSession(newSession);
-
+        
         // Asegurar que los estudiantes estén cargados
         let currentStudents = students;
         if (currentStudents.length === 0) {
@@ -489,14 +710,14 @@ export default function Attendance() {
             setStudents(currentStudents);
           }
         }
-
+        
         // Inicializar formulario de asistencia
         const initialForm = {};
         currentStudents.forEach(student => {
           initialForm[student.id] = '';
         });
         setListAttendanceForm(initialForm);
-
+        
         // Cargar sesiones y abrir diálogo de lista
         await loadSessions(selectedCourse);
         setAttendanceMethodDialogOpen(false);
@@ -539,12 +760,12 @@ export default function Attendance() {
 
       // Desactivar la sesión después de guardar
       await api.deactivateAttendanceSession(currentListSession.id);
-
+      
       toast.success(`Asistencia guardada exitosamente (${savedCount} estudiantes)`);
       setListAttendanceDialogOpen(false);
       setCurrentListSession(null);
       setListAttendanceForm({});
-
+      
       // Recargar sesiones
       await loadSessions(selectedCourse);
       setSelectedSession(null);
@@ -562,12 +783,12 @@ export default function Attendance() {
     if (method === 'list') {
       handleCreateListAttendanceSession();
     } else if (method === 'qr') {
-      setCreateDialogOpen(true);
+      openCreateQRDialog(selectedCourse);
     }
   };
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse);
-
+  
   // Filtrar sesiones por fecha si hay filtro
   const filterSessionsByDate = (sessionsList) => {
     if (!dateFilter) return sessionsList;
@@ -575,19 +796,19 @@ export default function Attendance() {
     filterDate.setHours(0, 0, 0, 0);
     const nextDay = new Date(filterDate);
     nextDay.setDate(nextDay.getDate() + 1);
-
+    
     return sessionsList.filter(session => {
       const sessionDate = new Date(session.start_time);
       sessionDate.setHours(0, 0, 0, 0);
       return sessionDate >= filterDate && sessionDate < nextDay;
     });
   };
-
+  
   const activeSessionsBase = sessions.filter(s => s.is_active && s.course_id === selectedCourse);
   const pastSessionsBase = sessions.filter(s => !s.is_active && s.course_id === selectedCourse);
   const activeSessions = filterSessionsByDate(activeSessionsBase);
   const pastSessions = filterSessionsByDate(pastSessionsBase);
-
+  
   // Manejar expandir/contraer sesiones
   const toggleSessionExpansion = (sessionId) => {
     setExpandedSessions(prev => {
@@ -611,7 +832,7 @@ export default function Attendance() {
       return newSet;
     });
   };
-
+  
   // Cerrar sesión expandida
   const closeExpandedSession = (sessionId, options = {}) => {
     const { keepSelected = false } = options;
@@ -624,24 +845,24 @@ export default function Attendance() {
       setSelectedSession(null);
     }
   };
-
+  
   // Calcular estadísticas de asistencia
   const calculateAttendanceStats = async () => {
     if (!selectedCourse) return;
-
+    
     try {
       setLoading(true);
-
-      // Verificar que haya sesiones finalizadas
-      const allSessions = sessions.filter(s => s.course_id === selectedCourse && !s.is_active);
-      if (allSessions.length === 0) {
-        toast.info('No hay sesiones finalizadas para calcular estadísticas');
+      
+      // Verificar que haya sesiones o clases programadas
+      const allSessions = sessions.filter(s => s.course_id === selectedCourse);
+      if (allSessions.length === 0 && scheduledClasses.length === 0) {
+        toast.info('No hay sesiones ni clases programadas para calcular estadísticas');
         return;
       }
-
+      
       // Obtener estadísticas del backend (más eficiente)
       const response = await api.getCourseAttendanceStats(selectedCourse);
-
+      
       if (response.success && response.data) {
         setAttendanceStats(response.data);
         setShowStats(true);
@@ -656,26 +877,29 @@ export default function Attendance() {
       setLoading(false);
     }
   };
-
+  
   // Exportar a Excel
   const exportToExcel = () => {
     if (!selectedCourse || attendanceStats.length === 0) {
       toast.error('No hay datos para exportar');
       return;
     }
-
+    
     const courseName = selectedCourseData?.name || 'Curso';
     const courseCode = selectedCourseData?.course_code || '';
-
+    
     // Crear datos para Excel
     const excelData = [
-      ['Estudiante', 'Cédula', 'Total Sesiones', 'Presentes', 'Ausentes', 'Tardes', 'Justificados', 'Porcentaje (%)', 'Habilitado para Examen', 'Estado']
+      ['Estudiante', 'Cédula', 'Clases Programadas', 'Clases Asistidas', 'Sesiones Tomadas', 'Presentes', 'Ausentes', 'Tardes', 'Justificados', 'Porcentaje (%)', 'Habilitado para Examen', 'Estado']
     ];
-
+    
     attendanceStats.forEach(stat => {
+      const attended = stat.attendedCount !== undefined ? stat.attendedCount : (stat.presentCount + stat.lateCount + stat.excusedCount);
       excelData.push([
         stat.studentName,
         stat.studentCedula,
+        stat.scheduledClasses || stat.totalSessions,
+        attended,
         stat.totalSessions,
         stat.presentCount,
         stat.absentCount,
@@ -686,11 +910,11 @@ export default function Attendance() {
         stat.isLowAverage ? 'Bajo Promedio' : 'Normal'
       ]);
     });
-
+    
     // Crear workbook
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(excelData);
-
+    
     // Ajustar ancho de columnas
     ws['!cols'] = [
       { wch: 25 }, // Estudiante
@@ -704,13 +928,13 @@ export default function Attendance() {
       { wch: 20 }, // Habilitado
       { wch: 15 }  // Estado
     ];
-
+    
     XLSX.utils.book_append_sheet(wb, ws, 'Asistencia');
-
+    
     // Descargar archivo
     const fileName = `Asistencia_${courseName}_${courseCode}_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
-
+    
     toast.success('Datos exportados exitosamente');
   };
 
@@ -781,8 +1005,8 @@ export default function Attendance() {
             Abrir Escáner
           </Button>
         </Paper>
-        <AttendanceQRScanner
-          open={scanDialogOpen}
+        <AttendanceQRScanner 
+          open={scanDialogOpen} 
           onClose={() => {
             setScanDialogOpen(false);
             // Refrescar registros cuando se cierra el escáner si hay una sesión seleccionada
@@ -798,8 +1022,8 @@ export default function Attendance() {
                 qr_token: newQrToken
               }));
               // También actualizar en la lista de sesiones
-              setSessions(prev => prev.map(session =>
-                session.id === selectedSession.id
+              setSessions(prev => prev.map(session => 
+                session.id === selectedSession.id 
                   ? { ...session, qr_token: newQrToken }
                   : session
               ));
@@ -826,41 +1050,22 @@ export default function Attendance() {
   }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Tooltip title="Volver al dashboard">
-            <IconButton
-              onClick={() => navigate('/dashboard')}
-              sx={{
-                color: 'text.secondary',
-                '&:hover': {
-                  backgroundColor: 'action.hover',
-                  color: 'primary.main'
-                },
-                transition: 'all 0.2s'
-              }}
-            >
-              <ArrowBack />
-            </IconButton>
-          </Tooltip>
-          <Box>
-            <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
-              Control de Asistencia
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Gestiona las sesiones de asistencia con QR y geolocalización
-            </Typography>
-          </Box>
-        </Box>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>
+          Asistencia
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Gestiona las sesiones de asistencia con QR y geolocalizacion
+        </Typography>
       </Box>
 
       {/* Course Selector - Diseño similar a Mis Cursos */}
       <Box sx={{ mb: 4 }}>
-        <Box
-          display="flex"
-          gap={2}
-          mb={3}
+        <Box 
+          display="flex" 
+          gap={2} 
+          mb={3} 
           flexWrap="wrap"
           sx={{
             '& > *': {
@@ -876,7 +1081,7 @@ export default function Attendance() {
             InputProps={{
               startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
             }}
-            sx={{
+            sx={{ 
               minWidth: { xs: '100%', sm: 300 },
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2
@@ -891,16 +1096,16 @@ export default function Attendance() {
             <CircularProgress />
           </Box>
         ) : filteredCourses.length === 0 ? (
-          <Alert severity="info" sx={{ borderRadius: 2 }}>
-            {courseSearchTerm
-              ? 'No se encontraron cursos que coincidan con tu búsqueda'
+          <Alert severity="info" sx={{ borderRadius: "16px" }}>
+            {courseSearchTerm 
+              ? 'No se encontraron cursos que coincidan con tu búsqueda' 
               : 'No hay cursos disponibles'}
           </Alert>
         ) : (
           <Grid container spacing={{ xs: 2, sm: 3 }}>
             {filteredCourses.map((course, index) => {
               const isSelected = selectedCourse === course.id;
-
+              
               return (
                 <Grid item xs={12} sm={6} lg={4} key={course.id}>
                   <motion.div
@@ -917,29 +1122,28 @@ export default function Attendance() {
                       sx={{
                         height: '100%',
                         cursor: 'pointer',
-                        border: isSelected ? 2 : 0,
-                        borderColor: isSelected ? 'primary.main' : 'transparent',
+                        border: isSelected ? '2px solid #0A7AFF' : '1.5px solid #E7E9EF',
                         '&:hover': {
-                          transform: 'translateY(-4px)',
-                          boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
+                          borderColor: 'divider',
+                          boxShadow: '0px 4px 16px rgba(0,0,0,0.10)'
                         },
-                        transition: 'all 0.3s ease',
+                        transition: 'all 0.2s ease',
                         borderRadius: 3
                       }}
                     >
                       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                         {/* Header del curso */}
-                        <Box
-                          display="flex"
-                          alignItems="center"
-                          justifyContent="space-between"
+                        <Box 
+                          display="flex" 
+                          alignItems="center" 
+                          justifyContent="space-between" 
                           mb={2}
                         >
                           <Box
                             sx={{
                               width: { xs: 40, sm: 50 },
                               height: { xs: 40, sm: 50 },
-                              borderRadius: 2,
+                              borderRadius: "16px",
                               backgroundColor: course.color || '#007AFF',
                               display: 'flex',
                               alignItems: 'center',
@@ -948,7 +1152,7 @@ export default function Attendance() {
                           >
                             <School sx={{ color: 'white', fontSize: { xs: 20, sm: 24 } }} />
                           </Box>
-
+                          
                           <Button
                             variant="contained"
                             size="small"
@@ -960,7 +1164,7 @@ export default function Attendance() {
                               setActiveTab(0);
                               setAttendanceMethodDialogOpen(true);
                             }}
-                            sx={{
+                            sx={{ 
                               textTransform: 'none',
                               borderRadius: 2
                             }}
@@ -970,11 +1174,11 @@ export default function Attendance() {
                         </Box>
 
                         {/* Información del curso */}
-                        <Typography
-                          variant="h6"
-                          gutterBottom
+                        <Typography 
+                          variant="h6" 
+                          gutterBottom 
                           fontWeight="bold"
-                          sx={{
+                          sx={{ 
                             fontSize: { xs: '1.1rem', sm: '1.25rem' },
                             lineHeight: { xs: 1.3, sm: 1.4 }
                           }}
@@ -983,9 +1187,9 @@ export default function Attendance() {
                         </Typography>
 
                         {course.course_code && (
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
+                          <Typography 
+                            variant="body2" 
+                            color="text.secondary" 
                             gutterBottom
                             sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
                           >
@@ -998,7 +1202,7 @@ export default function Attendance() {
                             label={course.subject}
                             size="small"
                             variant="outlined"
-                            sx={{
+                            sx={{ 
                               mt: 1,
                               fontSize: { xs: '0.7rem', sm: '0.75rem' },
                               height: { xs: 24, sm: 28 }
@@ -1057,7 +1261,7 @@ export default function Attendance() {
                 <Button
                   variant="contained"
                   startIcon={<Add />}
-                  onClick={() => setCreateDialogOpen(true)}
+                  onClick={() => openCreateQRDialog(selectedCourse)}
                   disabled={loading}
                 >
                   Nueva Sesión
@@ -1113,8 +1317,8 @@ export default function Attendance() {
                 <Grid container spacing={2}>
                   {(activeTab === 0 ? activeSessions : pastSessions).map((session) => (
                     <Grid item xs={12} md={6} key={session.id}>
-                      <Card
-                        sx={{
+                      <Card 
+                        sx={{ 
                           border: 1,
                           borderColor: 'divider',
                           transition: 'all 0.2s',
@@ -1135,20 +1339,20 @@ export default function Attendance() {
                                 </Typography>
                               )}
                               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                                <Chip
+                                <Chip 
                                   icon={<CalendarToday fontSize="small" />}
                                   label={new Date(session.start_time).toLocaleDateString('es-ES')}
                                   size="small"
                                   variant="outlined"
                                 />
-                                <Chip
+                                <Chip 
                                   icon={<AccessTime fontSize="small" />}
                                   label={new Date(session.start_time).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                                   size="small"
                                   variant="outlined"
                                 />
                                 {session.location_required && (
-                                  <Chip
+                                  <Chip 
                                     icon={<LocationOn fontSize="small" />}
                                     label="Geolocalización"
                                     size="small"
@@ -1158,16 +1362,14 @@ export default function Attendance() {
                                 )}
                               </Box>
                               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                <Chip
+                                <Chip 
                                   label={session.is_active ? 'Activa' : 'Finalizada'}
                                   color={session.is_active ? 'success' : 'default'}
                                   size="small"
                                 />
-                                {session.total_records && (
-                                  <Typography variant="body2" color="text.secondary">
-                                    {session.present_count || 0} / {session.total_records} presentes
-                                  </Typography>
-                                )}
+                                <Typography variant="body2" color="text.secondary">
+                                  {session.present_count || 0} / {session.total_students !== undefined ? session.total_students : (students?.length || 0)} presentes
+                                </Typography>
                               </Box>
                             </Box>
                             <Box sx={{ display: 'flex', gap: 0.5, flexDirection: 'column', alignItems: 'flex-end' }}>
@@ -1227,10 +1429,10 @@ export default function Attendance() {
       )}
 
       {/* Estadísticas de Asistencia Dialog */}
-      <Dialog
-        open={showStats && attendanceStats.length > 0}
-        onClose={() => setShowStats(false)}
-        maxWidth="lg"
+      <Dialog 
+        open={showStats && attendanceStats.length > 0} 
+        onClose={() => setShowStats(false)} 
+        maxWidth="lg" 
         fullWidth
         PaperProps={{
           sx: {
@@ -1260,7 +1462,7 @@ export default function Attendance() {
         <DialogContent dividers>
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="body2">
-              <strong>Regla de Habilitación:</strong> Los estudiantes con menos del 60% de asistencia NO están habilitados para la primera parcial.
+              <strong>Regla de Habilitación:</strong> Los estudiantes necesitan al menos el 60% de asistencia sobre la cantidad de clases programadas para estar habilitados (ej: al menos 6 de 10 clases).
             </Typography>
           </Alert>
 
@@ -1310,12 +1512,18 @@ export default function Attendance() {
 
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>Total Sesiones:</Typography>
-                          <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem' }}>{stat.totalSessions}</Typography>
+                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>Clases Programadas:</Typography>
+                          <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem' }}>{stat.scheduledClasses || stat.totalSessions}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="caption" color="success.main" sx={{ fontSize: '0.75rem' }}>Presentes:</Typography>
-                          <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem' }}>{stat.presentCount}</Typography>
+                          <Typography variant="caption" color="success.main" sx={{ fontSize: '0.75rem' }}>Clases Asistidas:</Typography>
+                          <Typography variant="caption" fontWeight="bold" color="success.main" sx={{ fontSize: '0.75rem' }}>
+                            {stat.attendedCount !== undefined ? stat.attendedCount : (stat.presentCount + stat.lateCount + stat.excusedCount)}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="caption" sx={{ fontSize: '0.75rem' }}>Sesiones Tomadas:</Typography>
+                          <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem' }}>{stat.totalSessions}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Typography variant="caption" color="error.main" sx={{ fontSize: '0.75rem' }}>Ausentes:</Typography>
@@ -1365,10 +1573,10 @@ export default function Attendance() {
 
       {/* Session Details Dialog */}
       {selectedSession && (
-        <Dialog
-          open={expandedSessions.has(selectedSession.id)}
-          onClose={() => closeExpandedSession(selectedSession.id)}
-          maxWidth="md"
+        <Dialog 
+          open={expandedSessions.has(selectedSession.id)} 
+          onClose={() => closeExpandedSession(selectedSession.id)} 
+          maxWidth="md" 
           fullWidth
           PaperProps={{
             sx: {
@@ -1400,21 +1608,18 @@ export default function Attendance() {
             {selectedSession.is_active && (
               <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
                 <Box sx={{ textAlign: 'center' }}>
-                  <Box
+                  <Box 
                     ref={qrCodeRef}
-                    sx={{ p: 2, bgcolor: 'white', borderRadius: 2, display: 'inline-block', position: 'relative' }}
+                    sx={{ p: 2, bgcolor: 'white', borderRadius: "16px", display: 'inline-block', position: 'relative' }}
                   >
                     <QRCodeSVG
-                      value={selectedSession.qr_token}
+                      value={liveQrToken || selectedSession.qr_token}
                       size={200}
                       level="H"
                     />
                   </Box>
-                  <Typography variant="h5" fontWeight="bold" sx={{ mt: 2, letterSpacing: 2 }}>
-                    {selectedSession.qr_token}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Código QR para escanear o ingreso manual
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 1 }}>
+                    Código QR para escanear
                   </Typography>
                   <Button
                     variant="outlined"
@@ -1517,10 +1722,13 @@ export default function Attendance() {
       )}
 
       {/* Create Session Dialog */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Nueva Sesión de Asistencia</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <QrCode color="primary" />
+              <Typography variant="h6">Nueva Sesión de Asistencia con QR</Typography>
+            </Box>
             <IconButton
               onClick={() => setCreateDialogOpen(false)}
               size="small"
@@ -1536,41 +1744,105 @@ export default function Attendance() {
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
             <TextField
               label="Curso"
               value={selectedCourse ? courses.find(c => c.id === selectedCourse)?.name || '' : ''}
               fullWidth
-              required
               disabled
-              helperText="El curso ya está seleccionado"
+              size="small"
             />
+
+            {/* Selector de Clases Programadas del Calendario */}
+            {scheduledClasses.length > 0 ? (
+              <FormControl fullWidth size="small">
+                <InputLabel id="scheduled-class-select-label">Clase del Calendario Escolar</InputLabel>
+                <Select
+                  labelId="scheduled-class-select-label"
+                  label="Clase del Calendario Escolar"
+                  value={selectedScheduledClassId || ''}
+                  onChange={(e) => {
+                    const classId = e.target.value;
+                    setSelectedScheduledClassId(classId);
+                    if (classId) {
+                      const found = scheduledClasses.find(c => c.id === classId);
+                      if (found) {
+                        setSessionForm(prev => ({
+                          ...prev,
+                          title: found.title,
+                          description: found.description || ''
+                        }));
+                      }
+                    } else {
+                      setSessionForm(prev => ({
+                        ...prev,
+                        title: `Clase del ${getTodayFormattedLong()}`,
+                        description: ''
+                      }));
+                    }
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>Fecha actual ({getTodayFormattedLong()})</em>
+                  </MenuItem>
+                  {scheduledClasses.map((sc) => {
+                    const isToday = sc.class_date?.split('T')[0] === getTodayDateStr();
+                    const dateDisplay = sc.class_date ? new Date(sc.class_date).toLocaleDateString('es-ES') : '';
+                    return (
+                      <MenuItem key={sc.id} value={sc.id}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {isToday && (
+                              <Chip 
+                                label="Hoy" 
+                                size="small" 
+                                color="primary" 
+                                sx={{ height: 20, fontSize: '0.7rem', fontWeight: 'bold' }} 
+                              />
+                            )}
+                            <Typography variant="body2" sx={{ fontWeight: isToday ? 600 : 400 }}>
+                              {sc.title}
+                            </Typography>
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            {dateDisplay}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+            ) : (
+              <TextField
+                label="Fecha de la Clase"
+                value={getTodayFormattedLong()}
+                fullWidth
+                disabled
+                size="small"
+              />
+            )}
+
             <TextField
-              label="Título"
-              value={sessionForm.title}
-              onChange={(e) => setSessionForm(prev => ({ ...prev, title: e.target.value }))}
-              fullWidth
-              required
-              placeholder="Ej: Clase del 15 de Noviembre"
-            />
-            <TextField
-              label="Descripción"
+              label="Descripción (Opcional)"
               value={sessionForm.description}
               onChange={(e) => setSessionForm(prev => ({ ...prev, description: e.target.value }))}
               fullWidth
               multiline
               rows={2}
-              placeholder="Opcional"
+              placeholder="Notas o descripción opcional de la clase..."
             />
+
             <TextField
               label="Duración (minutos)"
               type="number"
               value={sessionForm.duration_minutes}
-              onChange={(e) => setSessionForm(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) }))}
+              onChange={(e) => setSessionForm(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) || 0 }))}
               fullWidth
-              helperText="Tiempo que el QR estará activo (0 = sin límite)"
+              size="small"
+              helperText="Tiempo que el QR estará activo (0 = sin límite de tiempo)"
             />
-
+            
             <FormControlLabel
               control={
                 <Switch
@@ -1583,7 +1855,7 @@ export default function Attendance() {
 
             {sessionForm.location_required && (
               <>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary">
                   Configuración de Ubicación
                 </Typography>
                 <LocationMap
@@ -1603,31 +1875,31 @@ export default function Attendance() {
                   value={sessionForm.allowed_radius}
                   onChange={(e) => setSessionForm(prev => ({ ...prev, allowed_radius: parseInt(e.target.value) }))}
                   fullWidth
-                  sx={{ mt: 2 }}
+                  size="small"
                   helperText="Radio máximo desde la ubicación central"
                 />
-                <Alert severity="info" sx={{ mt: 2 }}>
+                <Alert severity="info">
                   Los estudiantes deben estar dentro del radio especificado para marcar su asistencia.
                 </Alert>
               </>
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button onClick={() => setCreateDialogOpen(false)} disabled={loading}>
             Cancelar
           </Button>
           <Button variant="contained" onClick={handleCreateSession} disabled={loading}>
-            {loading ? <CircularProgress size={24} /> : 'Crear Sesión'}
+            {loading ? <CircularProgress size={24} /> : 'Crear Sesión con QR'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Manual Attendance Dialog */}
-      <Dialog
-        open={studentAttendanceDialogOpen}
-        onClose={() => setStudentAttendanceDialogOpen(false)}
-        maxWidth="md"
+      <Dialog 
+        open={studentAttendanceDialogOpen} 
+        onClose={() => setStudentAttendanceDialogOpen(false)} 
+        maxWidth="md" 
         fullWidth
       >
         <DialogTitle>
@@ -1659,7 +1931,7 @@ export default function Attendance() {
                     <React.Fragment key={student.id}>
                       <ListItem>
                         <ListItemAvatar>
-                          <Badge
+                          <Badge 
                             color={manualAttendanceForm[student.id] === 'present' ? 'success' : 'error'}
                             invisible={!manualAttendanceForm[student.id]}
                           >
@@ -1708,8 +1980,8 @@ export default function Attendance() {
       </Dialog>
 
       {/* Diálogo de selección de método de asistencia */}
-      <Dialog
-        open={attendanceMethodDialogOpen}
+      <Dialog 
+        open={attendanceMethodDialogOpen} 
         onClose={() => setAttendanceMethodDialogOpen(false)}
         maxWidth="sm"
         fullWidth
@@ -1750,7 +2022,7 @@ export default function Attendance() {
                     textAlign: 'center',
                     border: '2px solid',
                     borderColor: 'primary.main',
-                    borderRadius: 3,
+                    borderRadius: "20px",
                     transition: 'all 0.3s',
                     '&:hover': {
                       transform: 'translateY(-4px)',
@@ -1776,7 +2048,7 @@ export default function Attendance() {
                     textAlign: 'center',
                     border: '2px solid',
                     borderColor: 'secondary.main',
-                    borderRadius: 3,
+                    borderRadius: "20px",
                     transition: 'all 0.3s',
                     '&:hover': {
                       transform: 'translateY(-4px)',
@@ -1795,7 +2067,7 @@ export default function Attendance() {
                 </Card>
               </Grid>
             </Grid>
-          </Box>
+    </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAttendanceMethodDialogOpen(false)}>
@@ -1805,8 +2077,8 @@ export default function Attendance() {
       </Dialog>
 
       {/* Diálogo de asistencia por lista */}
-      <Dialog
-        open={listAttendanceDialogOpen}
+      <Dialog 
+        open={listAttendanceDialogOpen} 
         onClose={() => {
           if (window.confirm('¿Estás seguro de cerrar? Los cambios no guardados se perderán.')) {
             setListAttendanceDialogOpen(false);
@@ -1857,7 +2129,7 @@ export default function Attendance() {
               </Typography>
             </Box>
           )}
-
+          
           <Box sx={{ mt: 2, maxHeight: 500, overflow: 'auto' }}>
             {students.length === 0 ? (
               <Alert severity="info">No hay estudiantes matriculados en este curso</Alert>
@@ -1921,7 +2193,7 @@ export default function Attendance() {
                           {statusOptions.map((option) => {
                             const OptionIcon = option.icon;
                             const isSelected = status === option.value;
-
+                            
                             return (
                               <Box
                                 key={option.value}
@@ -1954,7 +2226,7 @@ export default function Attendance() {
                                     e.stopPropagation();
                                     handleStatusChange(option.value);
                                   }}
-                                  onChange={() => { }}
+                                  onChange={() => {}}
                                   sx={{
                                     color: option.color,
                                     p: 0.5,
@@ -1964,15 +2236,15 @@ export default function Attendance() {
                                     }
                                   }}
                                 />
-                                <OptionIcon
-                                  sx={{
-                                    fontSize: 18,
-                                    color: isSelected ? option.color : 'text.secondary'
-                                  }}
+                                <OptionIcon 
+                                  sx={{ 
+                                    fontSize: 18, 
+                                    color: isSelected ? option.color : 'text.secondary' 
+                                  }} 
                                 />
-                                <Typography
+                                <Typography 
                                   variant="body2"
-                                  sx={{
+                                  sx={{ 
                                     color: isSelected ? option.color : 'text.secondary',
                                     fontWeight: isSelected ? 600 : 400,
                                     whiteSpace: 'nowrap'
@@ -1995,7 +2267,7 @@ export default function Attendance() {
 
           {/* Resumen de asistencia */}
           {students.length > 0 && (
-            <Box sx={{ mt: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
+            <Box sx={{ mt: 3, p: 2, backgroundColor: 'surfaceContainerLow', border: '1px solid', borderColor: 'divider', borderRadius: "16px" }}>
               <Typography variant="subtitle2" gutterBottom>
                 Resumen:
               </Typography>
@@ -2033,7 +2305,7 @@ export default function Attendance() {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button
+          <Button 
             onClick={() => {
               if (window.confirm('¿Estás seguro de cerrar? Los cambios no guardados se perderán.')) {
                 setListAttendanceDialogOpen(false);

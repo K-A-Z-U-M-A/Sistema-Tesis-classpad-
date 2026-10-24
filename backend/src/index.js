@@ -1,4 +1,5 @@
 import './config/env.js'; // ← esto asegura que JWT_SECRET ya está cargado
+import { spawn } from 'child_process';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -22,12 +23,22 @@ import gradeRoutes from './routes/grades.js';
 import reportRoutes from './routes/reports.js';
 import auditRoutes from './routes/audit.js';
 import adminRoutes from './routes/admin.js';
+import roleRoutes from './routes/roles.js';
+import backupRoutes from './routes/backups.js';
 import passwordRecoveryRoutes from './routes/passwordRecovery.js';
+import calendarRoutes from './routes/calendar.js';
 import ensureAttendanceTables from './ensure-attendance-tables.js';
 import ensureProfileFields from './ensure-profile-fields.js';
+import ensureClassroomTables from './ensure-classroom-tables.js';
+import ensureCalendarTables from './ensure-calendar-tables.js';
+import ensureRolesTables from './ensure-roles-tables.js';
+import { handleMulterError } from './config/multer.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Enable trust proxy for ngrok / reverse proxies (needed for rate limiter and IP detection)
+app.set('trust proxy', 1);
 
 // CORS configuration
 const corsOptions = {
@@ -43,7 +54,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors(corsOptions));
-app.use(morgan('combined'));
+app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -89,20 +100,34 @@ app.use('/api/grades', gradeRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/backups', backupRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/calendar', calendarRoutes);
 
-// Endpoint de configuración de red (Para Bonjour/QR)
-app.get('/api/config', (req, res) => {
-  const hostname = os.hostname().toLowerCase();
+// Endpoint de configuración de red (IP local + ngrok si está activo)
+app.get('/api/config', async (req, res) => {
   const networkInterfaces = os.networkInterfaces();
   const ipv4 = Object.values(networkInterfaces)
     .flat()
     .find(i => i.family === 'IPv4' && !i.internal)?.address || 'localhost';
 
+  // Intentar detectar ngrok automáticamente
+  let ngrokUrl = null;
+  try {
+    const ngrokRes = await fetch('http://localhost:4040/api/tunnels', { signal: AbortSignal.timeout(800) });
+    if (ngrokRes.ok) {
+      const data = await ngrokRes.json();
+      const tunnel = data.tunnels?.find(t => t.proto === 'https');
+      if (tunnel) ngrokUrl = tunnel.public_url;
+    }
+  } catch (_) {
+    // ngrok no está corriendo, no pasa nada
+  }
+
   res.json({
-    hostname,
-    bonjurHostname: `${hostname}.local`,
     ipv4,
-    port: PORT
+    port: PORT,
+    ngrokUrl  // null si ngrok no está activo
   });
 });
 
@@ -116,6 +141,9 @@ app.use('*', (req, res) => {
   });
 });
 
+// Register Multer error handler
+app.use(handleMulterError);
+
 // Error handler
 app.use((error, req, res, next) => {
   console.error('Server error:', error);
@@ -127,17 +155,77 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Lanza ngrok como proceso hijo y muestra la URL cuando esté lista
+async function startNgrok() {
+  // Si ya hay una instancia corriendo, mostrar la URL y salir
+  try {
+    const res = await fetch('http://localhost:4040/api/tunnels', { signal: AbortSignal.timeout(800) });
+    if (res.ok) {
+      const data = await res.json();
+      const tunnel = data.tunnels?.find(t => t.proto === 'https');
+      if (tunnel) {
+        console.log(`🌍 ngrok ya activo: ${tunnel.public_url}`);
+        return;
+      }
+    }
+  } catch (_) { /* ngrok no está corriendo, lo lanzamos */ }
+
+  console.log('🚀 Iniciando ngrok...');
+  const ngrok = spawn('ngrok', ['http', 'https://localhost:5173'], {
+    stdio: 'ignore',
+    detached: false,
+    shell: true
+  });
+
+  ngrok.on('error', (err) => {
+    console.log(`⚠️  No se pudo iniciar ngrok: ${err.message}`);
+    console.log('   Instalalo desde https://ngrok.com/download o con: winget install ngrok.ngrok');
+  });
+
+  // Esperar a que ngrok esté listo y mostrar la URL
+  let attempts = 0;
+  const poll = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await fetch('http://localhost:4040/api/tunnels', { signal: AbortSignal.timeout(800) });
+      if (res.ok) {
+        const data = await res.json();
+        const tunnel = data.tunnels?.find(t => t.proto === 'https');
+        if (tunnel) {
+          console.log(`🌍 ngrok activo: ${tunnel.public_url}`);
+          clearInterval(poll);
+          return;
+        }
+      }
+    } catch (_) { /* aún iniciando */ }
+    if (attempts >= 15) {
+      clearInterval(poll);
+      console.log('⚠️  ngrok tardó demasiado en iniciar');
+    }
+  }, 1000);
+}
+
 // Graceful shutdown
 const server = app.listen(PORT, '0.0.0.0', async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🌐 External access: http://[TU_IP]:${PORT}/api/health`);
+  console.log(`\n🚀 Backend listo en http://localhost:${PORT}`);
 
   // Asegurar que las tablas de asistencia existan
   await ensureAttendanceTables();
 
   // Asegurar que los campos de perfil existan
   await ensureProfileFields();
+
+  // Asegurar que las columnas de aula y catálogo de classrooms existan
+  await ensureClassroomTables();
+
+  // Asegurar que las tablas de calendario escolar y feriados existan
+  await ensureCalendarTables();
+
+  // Asegurar que las tablas y roles predefinidos existan
+  await ensureRolesTables();
+
+  // Lanzar ngrok automáticamente
+  setTimeout(() => startNgrok(), 1000);
 });
 
 const gracefulShutdown = async (signal) => {

@@ -76,14 +76,14 @@ const ArchivedCourses = () => {
 
     if (loading) {
         return (
-            <Container maxWidth="lg" sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+            <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
                 <CircularProgress size={60} />
-            </Container>
+            </Box>
         );
     }
 
     return (
-        <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+        <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -155,7 +155,7 @@ const ArchivedCourses = () => {
                                 <Card
                                     sx={{
                                         height: '100%',
-                                        borderRadius: 3,
+                                        borderRadius: "20px",
                                         transition: 'all 0.3s ease',
                                         '&:hover': {
                                             transform: 'translateY(-4px)',
@@ -169,7 +169,7 @@ const ArchivedCourses = () => {
                                                 sx={{
                                                     width: { xs: 40, sm: 50 },
                                                     height: { xs: 40, sm: 50 },
-                                                    borderRadius: 2,
+                                                    borderRadius: "16px",
                                                     backgroundColor: course.color || '#9E9E9E',
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -243,7 +243,7 @@ const ArchivedCourses = () => {
                                             color="success"
                                             startIcon={<Unarchive />}
                                             onClick={() => handleUnarchive(course.id)}
-                                            sx={{ mt: 2, borderRadius: 2 }}
+                                            sx={{ mt: 2, borderRadius: "16px" }}
                                         >
                                             Restaurar Curso
                                         </Button>
@@ -273,8 +273,9 @@ const ArchivedCourses = () => {
                     </Box>
                 </motion.div>
             )}
-        </Container>
+        </Box>
     );
 };
 
 export default ArchivedCourses;
+

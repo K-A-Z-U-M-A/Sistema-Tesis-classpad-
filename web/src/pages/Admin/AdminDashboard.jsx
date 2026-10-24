@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+    import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Grid,
@@ -15,12 +16,14 @@ import {
     Assignment as AssignmentIcon,
     TrendingUp as TrendingUpIcon,
     Person as PersonIcon,
-    AdminPanelSettings as AdminIcon
+    AdminPanelSettings as AdminIcon,
+    Backup as BackupIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-hot-toast';
 import api from '../../services/api';
 
 const AdminDashboard = () => {
+    const navigate = useNavigate();
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -51,7 +54,7 @@ const AdminDashboard = () => {
     }
 
     const StatCard = ({ title, value, icon, color, subtitle }) => (
-        <Card sx={{ height: '100%', borderRadius: 2, boxShadow: 3 }}>
+        <Card sx={{ height: '100%', borderRadius: "16px", boxShadow: 3 }}>
             <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <Box>
@@ -144,7 +147,7 @@ const AdminDashboard = () => {
 
                 {/* Users by Role */}
                 <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3, height: '100%' }}>
+                    <Paper sx={{ p: 3, borderRadius: "16px", boxShadow: 3, height: '100%' }}>
                         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 3 }}>
                             Usuarios por Rol
                         </Typography>
@@ -176,7 +179,7 @@ const AdminDashboard = () => {
 
                 {/* Quick Actions */}
                 <Grid item xs={12} md={8}>
-                    <Paper sx={{ p: 3, borderRadius: 2, boxShadow: 3, height: '100%' }}>
+                    <Paper sx={{ p: 3, borderRadius: "16px", boxShadow: 3, height: '100%' }}>
                         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 3 }}>
                             Accesos Rápidos
                         </Typography>
@@ -188,7 +191,7 @@ const AdminDashboard = () => {
                                         '&:hover': { bgcolor: 'action.hover' },
                                         borderRadius: 2
                                     }}
-                                    onClick={() => window.location.href = '/admin/users'}
+                                    onClick={() => navigate('/admin/users')}
                                 >
                                     <CardContent>
                                         <Typography variant="h6" color="primary">
@@ -207,7 +210,7 @@ const AdminDashboard = () => {
                                         '&:hover': { bgcolor: 'action.hover' },
                                         borderRadius: 2
                                     }}
-                                    onClick={() => window.location.href = '/admin/audit'}
+                                    onClick={() => navigate('/admin/audit')}
                                 >
                                     <CardContent>
                                         <Typography variant="h6" color="primary">
@@ -226,7 +229,7 @@ const AdminDashboard = () => {
                                         '&:hover': { bgcolor: 'action.hover' },
                                         borderRadius: 2
                                     }}
-                                    onClick={() => window.location.href = '/admin/reports'}
+                                    onClick={() => navigate('/admin/reports')}
                                 >
                                     <CardContent>
                                         <Typography variant="h6" color="primary">
@@ -245,13 +248,14 @@ const AdminDashboard = () => {
                                         '&:hover': { bgcolor: 'action.hover' },
                                         borderRadius: 2
                                     }}
+                                    onClick={() => navigate('/admin/backups')}
                                 >
                                     <CardContent>
                                         <Typography variant="h6" color="primary">
-                                            Configuración
+                                            Copias de Seguridad
                                         </Typography>
                                         <Typography variant="body2" color="text.secondary">
-                                            Ajustes generales del sistema
+                                            Respaldos automáticos 3x/día y Google Drive
                                         </Typography>
                                     </CardContent>
                                 </Card>

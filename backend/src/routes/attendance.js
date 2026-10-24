@@ -4,65 +4,30 @@ import { authMiddleware } from '../middleware/authMiddleware.js';
 import crypto from 'crypto';
 import { logAction } from '../utils/auditLogger.js';
 
+import { isUuid, isIntegerString, isCourseTeacher, isCourseStudent } from '../utils/uuid.js';
+
 const router = express.Router();
 
-// Helper functions for UUID/Integer support
-function isUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
-}
+// ── SSE: mapa global de clientes por sesión ──────────────────────────────────
+// sseClients: Map<sessionId, Set<res>>
+const sseClients = new Map();
 
-function isIntegerString(value) {
-  return /^\d+$/.test(String(value));
-}
-
-// Helper function to check if user is teacher of course
-async function isCourseTeacher(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  console.log('🔍 isCourseTeacher - courseId:', courseId, 'isUuid:', isUuid(courseId), 'cast:', cast);
-  try {
-    // For course_teachers table, course_id is INTEGER, so we need to handle both cases
-    if (isUuid(courseId)) {
-      // UUID: Check only courses table (course_teachers won't match)
-      const result = await pool.query(
-        `SELECT 1 FROM courses c WHERE c.id = $1::uuid AND c.owner_id = $2`,
-        [courseId, userId]
-      );
-      console.log('🔍 isCourseTeacher result:', result.rows.length > 0);
-      return result.rows.length > 0;
-    } else {
-      // INTEGER: Check both courses and course_teachers
-      const result = await pool.query(
-        `SELECT 1 FROM courses c 
-         LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-         WHERE c.id = $1 AND (c.owner_id = $2 OR ct.teacher_id = $2)`,
-        [courseId, userId]
-      );
-      console.log('🔍 isCourseTeacher result:', result.rows.length > 0);
-      return result.rows.length > 0;
+function notifySession(sessionId, payload) {
+  const sid = String(sessionId);
+  const clients = sseClients.get(sid);
+  console.log(`📡 [SSE] notifySession for session ${sid}. Connected clients: ${clients ? clients.size : 0}`);
+  if (!clients || clients.size === 0) return;
+  const data = JSON.stringify(payload);
+  for (const res of clients) {
+    try {
+      res.write(`data: ${data}\n\n`);
+    } catch (err) {
+      console.error(`❌ [SSE] Error writing to client for session ${sid}:`, err.message);
+      clients.delete(res);
     }
-  } catch (err) {
-    console.error('❌ Error in isCourseTeacher:', err.message);
-    throw err;
   }
 }
-
-// Helper function to check if user is student of course
-async function isCourseStudent(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  console.log('🔍 isCourseStudent - courseId:', courseId, 'isUuid:', isUuid(courseId), 'cast:', cast);
-  try {
-    const result = await pool.query(
-      `SELECT 1 FROM enrollments 
-       WHERE course_id = $1${cast} AND student_id = $2 AND status = 'active'`,
-      [courseId, userId]
-    );
-    console.log('🔍 isCourseStudent result:', result.rows.length > 0);
-    return result.rows.length > 0;
-  } catch (err) {
-    console.error('❌ Error in isCourseStudent:', err.message);
-    throw err;
-  }
-}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Helper function to calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -122,8 +87,29 @@ router.post('/sessions', authMiddleware, async (req, res) => {
       });
     }
 
-    // Generate unique QR token shorter
-    const qrToken = crypto.randomBytes(4).toString('hex').toUpperCase();
+    // Verificar que no exista ya una sesión para este curso HOY
+    const castCheck = isUuid(course_id) ? '::uuid' : '';
+    const todaySession = await pool.query(
+      `SELECT id, title FROM attendance_sessions
+       WHERE course_id = $1${castCheck}
+         AND DATE(created_at AT TIME ZONE 'America/Lima') = CURRENT_DATE
+         AND is_active = true
+       LIMIT 1`,
+      [course_id]
+    );
+
+    if (todaySession.rows.length > 0) {
+      return res.status(409).json({
+        error: {
+          message: `Ya existe una sesión de asistencia activa para hoy: "${todaySession.rows[0].title}". Solo se permite una sesión por clase por día.`,
+          code: 'SESSION_ALREADY_EXISTS_TODAY',
+          existing_session_id: todaySession.rows[0].id
+        }
+      });
+    }
+
+    // Generate unique QR token
+    const qrToken = crypto.randomBytes(32).toString('hex');
 
     // Calculate end time
     const endTime = duration_minutes
@@ -250,8 +236,16 @@ router.get('/courses/:courseId/sessions', authMiddleware, async (req, res) => {
     const cast = isUuid(courseId) ? '::uuid' : '';
     const result = await pool.query(
       `SELECT s.*, 
-              COUNT(r.id) as total_records,
-              COUNT(CASE WHEN r.status = 'present' THEN 1 END) as present_count
+              COUNT(DISTINCT r.id) as total_records,
+              COUNT(DISTINCT CASE WHEN r.status = 'present' THEN r.id END) as present_count,
+              (
+                SELECT COUNT(DISTINCT student_id)
+                FROM (
+                  SELECT student_id FROM course_students WHERE course_id = s.course_id AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))
+                  UNION
+                  SELECT student_id FROM enrollments WHERE course_id = s.course_id AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))
+                ) st
+              ) as total_students
        FROM attendance_sessions s
        LEFT JOIN attendance_records r ON s.id = r.session_id
        WHERE s.course_id = $1${cast}
@@ -282,7 +276,6 @@ router.get('/courses/:courseId/sessions', authMiddleware, async (req, res) => {
 router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
   try {
     const { sessionId } = req.params;
-    console.log('📊 Getting session records for sessionId:', sessionId);
 
     // Get session details
     const sessionResult = await pool.query(
@@ -291,7 +284,6 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
     );
 
     if (sessionResult.rows.length === 0) {
-      console.log('⚠️ Session not found:', sessionId);
       return res.status(404).json({
         error: {
           message: 'Sesión no encontrada',
@@ -301,14 +293,12 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
     }
 
     const session = sessionResult.rows[0];
-    console.log('📋 Session found:', session.title, 'Course:', session.course_id);
 
     // Check access
     const hasAccess = await isCourseTeacher(req.user.id, session.course_id) ||
       await isCourseStudent(req.user.id, session.course_id);
 
     if (!hasAccess) {
-      console.log('⚠️ Access denied for user:', req.user.id);
       return res.status(403).json({
         error: {
           message: 'No tienes acceso a esta sesión',
@@ -316,8 +306,6 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
         }
       });
     }
-
-    console.log('✅ Access granted, fetching records...');
     const result = await pool.query(
       `SELECT r.*, u.display_name, u.photo_url, u.email
        FROM attendance_records r
@@ -326,8 +314,6 @@ router.get('/sessions/:sessionId/records', authMiddleware, async (req, res) => {
        ORDER BY r.recorded_at DESC`,
       [sessionId]
     );
-
-    console.log('✅ Found', result.rows.length, 'records');
     res.json({
       success: true,
       data: result.rows
@@ -372,16 +358,34 @@ router.post('/scan', authMiddleware, async (req, res) => {
 
     // Find active session with this QR token
     const sessionResult = await pool.query(
-      `SELECT * FROM attendance_sessions 
-       WHERE qr_token = $1 AND is_active = true 
-       AND (end_time IS NULL OR end_time > CURRENT_TIMESTAMP)`,
+      `SELECT s.*, c.name as course_name 
+       FROM attendance_sessions s
+       JOIN courses c ON s.course_id = c.id
+       WHERE s.qr_token = $1 AND s.is_active = true 
+       AND (s.end_time IS NULL OR s.end_time > CURRENT_TIMESTAMP)`,
       [qr_token]
     );
 
     if (sessionResult.rows.length === 0) {
+      // Check if session exists but is inactive or expired
+      const expiredSession = await pool.query(
+        `SELECT s.is_active, s.end_time, c.name as course_name 
+         FROM attendance_sessions s
+         JOIN courses c ON s.course_id = c.id
+         WHERE s.qr_token = $1`,
+        [qr_token]
+      );
+      if (expiredSession.rows.length > 0) {
+        return res.status(400).json({
+          error: {
+            message: 'La sesión de asistencia ha finalizado o el código QR ha expirado.',
+            code: 'SESSION_EXPIRED'
+          }
+        });
+      }
       return res.status(404).json({
         error: {
-          message: 'Sesión no encontrada o expirada',
+          message: 'Código QR no válido o sesión de asistencia no encontrada.',
           code: 'SESSION_NOT_FOUND'
         }
       });
@@ -394,7 +398,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
     if (!isStudent) {
       return res.status(403).json({
         error: {
-          message: 'No estás matriculado en este curso',
+          message: `No estás matriculado en el curso "${session.course_name || 'este curso'}". Solo los alumnos matriculados pueden registrar asistencia.`,
           code: 'NOT_ENROLLED'
         }
       });
@@ -410,18 +414,18 @@ router.post('/scan', authMiddleware, async (req, res) => {
     if (existingRecord.rows.length > 0) {
       return res.status(400).json({
         error: {
-          message: 'Ya registraste tu asistencia para esta sesión',
+          message: 'Ya registraste tu asistencia para esta sesión de clase.',
           code: 'ALREADY_RECORDED'
         }
       });
     }
 
     // Validate location if required
-    if (session.location_required) {
+    if (session.location_required && session.allowed_latitude && session.allowed_longitude) {
       if (!latitude || !longitude) {
         return res.status(400).json({
           error: {
-            message: 'Ubicación requerida',
+            message: 'Esta sesión requiere geolocalización. Por favor permite el acceso a tu ubicación GPS en el dispositivo.',
             code: 'LOCATION_REQUIRED'
           }
         });
@@ -437,7 +441,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
       if (distance > session.allowed_radius) {
         return res.status(400).json({
           error: {
-            message: 'Estás fuera del rango permitido para marcar asistencia',
+            message: `Estás fuera del radio permitido para marcar asistencia (${Math.round(distance)}m del aula, máximo permitido ${session.allowed_radius}m).`,
             code: 'LOCATION_OUT_OF_RANGE',
             details: {
               distance: Math.round(distance),
@@ -459,14 +463,35 @@ router.post('/scan', authMiddleware, async (req, res) => {
       [session.id, session.course_id, req.user.id, latitude, longitude, qr_token]
     );
 
-    // Generate new QR token to prevent reuse/fraud
-    const newQrToken = crypto.randomBytes(4).toString('hex').toUpperCase();
+    // Generate new QR token to prevent reuse/fraud (QR de un solo uso)
+    const newQrToken = crypto.randomBytes(32).toString('hex');
     await pool.query(
       `UPDATE attendance_sessions 
        SET qr_token = $1, updated_at = CURRENT_TIMESTAMP 
        WHERE id = $2`,
       [newQrToken, session.id]
     );
+
+    // Obtener datos completos del alumno para el SSE
+    const studentResult = await pool.query(
+      `SELECT u.id, u.display_name, u.photo_url, u.email
+       FROM users u WHERE u.id = $1`,
+      [req.user.id]
+    );
+    const studentData = studentResult.rows[0] || {};
+
+    // ── Notificar al profesor vía SSE ────────────────────────────────────────
+    notifySession(session.id, {
+      type: 'attendance-update',
+      new_qr_token: newQrToken,
+      record: {
+        ...recordResult.rows[0],
+        display_name: studentData.display_name,
+        photo_url: studentData.photo_url,
+        email: studentData.email
+      }
+    });
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Audit Log
     await logAction({
@@ -482,7 +507,7 @@ router.post('/scan', authMiddleware, async (req, res) => {
       success: true,
       message: 'Asistencia registrada exitosamente',
       data: recordResult.rows[0],
-      new_qr_token: newQrToken // Return new token for frontend update
+      new_qr_token: newQrToken
     });
   } catch (error) {
     console.error('❌ Error scanning QR:', error);
@@ -496,6 +521,60 @@ router.post('/scan', authMiddleware, async (req, res) => {
       }
     });
   }
+});
+
+// GET /api/attendance/sessions/:sessionId/live - SSE stream para el profesor
+// El profesor se conecta aquí y recibe push en tiempo real cuando un alumno escanea.
+// Autenticación: token JWT en query param ?token=... (EventSource no admite headers).
+router.get('/sessions/:sessionId/live', authMiddleware, async (req, res) => {
+  const { sessionId } = req.params;
+
+  // Verificar que quien se suscribe es el profesor de la sesión
+  const sessionResult = await pool.query(
+    `SELECT course_id FROM attendance_sessions WHERE id = $1 AND is_active = true`,
+    [sessionId]
+  );
+  if (sessionResult.rows.length === 0) {
+    return res.status(404).json({ error: { message: 'Sesión no encontrada o inactiva', code: 'SESSION_NOT_FOUND' } });
+  }
+  const { course_id } = sessionResult.rows[0];
+  const isTeacher = await isCourseTeacher(req.user.id, course_id);
+  if (!isTeacher) {
+    return res.status(403).json({ error: { message: 'Solo el profesor puede suscribirse al stream', code: 'ACCESS_DENIED' } });
+  }
+
+  // Cabeceras SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // evitar buffering en nginx/ngrok
+  res.flushHeaders();
+
+  // Enviar cabecera de reconexión y primer comentario para vaciar el buffer inmediatamente
+  res.write('retry: 3000\n\n');
+  res.write(': connected\n\n');
+
+  // Registrar cliente
+  const sid = String(sessionId);
+  if (!sseClients.has(sid)) sseClients.set(sid, new Set());
+  sseClients.get(sid).add(res);
+  console.log(`🔌 [SSE] Client connected to session ${sid}. Total clients: ${sseClients.get(sid).size}`);
+
+  // Heartbeat cada 15 s para mantener la conexión viva
+  const heartbeat = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch (_) { /* conexión cerrada */ }
+  }, 15000);
+
+  // Limpiar al desconectar
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    const clients = sseClients.get(sid);
+    if (clients) {
+      clients.delete(res);
+      console.log(`🔌 [SSE] Client disconnected from session ${sid}. Remaining clients: ${clients.size}`);
+      if (clients.size === 0) sseClients.delete(sid);
+    }
+  });
 });
 
 // POST /api/attendance/manual - Manually record attendance (for teachers)
@@ -839,17 +918,59 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
 
     const cast = isUuid(courseId) ? '::uuid' : '';
 
-    // Get all finished sessions for the course (only existing, non-deleted sessions)
+    // Obtener cantidad de clases programadas del curso (course_calendar_classes o school_calendars)
+    let totalScheduledClasses = 0;
+    try {
+      const scheduledCountRes = await pool.query(
+        `SELECT COUNT(*) as count FROM course_calendar_classes WHERE course_id = $1${cast}`,
+        [courseId]
+      );
+      totalScheduledClasses = parseInt(scheduledCountRes.rows[0]?.count, 10) || 0;
+
+      // Si no hay clases individuales en course_calendar_classes, verificar calendario escolar
+      if (totalScheduledClasses === 0) {
+        const calRes = await pool.query(
+          `SELECT sc.start_date, sc.end_date, c.class_days 
+           FROM school_calendars sc
+           JOIN courses c ON sc.course_id = c.id
+           WHERE sc.course_id = $1${cast}`,
+          [courseId]
+        );
+        if (calRes.rows.length > 0) {
+          const { start_date, end_date, class_days } = calRes.rows[0];
+          if (start_date && end_date && Array.isArray(class_days) && class_days.length > 0) {
+            const holidaysRes = await pool.query(`SELECT effective_date FROM paraguay_holidays`);
+            const DAY_MAP = { 0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday' };
+            const holidaySet = new Set(holidaysRes.rows.map(h => new Date(h.effective_date).toISOString().split('T')[0]));
+            let cur = new Date(start_date);
+            const end = new Date(end_date);
+            let count = 0;
+            while (cur <= end) {
+              const dName = DAY_MAP[cur.getDay()];
+              const dStr = cur.toISOString().split('T')[0];
+              if (class_days.includes(dName) && !holidaySet.has(dStr)) {
+                count++;
+              }
+              cur.setDate(cur.getDate() + 1);
+            }
+            if (count > 0) totalScheduledClasses = count;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Error al obtener clases programadas para estadísticas:', err.message);
+    }
+
+    // Get all sessions for the course (existing, non-deleted sessions)
     const sessionsResult = await pool.query(
-      `SELECT id, title, start_time 
+      `SELECT id, title, start_time, is_active 
        FROM attendance_sessions 
-       WHERE course_id = $1${cast} AND is_active = false
+       WHERE course_id = $1${cast}
        ORDER BY start_time ASC`,
       [courseId]
     );
 
     // Clean up orphaned records (records without existing sessions) - one-time cleanup
-    // This ensures data integrity
     await pool.query(
       `DELETE FROM attendance_records ar
        WHERE ar.course_id = $1${cast}
@@ -862,26 +983,40 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
 
     const sessions = sessionsResult.rows;
 
-    if (sessions.length === 0) {
+    if (sessions.length === 0 && totalScheduledClasses === 0) {
       return res.json({
         success: true,
         data: []
       });
     }
 
-    // Get all students in the course (try enrollments first, then course_students)
+    // El divisor base para el cálculo del promedio: clases programadas (o sesiones tomadas si no se programaron clases)
+    const baseTotalClasses = totalScheduledClasses > 0 ? totalScheduledClasses : Math.max(sessions.length, 1);
+
+    // Get all students in the course (from both enrollments and course_students)
     let studentsResult;
     try {
       studentsResult = await pool.query(
         `SELECT DISTINCT u.id, u.display_name, u.cedula
-         FROM users u
-         INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
+         FROM (
+           SELECT student_id FROM enrollments WHERE course_id = $1${cast} AND status = 'active'
+           UNION
+           SELECT student_id FROM course_students WHERE course_id = $1${cast} AND status = 'active'
+         ) enr
+         JOIN users u ON enr.student_id = u.id
          ORDER BY u.display_name`,
         [courseId]
       );
-
-      // If no results, try course_students (legacy table)
-      if (studentsResult.rows.length === 0) {
+    } catch (err) {
+      try {
+        studentsResult = await pool.query(
+          `SELECT DISTINCT u.id, u.display_name, u.cedula
+           FROM users u
+           INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
+           ORDER BY u.display_name`,
+          [courseId]
+        );
+      } catch (err2) {
         studentsResult = await pool.query(
           `SELECT DISTINCT u.id, u.display_name, u.cedula
            FROM users u
@@ -890,16 +1025,6 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
           [courseId]
         );
       }
-    } catch (err) {
-      console.log('⚠️ First query failed, trying course_students:', err.message);
-      // Fallback to course_students on error
-      studentsResult = await pool.query(
-        `SELECT DISTINCT u.id, u.display_name, u.cedula
-         FROM users u
-         INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
-         ORDER BY u.display_name`,
-        [courseId]
-      );
     }
 
     const students = studentsResult.rows;
@@ -907,60 +1032,63 @@ router.get('/courses/:courseId/stats', authMiddleware, async (req, res) => {
 
     // For each student, calculate attendance statistics
     for (const student of students) {
-      let totalSessions = sessions.length;
       let presentCount = 0;
       let absentCount = 0;
       let lateCount = 0;
       let excusedCount = 0;
 
-      // Get all records for this student across all sessions
-      // Only include records that belong to existing sessions (prevent orphaned records)
       const sessionIds = sessions.map(s => s.id);
-      if (sessionIds.length === 0) {
-        // No sessions, skip this student
-        continue;
+      let recordsMap = new Map();
+
+      if (sessionIds.length > 0) {
+        const recordsResult = await pool.query(
+          `SELECT ar.session_id, ar.status 
+           FROM attendance_records ar
+           INNER JOIN attendance_sessions as_ ON ar.session_id = as_.id
+           WHERE ar.student_id = $1 
+             AND ar.session_id = ANY($2::int[])
+             AND as_.course_id = $3${cast}`,
+          [student.id, sessionIds, courseId]
+        );
+
+        recordsResult.rows.forEach(record => {
+          recordsMap.set(record.session_id, record.status);
+        });
+
+        // Count attendance by status for registered sessions
+        for (const session of sessions) {
+          const status = recordsMap.get(session.id);
+          if (status === 'present') presentCount++;
+          else if (status === 'absent') absentCount++;
+          else if (status === 'late') lateCount++;
+          else if (status === 'excused') excusedCount++;
+          else absentCount++; // No record = absent
+        }
       }
 
-      const recordsResult = await pool.query(
-        `SELECT ar.session_id, ar.status 
-         FROM attendance_records ar
-         INNER JOIN attendance_sessions as_ ON ar.session_id = as_.id
-         WHERE ar.student_id = $1 
-           AND ar.session_id = ANY($2::int[])
-           AND as_.course_id = $3${cast}`,
-        [student.id, sessionIds, courseId]
-      );
+      // Clases participadas/asistidas (presente, tarde o justificado)
+      const attendedCount = presentCount + lateCount + excusedCount;
 
-      const recordsMap = new Map();
-      recordsResult.rows.forEach(record => {
-        recordsMap.set(record.session_id, record.status);
-      });
-
-      // Count attendance by status
-      for (const session of sessions) {
-        const status = recordsMap.get(session.id);
-        if (status === 'present') presentCount++;
-        else if (status === 'absent') absentCount++;
-        else if (status === 'late') lateCount++;
-        else if (status === 'excused') excusedCount++;
-        else absentCount++; // No record = absent
-      }
-
-      // Calculate percentage: (Present + Late + Excused) / Total Sessions
-      const attendancePercentage = totalSessions > 0
-        ? ((presentCount + lateCount + excusedCount) / totalSessions) * 100
+      // Calcular porcentaje de asistencia: Asistidas / Total de Clases Programadas
+      const attendancePercentage = baseTotalClasses > 0
+        ? (attendedCount / baseTotalClasses) * 100
         : 0;
+
+      // Habilitado si alcanza al menos el 60% de las clases programadas (ej: 6 de 10)
       const isEnabled = attendancePercentage >= 60;
 
       stats.push({
         studentId: student.id,
         studentName: student.display_name,
         studentCedula: student.cedula || '',
-        totalSessions,
+        totalSessions: sessions.length,
+        scheduledClasses: totalScheduledClasses > 0 ? totalScheduledClasses : sessions.length,
+        baseTotalClasses,
         presentCount,
         absentCount,
         lateCount,
         excusedCount,
+        attendedCount,
         attendancePercentage: Math.round(attendancePercentage * 100) / 100,
         isEnabled,
         isLowAverage: attendancePercentage < 60

@@ -51,7 +51,7 @@ const schema = yup.object({
         .required('Confirmar contraseña es requerido')
 }).required();
 
-const ChangePassword = () => {
+const ChangePassword = ({ onSuccess } = {}) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
@@ -67,7 +67,8 @@ const ChangePassword = () => {
         handleSubmit,
         formState: { errors },
         watch,
-        reset
+        reset,
+        setError: setFormFieldError
     } = useForm({
         resolver: yupResolver(schema)
     });
@@ -89,25 +90,63 @@ const ChangePassword = () => {
             });
 
             setSuccess(true);
-            toast.success('Contraseña actualizada. Redirigiendo al login...');
 
             // Limpiar formulario
             reset();
 
-            // Esperar un momento para que el usuario vea el mensaje y luego cerrar sesión
-            setTimeout(async () => {
-                await logout();
-                navigate('/login');
-            }, 2000);
+            if (onSuccess) {
+                // Modo cambio obligatorio (primer login de docente):
+                // No hacer logout, limpiar el flag y redirigir al dashboard
+                toast.success('¡Contraseña actualizada exitosamente! Bienvenido a ClassPad.');
+                onSuccess();
+                setTimeout(() => {
+                    navigate('/dashboard');
+                }, 1500);
+            } else {
+                // Comportamiento estándar: notificar y cerrar sesión por seguridad
+                toast.success('Contraseña actualizada. Redirigiendo al login...');
+                setTimeout(async () => {
+                    await logout();
+                    navigate('/login');
+                }, 2000);
+            }
 
         } catch (err) {
             console.error('Error cambiando contraseña:', err);
-            const errorMsg = err.response?.data?.error?.message || 'Error al cambiar la contraseña';
+            
+            let errorMsg = 'No se pudo cambiar la contraseña. Inténtalo nuevamente.';
+            const code = err.code || '';
+            const message = err.message || '';
+
+            if (code === 'INVALID_CURRENT_PASSWORD' || code === 'INVALID_PASSWORD') {
+                errorMsg = 'La contraseña actual ingresada es incorrecta.';
+                setFormFieldError('currentPassword', {
+                    type: 'manual',
+                    message: errorMsg
+                });
+            } else if (code === 'WEAK_PASSWORD') {
+                errorMsg = message || 'La nueva contraseña no cumple los requisitos de seguridad.';
+                if (err.details && Array.isArray(err.details)) {
+                    errorMsg += ' ' + err.details.join(' ');
+                }
+            } else if (code === 'NO_PASSWORD_SET') {
+                errorMsg = 'Este usuario no tiene contraseña establecida (cuenta vinculada con Google).';
+            } else if (code === 'SAME_PASSWORD') {
+                errorMsg = 'La nueva contraseña no puede ser igual a la contraseña actual.';
+                setFormFieldError('newPassword', {
+                    type: 'manual',
+                    message: errorMsg
+                });
+            } else if (message) {
+                errorMsg = message;
+            }
+
             setError(errorMsg);
             toast.error(errorMsg);
             setLoading(false);
         }
     };
+
 
     return (
         <Card sx={{ borderRadius: 2, boxShadow: 2 }}>

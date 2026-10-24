@@ -4,64 +4,108 @@ import { authMiddleware } from '../middleware/authMiddleware.js';
 import { generateUniqueCourseCode } from '../utils/courseCodeGenerator.js';
 import { logAction } from '../utils/auditLogger.js';
 
+import { isUuid, isIntegerString, isCourseTeacher, isCourseStudent, hasCourseAccess } from '../utils/uuid.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
+import { createNotification } from './notifications.js';
+
 const router = express.Router();
 
-function isUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value));
-}
+// Helper para calcular el progreso de avance académico de un curso (visión docente/institucional)
+async function calculateCourseInstitutionalProgress(courseId, studentCount, assignmentCount) {
+  try {
+    const [schedRes, sessRes, subsRes, gradesRes] = await Promise.all([
+      pool.query('SELECT COUNT(*) as c FROM course_calendar_classes WHERE course_id = $1', [courseId]),
+      pool.query('SELECT COUNT(*) as c FROM attendance_sessions WHERE course_id = $1', [courseId]),
+      pool.query('SELECT COUNT(*) as c FROM submissions s JOIN assignments a ON s.assignment_id = a.id WHERE a.course_id = $1', [courseId]),
+      pool.query('SELECT COUNT(*) as c FROM student_grades WHERE course_id = $1', [courseId])
+    ]);
 
-function isIntegerString(value) {
-  return /^\d+$/.test(String(value));
-}
+    const numSched = parseInt(schedRes.rows[0]?.c || '0', 10);
+    const numSess = parseInt(sessRes.rows[0]?.c || '0', 10);
+    const numSubs = parseInt(subsRes.rows[0]?.c || '0', 10);
+    const numGrades = parseInt(gradesRes.rows[0]?.c || '0', 10);
 
-// Helper function to check if user is teacher of course
-async function isCourseTeacher(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     WHERE c.id = $1${cast} AND (c.owner_id = $2 OR ct.teacher_id = $2)`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
+    // 1. Clases dictadas vs planificadas (40% de peso)
+    const classRate = numSched > 0 ? Math.min(numSess / numSched, 1) : (numSess > 0 ? Math.min(numSess / 12, 1) : 0);
+    
+    // 2. Entregas de actividades recibidas vs esperadas (30% de peso)
+    const expectedSubs = studentCount * assignmentCount;
+    const subRate = expectedSubs > 0 ? Math.min(numSubs / expectedSubs, 1) : (assignmentCount > 0 ? 0.5 : 0);
+    
+    // 3. Actas de calificaciones cargadas vs alumnos matriculados (30% de peso)
+    const gradeRate = studentCount > 0 ? Math.min(numGrades / studentCount, 1) : 0;
 
-// Helper function to check if user is student of course
-async function isCourseStudent(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM course_students WHERE course_id = $1${cast} AND student_id = $2 AND status = 'active'`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
-
-// Helper function to check if user has access to course
-async function hasCourseAccess(userId, courseId) {
-  const cast = isUuid(courseId) ? '::uuid' : '';
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     LEFT JOIN course_students cs ON c.id = cs.course_id
-     LEFT JOIN enrollments e ON c.id = e.course_id
-     WHERE c.id = $1${cast} AND (
-       c.owner_id = $2 OR 
-       ct.teacher_id = $2 OR 
-       (cs.student_id = $2 AND cs.status = 'active') OR
-       (e.student_id = $2 AND e.status = 'active')
-     )`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
+    const progress = Math.round((classRate * 40) + (subRate * 30) + (gradeRate * 30));
+    return Math.min(Math.max(progress, 0), 100);
+  } catch (error) {
+    console.error('Error calculando progreso institucional del curso:', error);
+    return 0;
+  }
 }
 
 // GET /api/courses - Get user's courses (ONLY ACTIVE)
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { role } = req.user;
+    const rawRole = (req.user.role || '').toLowerCase();
     let courses;
 
-    if (role === 'teacher') {
+    // Roles de administración y supervisión académica ven todos los cursos
+    const isGlobalViewer = ['admin', 'director', 'coordinator', 'secretary'].includes(rawRole);
+
+    if (isGlobalViewer) {
+      const result = await pool.query(
+        `SELECT DISTINCT c.*, 
+                u.display_name as owner_name,
+                u.photo_url as owner_photo
+         FROM courses c
+         LEFT JOIN users u ON c.owner_id = u.id
+         WHERE (c.archived = false OR c.archived IS NULL)
+         ORDER BY c.created_at DESC`
+      );
+
+      // Get counts and students for each course
+      courses = await Promise.all(result.rows.map(async (course) => {
+        const [studentCount, assignmentCount, studentsResult] = await Promise.all([
+          pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
+          pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND is_published = true', [course.id]),
+          pool.query(`
+            SELECT u.id, u.display_name, u.email, u.photo_url,
+                   COALESCE(cs.enrolled_at, e.enrolled_at) as enrolled_at,
+                   COALESCE(cs.status, e.status) as status
+             FROM (
+               SELECT DISTINCT student_id, enrolled_at, status
+               FROM course_students 
+               WHERE course_id = $1
+               UNION
+               SELECT DISTINCT student_id, enrolled_at, status
+               FROM enrollments 
+               WHERE course_id = $1 AND status = 'active'
+             ) combined
+             JOIN users u ON combined.student_id = u.id
+             LEFT JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1
+             LEFT JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1
+             ORDER BY enrolled_at
+          `, [course.id])
+        ]);
+
+        const numStudents = parseInt(studentCount.rows[0]?.count || '0', 10);
+        const numAssignments = parseInt(assignmentCount.rows[0]?.count || '0', 10);
+        const progress = await calculateCourseInstitutionalProgress(course.id, numStudents, numAssignments);
+
+        return {
+          ...course,
+          student_count: numStudents,
+          assignment_count: numAssignments,
+          progress,
+          students: studentsResult.rows,
+          teacher: {
+            id: course.owner_id,
+            display_name: course.owner_name,
+            photo_url: course.owner_photo
+          }
+        };
+      }));
+    } else if (rawRole === 'teacher' || rawRole.startsWith('prof') || rawRole.startsWith('docen')) {
       // Get courses where user is owner or teacher - ONLY ACTIVE
       const result = await pool.query(
         `SELECT DISTINCT c.*, 
@@ -71,7 +115,7 @@ router.get('/', authMiddleware, async (req, res) => {
          LEFT JOIN users u ON c.owner_id = u.id
          LEFT JOIN course_teachers ct ON c.id = ct.course_id
          WHERE (c.owner_id = $1 OR ct.teacher_id = $1)
-         AND c.archived = false
+         AND (c.archived = false OR c.archived IS NULL)
          ORDER BY c.created_at DESC`,
         [req.user.id]
       );
@@ -101,15 +145,21 @@ router.get('/', authMiddleware, async (req, res) => {
           `, [course.id])
         ]);
 
+        const numStudents = parseInt(studentCount.rows[0]?.count || '0', 10);
+        const numAssignments = parseInt(assignmentCount.rows[0]?.count || '0', 10);
+        const progress = await calculateCourseInstitutionalProgress(course.id, numStudents, numAssignments);
+
         return {
           ...course,
-          student_count: parseInt(studentCount.rows[0].count),
-          assignment_count: parseInt(assignmentCount.rows[0].count),
-          students: studentsResult.rows,
+          owner_photo: formatAvatarUrl(course.owner_id, course.owner_photo),
+          student_count: numStudents,
+          assignment_count: numAssignments,
+          progress,
+          students: studentsResult.rows.map(s => ({ ...s, photo_url: formatAvatarUrl(s.id, s.photo_url) })),
           teacher: {
             id: course.owner_id,
             display_name: course.owner_name,
-            photo_url: course.owner_photo
+            photo_url: formatAvatarUrl(course.owner_id, course.owner_photo)
           }
         };
       }));
@@ -131,6 +181,7 @@ router.get('/', authMiddleware, async (req, res) => {
       );
 
       // Get counts and students for each course
+      const studentId = req.user.id;
       courses = await Promise.all(result.rows.map(async (course) => {
         const [studentCount, assignmentCount, studentsResult] = await Promise.all([
           pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
@@ -155,15 +206,68 @@ router.get('/', authMiddleware, async (req, res) => {
           `, [course.id])
         ]);
 
+        const numStudents = parseInt(studentCount.rows[0]?.count || '0', 10);
+        const numAssignments = parseInt(assignmentCount.rows[0]?.count || '0', 10);
+
+        // Progreso para estudiante
+        let submissionRate = 0;
+        if (numAssignments > 0) {
+          const submittedResult = await pool.query(
+            `SELECT COUNT(*) as count FROM submissions s
+             JOIN assignments a ON s.assignment_id = a.id
+             WHERE a.course_id = $1 AND a.status = 'published' AND s.student_id = $2`,
+            [course.id, studentId]
+          );
+          submissionRate = parseInt(submittedResult.rows[0]?.count || '0', 10) / numAssignments;
+        }
+
+        let attendanceRate = 0;
+        try {
+          const sessionsResult = await pool.query(
+            'SELECT COUNT(*) as count FROM attendance_sessions WHERE course_id = $1',
+            [course.id]
+          );
+          const totalSessions = parseInt(sessionsResult.rows[0]?.count || '0', 10);
+          if (totalSessions > 0) {
+            const attendedResult = await pool.query(
+              `SELECT COUNT(*) as count FROM attendance_records r
+               JOIN attendance_sessions s ON r.session_id = s.id
+               WHERE s.course_id = $1 AND r.student_id = $2 AND r.status IN ('present', 'late')`,
+              [course.id, studentId]
+            );
+            attendanceRate = parseInt(attendedResult.rows[0]?.count || '0', 10) / totalSessions;
+          }
+        } catch (_) {}
+
+        let gradeCompleteness = 0;
+        try {
+          const gradeResult = await pool.query(
+            'SELECT parcial_1, parcial_2, trabajos_practicos, examen_final FROM student_grades WHERE course_id = $1 AND student_id = $2',
+            [course.id, studentId]
+          );
+          if (gradeResult.rows.length > 0) {
+            const g = gradeResult.rows[0];
+            const fields = [g.parcial_1, g.parcial_2, g.trabajos_practicos, g.examen_final];
+            const filled = fields.filter(f => f !== null && f !== undefined).length;
+            gradeCompleteness = filled / fields.length;
+          }
+        } catch (_) {}
+
+        const progress = Math.min(Math.round(
+          (submissionRate * 40) + (attendanceRate * 30) + (gradeCompleteness * 30)
+        ), 100);
+
         return {
           ...course,
-          student_count: parseInt(studentCount.rows[0].count),
-          assignment_count: parseInt(assignmentCount.rows[0].count),
-          students: studentsResult.rows,
+          owner_photo: formatAvatarUrl(course.owner_id, course.owner_photo),
+          student_count: numStudents,
+          assignment_count: numAssignments,
+          progress,
+          students: studentsResult.rows.map(s => ({ ...s, photo_url: formatAvatarUrl(s.id, s.photo_url) })),
           teacher: {
             id: course.owner_id,
             display_name: course.owner_name,
-            photo_url: course.owner_photo
+            photo_url: formatAvatarUrl(course.owner_id, course.owner_photo)
           }
         };
       }));
@@ -184,23 +288,142 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/courses - Create new course (teachers only)
+// GET /api/courses/available-classrooms - Lista aulas disponibles para un turno/año/semestre
+// IMPORTANTE: Esta ruta debe estar ANTES de /:id para evitar colisiones de nombre
+router.get('/available-classrooms', authMiddleware, async (req, res) => {
+  try {
+    const { turn, year, semester, exclude_course_id } = req.query;
+
+    // Aulas ocupadas en ese turno/año/semestre (cursos activos)
+    const available = await pool.query(
+      `SELECT cl.pavilion, cl.floor, cl.number, cl.label,
+              EXISTS (
+                SELECT 1 FROM courses c
+                WHERE c.classroom_pavilion = cl.pavilion
+                  AND c.classroom_floor    = cl.floor
+                  AND c.classroom_number   = cl.number
+                  AND ($1::text IS NULL OR c.turn = $1)
+                  AND ($2::integer IS NULL OR c.year = $2)
+                  AND ($3::text IS NULL OR c.semester = $3)
+                  AND ($4::text IS NULL OR c.id::text <> $4)
+                  AND c.archived = false
+              ) AS is_taken
+       FROM classrooms cl
+       ORDER BY cl.pavilion, cl.floor, cl.number`,
+      [turn || null, year ? parseInt(year, 10) : null, semester || null, exclude_course_id || null]
+    );
+
+    const allClassrooms   = available.rows;
+    const freeClassrooms  = allClassrooms.filter(c => !c.is_taken);
+    const takenClassrooms = allClassrooms.filter(c => c.is_taken);
+
+    res.json({
+      success: true,
+      data: {
+        available: freeClassrooms,
+        taken:     takenClassrooms,
+        total:     allClassrooms.length,
+        free_count: freeClassrooms.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching available classrooms:', error);
+    res.status(500).json({
+      error: {
+        message: 'Error interno del servidor',
+        code: 'GET_AVAILABLE_CLASSROOMS_FAILED'
+      }
+    });
+  }
+});
+
+// GET /api/courses/check-name - Verifica si ya existe un curso con un nombre similar
+// IMPORTANTE: debe estar ANTES de /:id para evitar colisiones de nombre
+router.get('/check-name', authMiddleware, async (req, res) => {
+  try {
+    const { name, exclude_id } = req.query;
+
+    if (!name || name.trim().length < 2) {
+      return res.json({ success: true, data: { matches: [], exact: false } });
+    }
+
+    const normalized = name.trim();
+    const queryParams = [`%${normalized}%`];
+    let excludeClause = '';
+
+    if (exclude_id && typeof exclude_id === 'string' && exclude_id.trim() !== '' && exclude_id !== 'undefined') {
+      queryParams.push(exclude_id.trim());
+      excludeClause = `AND c.id::text != $${queryParams.length}`;
+    }
+
+    // Busca coincidencias exactas o similares (ILIKE con wildcards)
+    const result = await pool.query(
+      `SELECT c.id, c.name, c.turn, c.semester, c.year, c.grade, c.owner_id,
+              u.display_name AS owner_name
+       FROM courses c
+       LEFT JOIN users u ON c.owner_id = u.id
+       WHERE c.name ILIKE $1
+         AND (c.archived = false OR c.archived IS NULL)
+         ${excludeClause}
+       ORDER BY c.name ASC
+       LIMIT 10`,
+      queryParams
+    );
+
+    const normalizedLower = normalized.toLowerCase();
+
+    // Ordenar en JS: exactos primero, luego el resto
+    const sorted = result.rows.sort((a, b) => {
+      const aExact = a.name && a.name.trim().toLowerCase() === normalizedLower ? 0 : 1;
+      const bExact = b.name && b.name.trim().toLowerCase() === normalizedLower ? 0 : 1;
+      return aExact - bExact;
+    }).slice(0, 5);
+
+    const exact = sorted.some(
+      (r) => r.name && r.name.trim().toLowerCase() === normalizedLower
+    );
+
+    res.json({
+      success: true,
+      data: {
+        matches: sorted,
+        exact,
+      },
+    });
+  } catch (error) {
+    console.error('❌ Error checking course name:', error);
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'CHECK_NAME_FAILED', details: error.message },
+    });
+  }
+});
+
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { role } = req.user;
 
-    if (role !== 'teacher' && role !== 'admin') {
+    if (!['teacher', 'admin', 'director'].includes(role)) {
       return res.status(403).json({
         error: {
-          message: 'Solo los profesores pueden crear cursos',
+          message: 'Solo los profesores y administradores pueden crear cursos',
           code: 'INSUFFICIENT_PERMISSIONS'
         }
       });
     }
 
-    const { name, description, turn, grade, semester, year, color, image_url } = req.body;
+    const {
+      name, description, turn, grade, semester, year, color, image_url,
+      classroom_pavilion, classroom_floor, classroom_number,
+      class_days  // Array de días: ['monday', 'wednesday', ...]
+    } = req.body;
 
-    // Validate required fields
+    // Validar class_days si se proveen
+    const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const classDaysArray = Array.isArray(class_days)
+      ? class_days.filter(d => validDays.includes(d))
+      : [];
+
+    // Validate required fields (name, turn + classroom fields)
     if (!name || !turn) {
       return res.status(400).json({
         error: {
@@ -210,17 +433,124 @@ router.post('/', authMiddleware, async (req, res) => {
       });
     }
 
-    // Generate unique course code
-    console.log('🔑 Generating course code...');
-    const courseCode = await generateUniqueCourseCode(pool);
-    console.log('🔑 Generated course code:', courseCode);
+    // Validate duplicate course name (active courses)
+    const duplicateCheck = await pool.query(
+      `SELECT id, name FROM courses WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND archived = false LIMIT 1`,
+      [name]
+    );
 
-    // Create course
+    if (duplicateCheck.rows.length > 0) {
+      return res.status(409).json({
+        error: {
+          message: `Ya existe un curso activo con el nombre "${duplicateCheck.rows[0].name}". Por favor elige un nombre diferente.`,
+          code: 'COURSE_NAME_ALREADY_EXISTS'
+        }
+      });
+    }
+
+    // Validate classroom fields are provided
+    if (!classroom_pavilion || !classroom_floor || !classroom_number) {
+      return res.status(400).json({
+        error: {
+          message: 'Debes especificar el pabellón, piso y número de aula',
+          code: 'MISSING_CLASSROOM_FIELDS'
+        }
+      });
+    }
+
+    // Validate classroom field values
+    const validPavilions = [1, 2];
+    const validFloors = ['PB', '1', '2', '3', '4', '5'];
+    const pavilionNum = parseInt(classroom_pavilion, 10);
+    const classroomNum = parseInt(classroom_number, 10);
+
+    if (!validPavilions.includes(pavilionNum)) {
+      return res.status(400).json({
+        error: { message: 'El pabellón debe ser 1 o 2', code: 'INVALID_CLASSROOM_PAVILION' }
+      });
+    }
+    if (!validFloors.includes(String(classroom_floor))) {
+      return res.status(400).json({
+        error: { message: 'El piso debe ser PB, 1, 2, 3, 4 o 5', code: 'INVALID_CLASSROOM_FLOOR' }
+      });
+    }
+    if (isNaN(classroomNum) || classroomNum < 1 || classroomNum > 10) {
+      return res.status(400).json({
+        error: { message: 'El número de aula debe estar entre 1 y 10', code: 'INVALID_CLASSROOM_NUMBER' }
+      });
+    }
+
+    // ── Verificar conflicto de aula ──────────────────────────────────────────
+    // Conflicto: mismo pabellón + piso + aula + turno + año + semestre (curso activo)
+    const conflictCheck = await pool.query(
+      `SELECT c.id, c.name, c.turn, c.semester, c.year,
+              u.display_name AS owner_name
+       FROM courses c
+       LEFT JOIN users u ON c.owner_id = u.id
+       WHERE c.classroom_pavilion = $1
+         AND c.classroom_floor    = $2
+         AND c.classroom_number   = $3
+         AND c.turn               = $4
+         AND c.year               = $5
+         AND ($6::text IS NULL OR c.semester = $6)
+         AND c.archived = false`,
+      [pavilionNum, String(classroom_floor), classroomNum, turn, year || null, semester || null]
+    );
+
+    if (conflictCheck.rows.length > 0) {
+      // Obtener aulas disponibles para este turno/año/semestre
+      const availableResult = await pool.query(
+        `SELECT cl.pavilion, cl.floor, cl.number, cl.label
+         FROM classrooms cl
+         WHERE NOT EXISTS (
+           SELECT 1 FROM courses c
+           WHERE c.classroom_pavilion = cl.pavilion
+             AND c.classroom_floor    = cl.floor
+             AND c.classroom_number   = cl.number
+             AND c.turn               = $1
+             AND c.year               = $2
+             AND ($3::text IS NULL OR c.semester = $3)
+             AND c.archived = false
+         )
+         ORDER BY cl.pavilion, cl.floor, cl.number`,
+        [turn, year || null, semester || null]
+      );
+
+      const conflictingCourse = conflictCheck.rows[0];
+      return res.status(409).json({
+        error: {
+          message: `El aula Pab. ${pavilionNum} – ${classroom_floor === 'PB' ? 'Planta Baja' : 'Piso ' + classroom_floor} – Aula ${classroomNum} ya está asignada al curso "${conflictingCourse.name}" en el turno ${conflictingCourse.turn} (${conflictingCourse.semester || ''} ${conflictingCourse.year || ''})`,
+          code: 'CLASSROOM_ALREADY_TAKEN'
+        },
+        conflict: {
+          course_id: conflictingCourse.id,
+          course_name: conflictingCourse.name,
+          owner_name: conflictingCourse.owner_name,
+          turn: conflictingCourse.turn,
+          semester: conflictingCourse.semester,
+          year: conflictingCourse.year
+        },
+        available_classrooms: availableResult.rows
+      });
+    }
+    // ── Fin verificación conflicto ────────────────────────────────────────────
+
+    // Generate unique course code
+    const courseCode = await generateUniqueCourseCode(pool);
+
+    // Create course (with classroom fields + class_days)
     const result = await pool.query(
-      `INSERT INTO courses (name, description, turn, grade, semester, year, color, image_url, owner_id, course_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO courses
+         (name, description, turn, grade, semester, year, color, image_url,
+          owner_id, course_code,
+          classroom_pavilion, classroom_floor, classroom_number, class_days)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
-      [name, description, turn, grade, semester, year, color, image_url, req.user.id, courseCode]
+      [
+        name, description, turn, grade, semester, year, color, image_url,
+        req.user.id, courseCode,
+        pavilionNum, String(classroom_floor), classroomNum, classDaysArray
+      ]
     );
 
     const course = result.rows[0];
@@ -238,7 +568,11 @@ router.post('/', authMiddleware, async (req, res) => {
       action: 'CREATE_COURSE',
       entity: 'Course',
       entityId: course.id,
-      details: { name: course.name, code: course.course_code },
+      details: {
+        name: course.name,
+        code: course.course_code,
+        classroom: `Pab.${pavilionNum} ${classroom_floor} Aula${classroomNum}`
+      },
       ipAddress: req.ip || req.connection.remoteAddress
     });
 
@@ -256,6 +590,7 @@ router.post('/', authMiddleware, async (req, res) => {
     });
   }
 });
+
 
 // GET /api/courses/my-courses - Get student's enrolled courses
 router.get('/my-courses', authMiddleware, async (req, res) => {
@@ -280,17 +615,73 @@ router.get('/my-courses', authMiddleware, async (req, res) => {
       [req.user.id]
     );
 
-    // Get counts for each course
+    // Get counts and progress for each course
+    const studentId = req.user.id;
     const courses = await Promise.all(result.rows.map(async (course) => {
       const [studentCount, assignmentCount] = await Promise.all([
         pool.query('SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1 AND status = $2', [course.id, 'active']),
         pool.query('SELECT COUNT(*) as count FROM assignments WHERE course_id = $1 AND status = $2', [course.id, 'published'])
       ]);
 
+      const totalAssignments = parseInt(assignmentCount.rows[0].count);
+
+      // --- Progress calculation ---
+      // 1. Submission rate (40% weight): submitted / total published assignments
+      let submissionRate = 0;
+      if (totalAssignments > 0) {
+        const submittedResult = await pool.query(
+          `SELECT COUNT(*) as count FROM submissions s
+           JOIN assignments a ON s.assignment_id = a.id
+           WHERE a.course_id = $1 AND a.status = 'published' AND s.student_id = $2`,
+          [course.id, studentId]
+        );
+        submissionRate = parseInt(submittedResult.rows[0].count) / totalAssignments;
+      }
+
+      // 2. Attendance rate (30% weight): present+late / total sessions
+      let attendanceRate = 0;
+      try {
+        const sessionsResult = await pool.query(
+          'SELECT COUNT(*) as count FROM attendance_sessions WHERE course_id = $1',
+          [course.id]
+        );
+        const totalSessions = parseInt(sessionsResult.rows[0].count);
+        if (totalSessions > 0) {
+          const attendedResult = await pool.query(
+            `SELECT COUNT(*) as count FROM attendance_records r
+             JOIN attendance_sessions s ON r.session_id = s.id
+             WHERE s.course_id = $1 AND r.student_id = $2 AND r.status IN ('present', 'late')`,
+            [course.id, studentId]
+          );
+          attendanceRate = parseInt(attendedResult.rows[0].count) / totalSessions;
+        }
+      } catch (_) { /* attendance tables may not exist */ }
+
+      // 3. Academic grade completeness (30% weight): how many grade fields are filled
+      let gradeCompleteness = 0;
+      try {
+        const gradeResult = await pool.query(
+          'SELECT parcial_1, parcial_2, trabajos_practicos, examen_final FROM student_grades WHERE course_id = $1 AND student_id = $2',
+          [course.id, studentId]
+        );
+        if (gradeResult.rows.length > 0) {
+          const g = gradeResult.rows[0];
+          const fields = [g.parcial_1, g.parcial_2, g.trabajos_practicos, g.examen_final];
+          const filled = fields.filter(f => f !== null && f !== undefined).length;
+          gradeCompleteness = filled / fields.length;
+        }
+      } catch (_) { /* student_grades table may not exist */ }
+
+      // Weighted progress: 40% submissions + 30% attendance + 30% grades
+      const progress = Math.round(
+        (submissionRate * 40) + (attendanceRate * 30) + (gradeCompleteness * 30)
+      );
+
       return {
         ...course,
         student_count: parseInt(studentCount.rows[0].count),
-        assignment_count: parseInt(assignmentCount.rows[0].count)
+        assignment_count: totalAssignments,
+        progress: Math.min(progress, 100)
       };
     }));
 
@@ -473,12 +864,15 @@ router.get('/:id', authMiddleware, async (req, res) => {
     res.json({
       success: true,
       data: {
-        course,
-        teachers: teachersResult.rows,
-        students: studentsResult.rows,
+        course: {
+          ...course,
+          owner_photo: formatAvatarUrl(course.owner_id, course.owner_photo)
+        },
+        teachers: teachersResult.rows.map(t => ({ ...t, photo_url: formatAvatarUrl(t.id, t.photo_url) })),
+        students: studentsResult.rows.map(s => ({ ...s, photo_url: formatAvatarUrl(s.id, s.photo_url) })),
         units: unitsResult.rows,
         assignments: assignmentsResult.rows,
-        recentMessages: messagesResult.rows
+        recentMessages: messagesResult.rows.map(m => ({ ...m, author_photo: formatAvatarUrl(m.sender_id, m.author_photo) }))
       }
     });
   } catch (error) {
@@ -488,6 +882,166 @@ router.get('/:id', authMiddleware, async (req, res) => {
         message: 'Error interno del servidor',
         code: 'GET_COURSE_DETAILS_FAILED'
       }
+    });
+  }
+});
+
+// PUT /api/courses/:id - Edit an existing course (owner/teacher only)
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const courseId = req.params.id;
+
+    if (!(isIntegerString(courseId) || isUuid(courseId))) {
+      return res.status(400).json({ error: { message: 'ID de curso inválido', code: 'INVALID_COURSE_ID' } });
+    }
+
+    // Only the owner or an admin can edit the course
+    const isOwner = await isCourseTeacher(req.user.id, courseId);
+    if (!isOwner && req.user.role !== 'admin') {
+      return res.status(403).json({
+        error: { message: 'Solo el propietario del curso puede editarlo', code: 'INSUFFICIENT_PERMISSIONS' }
+      });
+    }
+
+    const {
+      name, description, turn, grade, semester, year, color, image_url,
+      classroom_pavilion, classroom_floor, classroom_number,
+      class_days
+    } = req.body;
+
+    // Validar y normalizar class_days
+    const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const classDaysArray = Array.isArray(class_days)
+      ? class_days.filter(d => validDays.includes(d))
+      : [];
+
+    if (!name || !turn) {
+      return res.status(400).json({
+        error: { message: 'El nombre y el turno son requeridos', code: 'MISSING_REQUIRED_FIELDS' }
+      });
+    }
+
+    if (!classroom_pavilion || !classroom_floor || !classroom_number) {
+      return res.status(400).json({
+        error: { message: 'Debes especificar el pabellón, piso y número de aula', code: 'MISSING_CLASSROOM_FIELDS' }
+      });
+    }
+
+    const validPavilions = [1, 2];
+    const validFloors = ['PB', '1', '2', '3', '4', '5'];
+    const pavilionNum   = parseInt(classroom_pavilion, 10);
+    const classroomNum  = parseInt(classroom_number, 10);
+
+    if (!validPavilions.includes(pavilionNum)) {
+      return res.status(400).json({ error: { message: 'El pabellón debe ser 1 o 2', code: 'INVALID_CLASSROOM_PAVILION' } });
+    }
+    if (!validFloors.includes(String(classroom_floor))) {
+      return res.status(400).json({ error: { message: 'El piso debe ser PB, 1, 2, 3, 4 o 5', code: 'INVALID_CLASSROOM_FLOOR' } });
+    }
+    if (isNaN(classroomNum) || classroomNum < 1 || classroomNum > 10) {
+      return res.status(400).json({ error: { message: 'El número de aula debe estar entre 1 y 10', code: 'INVALID_CLASSROOM_NUMBER' } });
+    }
+
+    // Check classroom conflict (exclude current course from conflict check)
+    const cast = isUuid(courseId) ? '::uuid' : '';
+    const conflictCheck = await pool.query(
+      `SELECT c.id, c.name, c.turn, c.semester, c.year,
+              u.display_name AS owner_name
+       FROM courses c
+       LEFT JOIN users u ON c.owner_id = u.id
+       WHERE c.classroom_pavilion = $1
+         AND c.classroom_floor    = $2
+         AND c.classroom_number   = $3
+         AND c.turn               = $4
+         AND c.year               = $5
+         AND ($6::text IS NULL OR c.semester = $6)
+         AND c.archived = false
+         AND c.id != $7${cast}`,
+      [pavilionNum, String(classroom_floor), classroomNum, turn, year || null, semester || null, courseId]
+    );
+
+    if (conflictCheck.rows.length > 0) {
+      const availableResult = await pool.query(
+        `SELECT cl.pavilion, cl.floor, cl.number, cl.label
+         FROM classrooms cl
+         WHERE NOT EXISTS (
+           SELECT 1 FROM courses c
+           WHERE c.classroom_pavilion = cl.pavilion
+             AND c.classroom_floor    = cl.floor
+             AND c.classroom_number   = cl.number
+             AND c.turn               = $1
+             AND c.year               = $2
+             AND ($3::text IS NULL OR c.semester = $3)
+             AND c.archived = false
+             AND c.id != $4${cast}
+         )
+         ORDER BY cl.pavilion, cl.floor, cl.number`,
+        [turn, year || null, semester || null, courseId]
+      );
+
+      const conflicting = conflictCheck.rows[0];
+      return res.status(409).json({
+        error: {
+          message: `El aula Pab. ${pavilionNum} – ${classroom_floor === 'PB' ? 'Planta Baja' : 'Piso ' + classroom_floor} – Aula ${classroomNum} ya está asignada al curso "${conflicting.name}"`,
+          code: 'CLASSROOM_ALREADY_TAKEN'
+        },
+        conflict: {
+          course_id:   conflicting.id,
+          course_name: conflicting.name,
+          owner_name:  conflicting.owner_name,
+          turn:        conflicting.turn,
+          semester:    conflicting.semester,
+          year:        conflicting.year,
+        },
+        available_classrooms: availableResult.rows
+      });
+    }
+
+    const yearNumber = year ? parseInt(year, 10) : null;
+
+    const result = await pool.query(
+      `UPDATE courses
+       SET name               = $1,
+           description        = $2,
+           turn               = $3,
+           grade              = $4,
+           semester           = $5,
+           year               = $6,
+           color              = $7,
+           image_url          = $8,
+           classroom_pavilion = $9,
+           classroom_floor    = $10,
+           classroom_number   = $11,
+           class_days         = $12,
+           updated_at         = CURRENT_TIMESTAMP
+       WHERE id = $13${cast}
+       RETURNING *`,
+      [
+        name, description, turn, grade, semester, yearNumber, color, image_url,
+        pavilionNum, String(classroom_floor), classroomNum, classDaysArray,
+        courseId
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: { message: 'Curso no encontrado', code: 'COURSE_NOT_FOUND' } });
+    }
+
+    await logAction({
+      userId: req.user.id,
+      action: 'UPDATE_COURSE',
+      entity: 'Course',
+      entityId: courseId,
+      details: { name, classroom: `Pab.${pavilionNum} ${classroom_floor} Aula${classroomNum}` },
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+
+    res.json({ success: true, data: result.rows[0] });
+
+  } catch (error) {
+    console.error('Error updating course:', error);
+    res.status(500).json({
+      error: { message: 'Error interno del servidor', code: 'UPDATE_COURSE_FAILED' }
     });
   }
 });
@@ -569,6 +1123,45 @@ router.post('/:id/units', authMiddleware, async (req, res) => {
       details: { title: result.rows[0].title, course_id: courseId },
       ipAddress: req.ip || req.connection.remoteAddress
     });
+
+    // Enviar notificaciones y correos a todos los alumnos activos del curso
+    try {
+      const courseInfo = await pool.query(
+        `SELECT name FROM courses WHERE id = $1${cast}`,
+        [courseId]
+      );
+      const courseName = courseInfo.rows[0]?.name || 'Curso';
+
+      const studentsResult = await pool.query(
+        `SELECT DISTINCT student_id as user_id 
+         FROM (
+           SELECT student_id FROM course_students WHERE course_id = $1${cast} AND status = 'active'
+           UNION
+           SELECT student_id FROM enrollments WHERE course_id = $1${cast} AND status = 'active'
+         ) s`,
+        [courseId]
+      );
+
+      const unit = result.rows[0];
+      const notificationTitle = 'Nueva unidad disponible';
+      const notificationMessage = `Se ha publicado una nueva unidad "${unit.title}" en el curso ${courseName}.`;
+
+      studentsResult.rows.forEach(student => {
+        createNotification(
+          student.user_id,
+          'unit',
+          notificationTitle,
+          notificationMessage,
+          courseId,
+          unit.id,
+          'unit',
+          'normal',
+          { unitTitle: unit.title, description: unit.description || '' }
+        ).catch(err => console.error('Error enviando notificación de unidad:', err));
+      });
+    } catch (notifErr) {
+      console.error('Error preparando notificaciones de unidad:', notifErr);
+    }
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
@@ -832,46 +1425,42 @@ router.get('/:id/students', authMiddleware, async (req, res) => {
     try {
       result = await pool.query(
         `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
-                e.enrolled_at, e.status
-         FROM users u
-         INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
+                COALESCE(enr.enrolled_at, u.created_at) as enrolled_at,
+                enr.status
+         FROM (
+           SELECT student_id, enrolled_at, status FROM enrollments WHERE course_id = $1${cast} AND status = 'active'
+           UNION
+           SELECT student_id, enrolled_at, status FROM course_students WHERE course_id = $1${cast} AND status = 'active'
+         ) enr
+         JOIN users u ON enr.student_id = u.id
          ORDER BY u.display_name`,
         [courseId]
       );
-
-      // If no results, try course_students (legacy table)
-      if (result.rows.length === 0) {
-        result = await pool.query(
-          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
-                  cs.enrolled_at, cs.status
-           FROM users u
-           INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
-           ORDER BY u.display_name`,
-          [courseId]
-        );
-      }
     } catch (err) {
-      console.log('⚠️ First query failed:', err.message);
-      queryError = err;
-      // Fallback to course_students on error
+      // Fallback: try querying only enrollments or course_students if one table does not exist
       try {
         result = await pool.query(
           `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
-                  cs.enrolled_at, cs.status
+                  e.enrolled_at, e.status
            FROM users u
-           INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
+           INNER JOIN enrollments e ON u.id = e.student_id AND e.course_id = $1${cast} AND e.status = 'active'
            ORDER BY u.display_name`,
           [courseId]
         );
       } catch (err2) {
-        console.log('⚠️ Second query also failed:', err2.message);
-        throw err2;
+        result = await pool.query(
+          `SELECT DISTINCT u.id, u.display_name, u.email, u.photo_url, u.cedula,
+                  cs.enrolled_at, cs.status
+           FROM users u
+           INNER JOIN course_students cs ON u.id = cs.student_id AND cs.course_id = $1${cast} AND cs.status = 'active'
+           ORDER BY u.display_name`,
+          [courseId]
+        );
       }
     }
 
     // Log query error if first failed but second succeeded
     if (queryError && result.rows.length > 0) {
-      console.log('✅ Fallback query succeeded');
     }
 
     res.json({ success: true, data: result.rows });
@@ -950,10 +1539,8 @@ router.post('/:id/enroll', authMiddleware, async (req, res) => {
       );
 
       userId = newUser.rows[0].id;
-      console.log('✅ Created new user:', newUser.rows[0]);
     } else {
       userId = userResult.rows[0].id;
-      console.log('✅ User already exists:', userResult.rows[0]);
     }
 
     // Check if already enrolled
@@ -1122,8 +1709,6 @@ router.put('/:courseId/archive', authMiddleware, async (req, res) => {
       });
     }
 
-    console.log('🗂️ Archivando curso:', courseId);
-
     await client.query('BEGIN');
 
     // Check if user is owner
@@ -1174,8 +1759,6 @@ router.put('/:courseId/archive', authMiddleware, async (req, res) => {
       [courseId]
     );
 
-    console.log('✅ Inscripciones de estudiantes eliminadas');
-
     // 2. Mark course as archived
     const archiveResult = await client.query(
       `UPDATE courses 
@@ -1188,8 +1771,6 @@ router.put('/:courseId/archive', authMiddleware, async (req, res) => {
     );
 
     await client.query('COMMIT');
-
-    console.log('✅ Curso archivado exitosamente');
 
     res.json({
       success: true,
@@ -1225,8 +1806,6 @@ router.put('/:courseId/unarchive', authMiddleware, async (req, res) => {
         }
       });
     }
-
-    console.log('📂 Restaurando curso:', courseId);
 
     // Check if user is owner
     const courseResult = await pool.query(
@@ -1272,8 +1851,6 @@ router.put('/:courseId/unarchive', authMiddleware, async (req, res) => {
        RETURNING *`,
       [courseId]
     );
-
-    console.log('✅ Curso restaurado exitosamente');
 
     res.json({
       success: true,

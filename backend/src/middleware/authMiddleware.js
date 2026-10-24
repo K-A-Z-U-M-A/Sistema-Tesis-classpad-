@@ -1,15 +1,14 @@
 import { verifyToken } from '../utils/jwt.js';
 import pool from '../config/database.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
 
 export async function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
+    // EventSource (SSE) no puede enviar headers → aceptar ?token= como fallback
+    const queryToken = req.query?.token;
 
-    console.log('🔍 Auth middleware - Full headers:', req.headers);
-    console.log('🔍 Auth middleware - Auth header:', authHeader);
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ Auth middleware - Missing or invalid auth header:', authHeader);
+    if (!authHeader && !queryToken) {
       return res.status(401).json({
         error: {
           message: 'Access token required',
@@ -18,12 +17,14 @@ export async function authMiddleware(req, res, next) {
       });
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    console.log('🔍 Auth middleware - Token preview:', token.substring(0, 20) + '...');
-
+    let token = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : queryToken;
+    if (typeof token === 'string') {
+      token = token.replace(/^Bearer\s+/i, '').replace(/^"|"$/g, '').trim();
+    }
     // Verify JWT token
     const decoded = verifyToken(token);
-    console.log('✅ Auth middleware - Decoded token:', decoded);
 
     // Get fresh user data from database
     const result = await pool.query(
@@ -46,7 +47,7 @@ export async function authMiddleware(req, res, next) {
       return res.status(403).json({
         error: {
           message: 'Account is deactivated',
-          code: 'ACCOUNT_DEACTIVATED'
+          code: 'USER_INACTIVE'
         }
       });
     }
@@ -59,7 +60,7 @@ export async function authMiddleware(req, res, next) {
       role: user.role,
       provider: user.provider,
       is_active: user.is_active,
-      photo_url: user.photo_url,
+      photo_url: formatAvatarUrl(user.id, user.photo_url),
       created_at: user.created_at,
       last_login: user.last_login
     };
@@ -67,7 +68,7 @@ export async function authMiddleware(req, res, next) {
     next();
   } catch (error) {
     console.error('❌ Auth middleware error:', error.message);
-    console.error('❌ Auth middleware error stack:', error.stack);
+
     return res.status(401).json({
       error: {
         message: 'Invalid token',

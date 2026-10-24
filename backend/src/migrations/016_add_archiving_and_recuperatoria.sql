@@ -26,13 +26,13 @@ BEGIN
                  COALESCE(NEW.parcial_2, 0) + 
                  COALESCE(NEW.trabajos_practicos, 0);
     
-    -- Promedio final
-    -- Si tiene examen final, promedio = (Total + Final) / 2
-    -- Si no, promedio = Total / 3
-    IF NEW.examen_final IS NOT NULL AND NEW.examen_final > 0 THEN
-        NEW.promedio := (NEW.total + NEW.examen_final) / 2.0;
+    -- Puntaje final
+    -- Si tiene examen final: Total de proceso (60) + Examen Final (40) = 100 max
+    -- Si no: Total de proceso acumulado (60 max)
+    IF NEW.examen_final IS NOT NULL THEN
+        NEW.promedio := ROUND(NEW.total + NEW.examen_final);
     ELSE
-        NEW.promedio := NEW.total / 3.0;
+        NEW.promedio := NEW.total;
     END IF;
     
     -- Reglas de Habilitación

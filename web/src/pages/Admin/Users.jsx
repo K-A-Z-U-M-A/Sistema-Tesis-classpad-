@@ -22,7 +22,9 @@ import {
     InputLabel,
     Select,
     Tooltip,
-    CircularProgress
+    CircularProgress,
+    FormControlLabel,
+    Switch
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -39,6 +41,7 @@ import api from '../../services/api';
 
 const Users = () => {
     const [users, setUsers] = useState([]);
+    const [availableRoles, setAvailableRoles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [openModal, setOpenModal] = useState(false);
     const [modalMode, setModalMode] = useState('create'); // 'create' or 'edit'
@@ -54,13 +57,21 @@ const Users = () => {
     // States for filtering
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
+    const [includeInactive, setIncludeInactive] = useState(false);
+    const [deletingId, setDeletingId] = useState(null);
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (roleVal = roleFilter, incInactive = includeInactive) => {
         setLoading(true);
         try {
-            const response = await api.getUsers();
+            const [response, rolesRes] = await Promise.all([
+                api.getUsers(roleVal === 'all' ? null : roleVal, incInactive),
+                api.getRoles().catch(() => ({ data: [] }))
+            ]);
             if (response.success) {
                 setUsers(response.data);
+            }
+            if (rolesRes.data) {
+                setAvailableRoles(rolesRes.data);
             }
         } catch (error) {
             console.error('Error fetching users:', error);
@@ -140,14 +151,23 @@ const Users = () => {
     };
 
     const handleDelete = async (userId) => {
-        if (window.confirm('¿Está seguro de eliminar este usuario? Esta acción no se puede deshacer.')) {
+        if (window.confirm('¿Está seguro de desactivar este usuario? Se conservará su historial y registros, pero el usuario dejará de tener acceso al sistema.')) {
             try {
-                await api.deleteUser(userId);
-                toast.success('Usuario eliminado exitosamente');
+                setDeletingId(userId);
+                const response = await api.deleteUser(userId);
+                toast.success(response.message || 'Usuario desactivado exitosamente');
                 fetchUsers();
             } catch (error) {
                 console.error('Error deleting user:', error);
-                toast.error(error.message || 'Error al eliminar usuario');
+                if (error.code === 'LAST_ACTIVE_ADMIN') {
+                    toast.error('No es posible desactivar al último administrador activo del sistema.');
+                } else if (error.code === 'CANNOT_DELETE_SELF') {
+                    toast.error('No puedes desactivar tu propia cuenta.');
+                } else {
+                    toast.error(error.message || 'Error al desactivar el usuario.');
+                }
+            } finally {
+                setDeletingId(null);
             }
         }
     };
@@ -189,14 +209,14 @@ const Users = () => {
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={handleOpenCreate}
-                    sx={{ borderRadius: 2 }}
+                    sx={{ borderRadius: "16px" }}
                 >
                     Crear Profesor
                 </Button>
             </Box>
 
             {/* Filters and Search */}
-            <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+            <Paper sx={{ p: 2, mb: 3, borderRadius: "16px" }}>
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                     <TextField
                         label="Buscar por nombre o email"
@@ -214,18 +234,42 @@ const Users = () => {
                         <Select
                             value={roleFilter}
                             label="Filtrar por Rol"
-                            onChange={(e) => setRoleFilter(e.target.value)}
+                            onChange={(e) => {
+                                setRoleFilter(e.target.value);
+                                fetchUsers(e.target.value, includeInactive);
+                            }}
                         >
-                            <MenuItem value="all">Todos</MenuItem>
-                            <MenuItem value="admin">Administrador</MenuItem>
-                            <MenuItem value="teacher">Profesor</MenuItem>
-                            <MenuItem value="student">Estudiante</MenuItem>
+                            <MenuItem value="all">Todos los roles</MenuItem>
+                            {availableRoles.length > 0 ? (
+                                availableRoles.map((r) => (
+                                    <MenuItem key={r.slug} value={r.slug}>{r.name}</MenuItem>
+                                ))
+                            ) : (
+                                [
+                                    <MenuItem key="admin" value="admin">Administrador</MenuItem>,
+                                    <MenuItem key="teacher" value="teacher">Profesor</MenuItem>,
+                                    <MenuItem key="student" value="student">Estudiante</MenuItem>
+                                ]
+                            )}
                         </Select>
                     </FormControl>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={includeInactive}
+                                onChange={(e) => {
+                                    setIncludeInactive(e.target.checked);
+                                    fetchUsers(roleFilter, e.target.checked);
+                                }}
+                                color="primary"
+                            />
+                        }
+                        label="Mostrar inactivos"
+                    />
                     <Button
                         variant="outlined"
                         startIcon={<RefreshIcon />}
-                        onClick={fetchUsers}
+                        onClick={() => fetchUsers(roleFilter, includeInactive)}
                     >
                         Refrescar
                     </Button>
@@ -237,7 +281,7 @@ const Users = () => {
                     <CircularProgress />
                 </Box>
             ) : (
-                <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+                <TableContainer component={Paper} sx={{ borderRadius: "16px" }}>
                     <Table>
                         <TableHead sx={{ bgcolor: 'background.default' }}>
                             <TableRow>
@@ -286,13 +330,18 @@ const Users = () => {
                                         </TableCell>
                                         <TableCell align="right">
                                             <Tooltip title="Editar">
-                                                <IconButton onClick={() => handleOpenEdit(user)} color="primary" size="small">
+                                                <IconButton onClick={() => handleOpenEdit(user)} color="primary" size="small" disabled={deletingId !== null}>
                                                     <EditIcon />
                                                 </IconButton>
                                             </Tooltip>
                                             <Tooltip title="Eliminar">
-                                                <IconButton onClick={() => handleDelete(user.id)} color="error" size="small">
-                                                    <DeleteIcon />
+                                                <IconButton
+                                                    onClick={() => handleDelete(user.id)}
+                                                    color="error"
+                                                    size="small"
+                                                    disabled={deletingId === user.id}
+                                                >
+                                                    {deletingId === user.id ? <CircularProgress size={20} color="error" /> : <DeleteIcon />}
                                                 </IconButton>
                                             </Tooltip>
                                         </TableCell>
@@ -315,7 +364,7 @@ const Users = () => {
             {/* Create/Edit Modal */}
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="sm" fullWidth>
                 <DialogTitle>
-                    {modalMode === 'create' ? 'Crear Nuevo Usuario' : 'Editar Usuario'}
+                    {modalMode === 'create' ? 'Crear Cuenta de Docente' : 'Editar Usuario'}
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -340,18 +389,34 @@ const Users = () => {
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         />
 
-                        <FormControl fullWidth>
-                            <InputLabel>Rol</InputLabel>
-                            <Select
-                                value={formData.role}
-                                label="Rol"
-                                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                            >
-                                <MenuItem value="student">Estudiante</MenuItem>
-                                <MenuItem value="teacher">Profesor</MenuItem>
-                                <MenuItem value="admin">Administrador</MenuItem>
-                            </Select>
-                        </FormControl>
+                        {/* Selector de Rol: solo visible en modo edición.
+                            Al crear un usuario, el rol siempre es 'teacher' (docente).
+                            El selector de edición permite cambiar el rol de usuarios existentes. */}
+                        {modalMode === 'edit' && (
+                            <FormControl fullWidth>
+                                <InputLabel>Rol</InputLabel>
+                                <Select
+                                    value={formData.role}
+                                    label="Rol"
+                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                >
+                                    {availableRoles.length > 0 ? (
+                                        availableRoles.map((r) => (
+                                            <MenuItem key={r.slug} value={r.slug}>{r.name} (Nivel {r.level})</MenuItem>
+                                        ))
+                                    ) : (
+                                        [
+                                            <MenuItem key="student" value="student">Estudiante</MenuItem>,
+                                            <MenuItem key="teacher" value="teacher">Profesor</MenuItem>,
+                                            <MenuItem key="coordinator" value="coordinator">Coordinador Académico</MenuItem>,
+                                            <MenuItem key="director" value="director">Director Académico</MenuItem>,
+                                            <MenuItem key="secretary" value="secretary">Secretaría</MenuItem>,
+                                            <MenuItem key="admin" value="admin">Administrador</MenuItem>
+                                        ]
+                                    )}
+                                </Select>
+                            </FormControl>
+                        )}
 
                         <FormControl fullWidth>
                             <InputLabel>Estado</InputLabel>

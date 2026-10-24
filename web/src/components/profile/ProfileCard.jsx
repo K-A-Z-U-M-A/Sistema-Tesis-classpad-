@@ -140,7 +140,7 @@ export default function ProfileCard() {
         <Box
             sx={{
                 p: 4,
-                background: 'white',
+                background: 'background.paper',
                 borderRadius: 3,
                 boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                 border: '1px solid',

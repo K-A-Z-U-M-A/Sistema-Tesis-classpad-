@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dialog,
   DialogTitle,
@@ -11,14 +10,17 @@ import {
   Alert,
   CircularProgress,
   IconButton,
-  Tooltip,
   TextField,
   Tabs,
-  Tab
+  Tab,
+  useTheme,
+  Fade
 } from '@mui/material';
 import {
   QrCode as QrCodeIcon,
   CheckCircle,
+  Cancel,
+  ErrorOutline,
   Close,
   CameraAlt,
   QrCodeScanner,
@@ -27,31 +29,50 @@ import {
 } from '@mui/icons-material';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
+
+// Estilos globales para la librería html5-qrcode
+const qrStyles = `
+  #qr-reader-div {
+    border: none !important;
+    width: 100% !important;
+  }
+  #qr-reader-div video {
+    object-fit: cover;
+    border-radius: 12px;
+    width: 100% !important;
+  }
+  #qr-reader-div img { display: none !important; }
+  #qr-reader-div__status_span { display: none !important; }
+  #qr-reader-div__dashboard_section_csr span { display: none !important; }
+`;
 
 export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorded }) {
-  // ... (keep all state variables and hooks exactly the same)
+  const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
   const [cameraError, setCameraError] = useState(false);
   const [success, setSuccess] = useState(false);
   const [qrToken, setQrToken] = useState('');
-  const [tab, setTab] = useState(window.isSecureContext ? 0 : 2); // 0 = camera, 1 = manual, 2 = upload image (default to 2 if not HTTPS)
+  const [tab, setTab] = useState(window.isSecureContext ? 0 : 1);
   const [uploadedImage, setUploadedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const scannerRef = useRef(null);
   const fileInputRef = useRef(null);
   const html5QrCodeRef = useRef(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [availableCameras, setAvailableCameras] = useState([]);
+  const [selectedCameraId, setSelectedCameraId] = useState(null);
+  const isProcessingScanRef = useRef(false);
+  // 'none' | 'already_recorded' | 'not_enrolled' | 'expired' | 'other'
+  const [errorType, setErrorType] = useState('none');
 
   const submitAttendance = async (token) => {
     setLoading(true);
     setError('');
+    setErrorType('none');
 
     try {
-      // Get user's current location if available
       let location = null;
-
       try {
         const position = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -60,589 +81,570 @@ export default function AttendanceQRScanner({ open, onClose, onAttendanceRecorde
             maximumAge: 0
           });
         });
-
         location = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude
         };
       } catch (geoError) {
-        console.warn('Geolocation not available:', geoError);
-        // Continue without location - backend will validate
+        // Continuar sin ubicación
       }
 
-      // Submit attendance
       const response = await api.scanQR(token, location);
 
       if (response.success) {
         setSuccess(true);
-        toast.success('Asistencia registrada exitosamente');
-
-        // Notificar que se registró asistencia para refrescar los registros y actualizar el QR
+        toast.success('Asistencia registrada exitosamente', {
+          icon: '🎓',
+          style: { borderRadius: '10px', background: '#333', color: '#fff' }
+        });
         if (onAttendanceRecorded) {
           onAttendanceRecorded(response.new_qr_token);
         }
-
-        // Reiniciar el scanner después de 2 segundos
         setTimeout(() => {
           setSuccess(false);
           setError('');
           setQrToken('');
-          // El useEffect se encargará de reiniciar el scanner automáticamente
         }, 2000);
       }
-    } catch (error) {
-      console.error('Error scanning QR:', error);
-      const errorMsg = error.message || 'Error al registrar la asistencia';
+    } catch (err) {
+      const errorMsg = err.message || 'Error al registrar la asistencia';
+      const errorCode = err.code || '';
+
+      // Clasificar el tipo de error para mostrar pantalla prominente
+      let type = 'other';
+      if (errorCode === 'ALREADY_RECORDED' || errorMsg.toLowerCase().includes('ya registraste')) {
+        type = 'already_recorded';
+      } else if (errorCode === 'NOT_ENROLLED' || errorMsg.toLowerCase().includes('no est\u00e1s matriculado') || errorMsg.toLowerCase().includes('no perteneces')) {
+        type = 'not_enrolled';
+      } else if (errorCode === 'SESSION_EXPIRED' || errorCode === 'SESSION_NOT_FOUND') {
+        type = 'expired';
+      }
+
       setError(errorMsg);
-      toast.error(errorMsg);
+      setErrorType(type);
+
+      // Para errores permanentes: detener la cámara para que el mensaje sea visible
+      if (type !== 'other') {
+        await stopCamera();
+      }
+
+      if (type === 'other') {
+        // Solo mostrar toast para errores transitorios
+        toast.error(errorMsg, { duration: 5000 });
+      }
     } finally {
       setLoading(false);
+      isProcessingScanRef.current = false;
     }
   };
 
   const handleSubmit = async () => {
-    if (!qrToken) {
-      setError('Por favor ingresa el código QR');
-      return;
-    }
+    if (!qrToken) { setError('Por favor ingresa el código QR'); return; }
     await submitAttendance(qrToken);
+  };
+
+  const stopCamera = async () => {
+    if (html5QrCodeRef.current) {
+      try {
+        const state = html5QrCodeRef.current.getState?.();
+        if (state === 2) { // SCANNING
+          await html5QrCodeRef.current.stop();
+        }
+      } catch (e) { /* ignore */ }
+      try {
+        html5QrCodeRef.current.clear();
+      } catch (e) { /* ignore */ }
+      html5QrCodeRef.current = null;
+    }
+    setCameraReady(false);
   };
 
   const handleClose = () => {
     if (!loading) {
+      stopCamera();
       onClose();
       setQrToken('');
       setError('');
+      setErrorType('none');
       setSuccess(false);
-      setTab(0);
+      setTab(window.isSecureContext ? 0 : 1);
       setUploadedImage(null);
-
       setImagePreview(null);
       setCameraError(false);
-      // Limpiar input de archivo
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // Función para leer QR desde una imagen
   const scanQRFromImage = async (imageFile) => {
     let html5QrCode = null;
     try {
       setLoading(true);
       setError('');
-
-      // Crear una instancia de Html5Qrcode (puede usar un ID falso ya que solo usaremos scanFile)
       html5QrCode = new Html5Qrcode("qr-image-reader-temp");
-
-      // Leer el QR desde la imagen
       const decodedText = await html5QrCode.scanFile(imageFile, false);
-
       if (decodedText) {
-        console.log('QR detectado desde imagen:', decodedText);
         await submitAttendance(decodedText);
       } else {
         setError('No se pudo detectar un código QR en la imagen');
-        toast.error('No se pudo detectar un código QR en la imagen');
       }
-    } catch (error) {
-      console.error('Error al leer QR desde imagen:', error);
-      let errorMsg = 'Error al leer el código QR de la imagen';
-
-      if (error.message) {
-        if (error.message.includes('No QR code found') || error.message.includes('No MultiFormat Readers')) {
-          errorMsg = 'No se encontró un código QR en la imagen. Por favor verifica que la imagen contenga un código QR válido y esté bien enfocado.';
-        } else if (error.message.includes('file extension')) {
-          errorMsg = 'Formato de archivo no soportado. Por favor usa JPG, PNG o GIF.';
-        } else {
-          errorMsg = error.message;
-        }
+    } catch (err) {
+      let errorMsg = 'No se encontró un código QR válido en la imagen.';
+      if (err.message && !err.message.toLowerCase().includes('no qr code found')) {
+        errorMsg = err.message;
       }
-
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
-      // Limpiar la instancia si fue creada
-      if (html5QrCode) {
-        try {
-          await html5QrCode.clear().catch(() => { });
-        } catch (e) {
-          // Ignorar errores al limpiar
-        }
-      }
+      if (html5QrCode) { try { html5QrCode.clear(); } catch (e) { /* ignore */ } }
       setLoading(false);
     }
   };
 
-  // Manejar selección de archivo
   const handleFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    // Validar que sea una imagen
-    if (!file.type.startsWith('image/')) {
-      setError('Por favor selecciona un archivo de imagen válido');
-      toast.error('Por favor selecciona un archivo de imagen válido');
-      return;
-    }
-
-    // Validar tamaño (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('La imagen es demasiado grande. Máximo 5MB');
-      toast.error('La imagen es demasiado grande. Máximo 5MB');
-      return;
-    }
-
+    if (!file.type.startsWith('image/')) { setError('Por favor selecciona una imagen válida'); return; }
+    if (file.size > 5 * 1024 * 1024) { setError('La imagen es demasiado grande. Máximo 5MB'); return; }
     setUploadedImage(file);
     setError('');
-
-    // Crear preview de la imagen
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setImagePreview(e.target?.result);
-    };
+    reader.onload = (e) => setImagePreview(e.target?.result);
     reader.readAsDataURL(file);
-
-    // Intentar leer el QR automáticamente
     await scanQRFromImage(file);
   };
 
-  // Manejar clic en botón de subir
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
+  const handleCameraChange = async (newCameraId) => {
+    await stopCamera();
+    setSelectedCameraId(newCameraId);
+    setCameraError(false);
+    setError('');
   };
 
-  const handleQRScan = async (decodedText) => {
-    // Detener el scanner inmediatamente para evitar múltiples escaneos
-    if (scannerRef.current) {
-      try {
-        scannerRef.current.clear();
-        scannerRef.current = null;
-      } catch (e) {
-        console.warn('Error clearing scanner:', e);
-      }
-    }
-
-    setQrToken(decodedText);
-    await submitAttendance(decodedText);
-  };
-
-  // Start/stop camera scanner based on tab
+  // Main camera scanner effect using Html5Qrcode directly
   useEffect(() => {
-    let timeoutId = null;
+    if (!open || tab !== 0 || success) return;
 
-    if (open && tab === 0 && !loading && !success) {
-      // Small delay to ensure DOM element exists (Dialog lazy rendering)
-      timeoutId = setTimeout(() => {
-        const element = document.getElementById('qr-reader');
-        if (!element) {
-          console.error('QR reader element not found');
-          return;
+    let cancelled = false;
+
+    const startScanner = async () => {
+      await new Promise(r => setTimeout(r, 500));
+      if (cancelled) return;
+
+      isProcessingScanRef.current = false;
+      setCameraError(false);
+      setCameraReady(false);
+      setError('');
+
+      const config = {
+        fps: 15,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+      };
+
+      const onSuccess = (decodedText) => {
+        if (isProcessingScanRef.current || cancelled) return;
+        isProcessingScanRef.current = true;
+        submitAttendance(decodedText);
+      };
+
+      const onError = () => {}; // Ignorar errores por frame
+
+      // Elegir cámara
+      const tryStart = async (cameraIdOrConstraint) => {
+        const instance = new Html5Qrcode("qr-reader-div");
+        html5QrCodeRef.current = instance;
+        await instance.start(cameraIdOrConstraint, config, onSuccess, onError);
+        if (!cancelled) setCameraReady(true);
+      };
+
+      try {
+        // Obtener lista de cámaras primero (requiere permiso)
+        const cameras = await Html5Qrcode.getCameras();
+        if (cancelled) return;
+
+        if (cameras && cameras.length > 0) {
+          setAvailableCameras(cameras);
+          let cameraId = selectedCameraId;
+          if (!cameraId) {
+            // Preferir cámara trasera
+            const rear = cameras.find(c =>
+              /back|rear|environment|0/i.test(c.label)
+            );
+            cameraId = rear ? rear.id : cameras[cameras.length - 1].id;
+          }
+          await tryStart(cameraId);
+        } else {
+          // Sin lista, usar facingMode
+          await tryStart({ facingMode: 'environment' });
         }
-
-        // Initialize scanner
+      } catch (err) {
+        if (cancelled) return;
+        // Fallback: facingMode environment
         try {
-          const scanner = new Html5QrcodeScanner(
-            'qr-reader',
-            {
-              fps: 10,
-              // qrbox removed to allow full width scanning
-              // aspectRatio removed to allow responsive filling
-              supportedScanTypes: []
-            },
-            false // verbose
-          );
-
-          scanner.render(
-            (decodedText) => {
-              // QR code scanned successfully
-              console.log('QR scanned:', decodedText);
-              handleQRScan(decodedText);
-            },
-            (errorMessage) => {
-              // Scan error - we'll ignore this
-            }
-          );
-
-          scannerRef.current = scanner;
-
-        } catch (error) {
-          console.error('Error initializing QR scanner:', error);
-          setCameraError(true);
+          await tryStart({ facingMode: 'environment' });
+        } catch (err2) {
+          if (!cancelled) {
+            setCameraError(true);
+            setError('No se pudo acceder a la cámara. Verifica los permisos del navegador.');
+          }
         }
-      }, 300);
-    }
-
-    // Limpiar scanner cuando cambia de pestaña, se cierra, o hay éxito
-    if (tab !== 0 || !open || success) {
-      if (scannerRef.current) {
-        try {
-          scannerRef.current.clear();
-        } catch (error) {
-          console.warn('Error clearing scanner:', error);
-        }
-        scannerRef.current = null;
-      }
-    }
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (scannerRef.current) {
-        try {
-          scannerRef.current.clear();
-        } catch (error) {
-          console.warn('Error clearing scanner:', error);
-        }
-        scannerRef.current = null;
       }
     };
-  }, [open, tab, loading, success]);
+
+    startScanner();
+
+    return () => {
+      cancelled = true;
+      stopCamera();
+    };
+  }, [open, tab, success, selectedCameraId]);
+
+  // Limpiar cámara al cerrar modal
+  useEffect(() => {
+    if (!open) stopCamera();
+  }, [open]);
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        component: motion.div,
-        initial: { opacity: 0, scale: 0.9 },
-        animate: { opacity: 1, scale: 1 },
-        exit: { opacity: 0, scale: 0.9 },
-        sx: {
-          borderRadius: 4,
-          overflow: 'hidden',
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-        }
-      }}
-    >
-      <DialogTitle sx={{ p: 0 }}>
-        <Box sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          p: 3,
-          background: 'linear-gradient(135deg, #1a237e 0%, #0d47a1 100%)',
-          color: 'white'
-        }}>
-          <Typography variant="h6" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <QrCodeScanner /> Registrar Asistencia
-          </Typography>
-          <Tooltip title="Cerrar">
-            <IconButton onClick={handleClose} size="small" sx={{ color: 'rgba(255,255,255,0.8)', '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }} disabled={loading}>
+    <>
+      <style>{qrStyles}</style>
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            overflow: 'hidden',
+            background: theme.palette.mode === 'dark' ? '#1e1e1e' : '#fff'
+          }
+        }}
+      >
+        <DialogTitle sx={{ p: 0 }}>
+          <Box sx={{
+            p: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: `1px solid ${theme.palette.divider}`
+          }}>
+            <Typography variant="h6" fontWeight="bold">Registrar Asistencia</Typography>
+            <IconButton onClick={handleClose} size="small" sx={{ color: 'text.secondary' }}>
               <Close />
             </IconButton>
-          </Tooltip>
-        </Box>
-      </DialogTitle>
-      <DialogContent sx={{ p: 0 }}>
-        <AnimatePresence mode="wait">
+          </Box>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 0 }}>
+          {/* ── Pantalla de ÉXITO ── */}
           {success ? (
-            <motion.div
-              key="success"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
+            <Fade in={true}>
               <Box sx={{ textAlign: 'center', py: 6, px: 3 }}>
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 200, damping: 10 }}
-                >
-                  <Box sx={{
-                    width: 100, height: 100, borderRadius: '50%', bgcolor: 'success.light',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', mb: 3
-                  }}>
-                    <CheckCircle sx={{ fontSize: 60, color: 'success.main' }} />
-                  </Box>
-                </motion.div>
-                <Typography variant="h5" fontWeight="bold" color="success.main" gutterBottom>
-                  ¡Asistencia Registrada!
+                <Box sx={{
+                  display: 'inline-flex',
+                  p: 2,
+                  borderRadius: '50%',
+                  bgcolor: 'success.light',
+                  color: 'success.main',
+                  mb: 3
+                }}>
+                  <CheckCircle sx={{ fontSize: 60 }} />
+                </Box>
+                <Typography variant="h5" fontWeight="bold" gutterBottom color="success.main">
+                  ¡Registrada con Éxito!
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                  Tu presencia ha sido confirmada exitosamente.
+                  Tu asistencia ha sido procesada correctamente.
                 </Typography>
               </Box>
-            </motion.div>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
-              {/* Custom Tabs */}
-              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs
-                  value={tab}
-                  onChange={(e, newValue) => setTab(newValue)}
-                  variant="fullWidth"
-                  indicatorColor="primary"
-                  textColor="primary"
-                  sx={{
-                    '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, fontSize: '0.95rem' }
-                  }}
+            </Fade>
+          ) : errorType !== 'none' ? (
+            /* ── Pantalla de ERROR PERMANENTE (ya escaneado / no matriculado / expirado) ── */
+            <Fade in={true}>
+              <Box sx={{ textAlign: 'center', py: 6, px: 3 }}>
+                <Box sx={{
+                  display: 'inline-flex',
+                  p: 2,
+                  borderRadius: '50%',
+                  bgcolor: errorType === 'not_enrolled' ? 'warning.light' : 'error.light',
+                  color: errorType === 'not_enrolled' ? 'warning.main' : 'error.main',
+                  mb: 3
+                }}>
+                  {errorType === 'not_enrolled'
+                    ? <ErrorOutline sx={{ fontSize: 60 }} />
+                    : <Cancel sx={{ fontSize: 60 }} />
+                  }
+                </Box>
+                <Typography variant="h5" fontWeight="bold" gutterBottom
+                  color={errorType === 'not_enrolled' ? 'warning.main' : 'error.main'}
                 >
-                  {window.isSecureContext && (
-                    <Tab icon={<QrCodeScanner />} iconPosition="start" label="Cámara" />
-                  )}
-                  <Tab icon={<CameraAlt />} iconPosition="start" label="Manual" />
-                  <Tab icon={<ImageIcon />} iconPosition="start" label="Subir Foto" />
-                </Tabs>
-              </Box>
-
-              {/* Content Area */}
-              <Box sx={{ minHeight: 400 }}>
-                {tab === 0 ? (
-                  <motion.div
-                    key="camera"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
+                  {errorType === 'already_recorded' && '¡Ya registraste tu asistencia!'}
+                  {errorType === 'not_enrolled' && 'No perteneces a este curso'}
+                  {errorType === 'expired' && 'Código QR inválido'}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                  {error}
+                </Typography>
+                {(errorType === 'already_recorded' || errorType === 'not_enrolled') ? (
+                  <Button
+                    variant="contained"
+                    color={errorType === 'not_enrolled' ? 'warning' : 'primary'}
+                    onClick={handleClose}
+                    sx={{ borderRadius: 2, px: 4, py: 1.2, fontWeight: 600 }}
                   >
-                    {cameraError ? (
-                      <Alert
-                        severity="warning"
-                        variant="filled"
-                        action={
-                          <Button color="inherit" size="small" onClick={() => setTab(2)} sx={{ fontWeight: 'bold' }}>
-                            Usar subida de foto
-                          </Button>
-                        }
-                        sx={{ mb: 2, borderRadius: 2 }}
-                      >
-                        El navegador bloqueó la cámara en vivo o no es seguro (no HTTPS).
-                      </Alert>
-                    ) : (
-                      <Box sx={{ textAlign: 'center', mb: 2 }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Apunta tu cámara directamente al código QR del profesor
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {!cameraError && (
-                      <Box
-                        id="qr-reader"
-                        sx={{
-                          width: '100%',
-                          minHeight: '350px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                          borderRadius: 3,
-                          overflow: 'hidden',
-                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                          // Force internal library elements to be responsive
-                          '& div': {
-                            width: '100% !important',
-                            boxSizing: 'border-box'
-                          },
-                          '& video': {
-                            width: '100% !important',
-                            height: 'auto !important',
-                            minHeight: '300px',
-                            objectFit: 'cover',
-                            borderRadius: 3
-                          },
-                          '& #qr-reader__scan_region': {
-                            minHeight: '300px',
-                            img: { display: 'none' } // Hide placeholder image if any
-                          },
-                          '& #qr-reader__dashboard': {
-                            padding: '10px'
-                          },
-                          '& button': {
-                            marginTop: '10px',
-                            padding: '8px 16px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: '#d32f2f',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            display: 'block',
-                            margin: '10px auto'
-                          }
-                        }}
-                      />
-                    )}
-
-                    {error && (
-                      <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{error}</Alert>
-                    )}
-                  </motion.div>
-                ) : tab === 1 ? (
-                  <motion.div
-                    key="manual"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <Alert severity="info" icon={<QrCodeIcon />} sx={{ mb: 3, borderRadius: 2 }}>
-                      Ingresa el código alfanumérico que aparece debajo del QR
-                    </Alert>
-
-                    <TextField
-                      label="Código de Asistencia"
-                      fullWidth
-                      value={qrToken}
-                      onChange={(e) => setQrToken(e.target.value)}
-                      placeholder="Ej. A1B2-C3D4"
-                      autoFocus
-                      disabled={loading}
-                      variant="outlined"
-                      InputProps={{
-                        sx: { borderRadius: 2 }
-                      }}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !loading) {
-                          handleSubmit();
-                        }
-                      }}
-                    />
-
-                    {error && (
-                      <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{error}</Alert>
-                    )}
-
-                    <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
-                      <Button
-                        variant="contained"
-                        onClick={handleSubmit}
-                        disabled={!qrToken || loading}
-                        size="large"
-                        sx={{ borderRadius: 2, px: 4, py: 1.5, textTransform: 'none', fontWeight: 'bold' }}
-                        startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <CheckCircle />}
-                      >
-                        {loading ? 'Validando...' : 'Registrar'}
-                      </Button>
-                    </Box>
-                  </motion.div>
+                    Entendido / Cerrar
+                  </Button>
                 ) : (
-                  <motion.div
-                    key="upload"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      setError('');
+                      setErrorType('none');
+                      setTab(window.isSecureContext ? 0 : 1);
+                    }}
+                    sx={{ borderRadius: 2, px: 3, py: 1 }}
                   >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handleFileSelect}
-                      style={{ display: 'none' }}
-                    />
-
-                    <Box
-                      sx={{
-                        border: '3px dashed',
-                        borderColor: 'primary.main',
-                        borderRadius: 4,
-                        p: 4,
-                        textAlign: 'center',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        bgcolor: 'background.default',
-                        '&:hover': {
-                          backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                          borderColor: 'primary.dark',
-                          transform: 'scale(1.01)'
-                        },
-                        mb: 3,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        minHeight: 250
-                      }}
-                      onClick={handleUploadClick}
-                    >
-                      {imagePreview ? (
-                        <Box sx={{ width: '100%' }}>
-                          <Box sx={{ position: 'relative', width: '100%', borderRadius: 2, overflow: 'hidden', mb: 2, boxShadow: 3 }}>
-                            <img
-                              src={imagePreview}
-                              alt="Preview"
-                              style={{
-                                width: '100%',
-                                maxHeight: '250px',
-                                objectFit: 'contain',
-                                display: 'block'
-                              }}
-                            />
-                            <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, bgcolor: 'rgba(0,0,0,0.6)', color: 'white', p: 1, fontSize: 12 }}>
-                              <Typography variant="caption">Clic para cambiar</Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                      ) : (
-                        <>
-                          <Box sx={{ p: 2, borderRadius: '50%', bgcolor: 'primary.light', mb: 2, opacity: 0.1 }}>
-                            <Upload sx={{ fontSize: 40, color: 'primary.main' }} />
-                          </Box>
-                          <Upload sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-                          <Typography variant="h6" color="primary.main" gutterBottom fontWeight="bold">
-                            Subir o Tomar Foto
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 200, mx: 'auto' }}>
-                            Toca aquí para abrir la cámara o seleccionar una imagen del código QR
-                          </Typography>
-                        </>
-                      )}
-                    </Box>
-
-                    {uploadedImage && !success && !loading && (
-                      <Button
-                        variant="outlined"
-                        fullWidth
-                        onClick={() => scanQRFromImage(uploadedImage)}
-                        startIcon={<QrCodeIcon />}
-                        sx={{ mb: 2, borderRadius: 2, py: 1.5, border: 2, '&:hover': { border: 2 } }}
-                        disabled={loading}
-                      >
-                        Procesar Imagen Nuevamente
-                      </Button>
-                    )}
-
-                    {error && (
-                      <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{error}</Alert>
-                    )}
-
-                    {loading && (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 3 }}>
-                        <CircularProgress size={40} />
-                        <Typography variant="body2" sx={{ mt: 2, fontWeight: 500 }}>
-                          Analizando código QR...
-                        </Typography>
-                      </Box>
-                    )}
-                  </motion.div>
+                    Intentar de nuevo
+                  </Button>
                 )}
               </Box>
+            </Fade>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              <Tabs
+                value={tab}
+                onChange={(e, newValue) => {
+                  if (tab === 0) stopCamera();
+                  setTab(newValue);
+                }}
+                variant="fullWidth"
+                sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}
+              >
+                {window.isSecureContext && (
+                  <Tab icon={<QrCodeScanner />} label="Cámara" />
+                )}
+                <Tab icon={<CameraAlt />} label="Manual" />
+                <Tab icon={<ImageIcon />} label="Imagen" />
+              </Tabs>
 
-              <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, opacity: 0.7 }}>
-                <CheckCircle sx={{ fontSize: 14 }} /> Tu ubicación se verificará automáticamente
-              </Typography>
+              <Box sx={{ p: 3, minHeight: 350, position: 'relative' }}>
+                {/* Error general */}
+                {error && !cameraError && (
+                  <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError('')}>
+                    <Typography variant="body2" fontWeight="bold">{error}</Typography>
+                  </Alert>
+                )}
+
+                {/* VISTA DE CÁMARA */}
+                {tab === 0 && (
+                  <Box>
+                    {cameraError ? (
+                      <Alert severity="error" sx={{ borderRadius: 2 }}>
+                        <Typography variant="body2" fontWeight="bold" gutterBottom>
+                          No se pudo activar la cámara
+                        </Typography>
+                        <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+                          {error || "Verifica los permisos de cámara en tu navegador."}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button size="small" variant="contained" onClick={() => { setCameraError(false); setTab(2); }}>
+                            Usar Imagen
+                          </Button>
+                          <Button size="small" onClick={() => { setCameraError(false); setError(''); setTab(1); setTimeout(() => setTab(0), 100); }}>
+                            Reintentar
+                          </Button>
+                        </Box>
+                      </Alert>
+                    ) : (
+                      <Box sx={{ position: 'relative', width: '100%', borderRadius: 3, overflow: 'hidden' }}>
+                        {/* Html5Qrcode renderiza su propio video aquí */}
+                        <Box
+                          id="qr-reader-div"
+                          sx={{
+                            width: '100%',
+                            minHeight: 300,
+                            borderRadius: 3,
+                            overflow: 'hidden'
+                          }}
+                        />
+                        {/* Overlay de carga mientras la cámara inicia */}
+                        {!cameraReady && (
+                          <Box sx={{
+                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            bgcolor: 'rgba(0,0,0,0.65)', borderRadius: 3, zIndex: 10
+                          }}>
+                            <Box sx={{ textAlign: 'center', color: 'white' }}>
+                              <CircularProgress color="inherit" size={44} sx={{ mb: 1.5 }} />
+                              <Typography variant="body2" fontWeight="medium">Iniciando cámara...</Typography>
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    )}
+
+                    {/* Selector de cámara (solo si hay más de una) */}
+                    {availableCameras.length > 1 && (
+                      <Box sx={{ mt: 2 }}>
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          label="Cambiar Cámara"
+                          value={selectedCameraId || ''}
+                          onChange={(e) => handleCameraChange(e.target.value)}
+                          sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
+                          SelectProps={{ native: true }}
+                        >
+                          {availableCameras.map((camera) => (
+                            <option key={camera.id} value={camera.id}>
+                              {camera.label || `Cámara ${camera.id.substring(0, 12)}...`}
+                            </option>
+                          ))}
+                        </TextField>
+                      </Box>
+                    )}
+
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 2, textAlign: 'center' }}>
+                      <Typography variant="body2" color="text.primary" fontWeight="medium">
+                        📱 Apunta la cámara al código QR del profesor
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                        El escaneo es automático cuando detecta el código
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'center', mt: 1 }}>
+                      <Button size="small" color="inherit" onClick={() => setTab(1)}>
+                        Ingresar código manualmente
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+
+                {/* VISTA MANUAL */}
+                {tab === 1 && (
+                  <Fade in={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 2 }}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <QrCodeIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2, opacity: 0.8 }} />
+                        <Typography variant="body1">
+                          Ingresa el código alfanumérico que aparece debajo del QR
+                        </Typography>
+                      </Box>
+                      <TextField
+                        label="Código de Asistencia"
+                        fullWidth
+                        value={qrToken}
+                        onChange={(e) => setQrToken(e.target.value)}
+                        placeholder="Pega o escribe el token aquí"
+                        variant="outlined"
+                        onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                        InputProps={{
+                          sx: { borderRadius: 2, fontSize: '1rem', letterSpacing: 1 }
+                        }}
+                      />
+                      <Button
+                        variant="contained"
+                        size="large"
+                        onClick={handleSubmit}
+                        disabled={loading || !qrToken}
+                        fullWidth
+                        sx={{ borderRadius: 2, py: 1.5 }}
+                      >
+                        {loading ? <CircularProgress size={24} color="inherit" /> : 'Registrar Asistencia'}
+                      </Button>
+                    </Box>
+                  </Fade>
+                )}
+
+                {/* VISTA IMAGEN */}
+                {tab === 2 && (
+                  <Fade in={true}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        style={{ display: 'none' }}
+                        onChange={handleFileSelect}
+                      />
+                      {!imagePreview ? (
+                        <Box
+                          onClick={() => fileInputRef.current?.click()}
+                          sx={{
+                            border: '2px dashed',
+                            borderColor: 'primary.main',
+                            borderRadius: 3,
+                            p: 4,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            bgcolor: 'action.hover',
+                            transition: 'all 0.2s',
+                            '&:hover': { bgcolor: 'action.selected' }
+                          }}
+                        >
+                          <Upload sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+                          <Typography variant="h6" color="text.primary">Subir Imagen QR</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Toca para abrir la cámara o galería
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Box sx={{ position: 'relative', borderRadius: 3, overflow: 'hidden' }}>
+                          <img
+                            src={imagePreview}
+                            alt="Preview QR"
+                            style={{ width: '100%', maxHeight: 300, objectFit: 'contain' }}
+                          />
+                          <Box sx={{
+                            position: 'absolute', bottom: 0, left: 0, right: 0, p: 2,
+                            background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)'
+                          }}>
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              fullWidth
+                              onClick={() => fileInputRef.current?.click()}
+                              startIcon={<CameraAlt />}
+                            >
+                              Tomar otra foto
+                            </Button>
+                          </Box>
+                          {loading && (
+                            <Box sx={{
+                              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                              bgcolor: 'rgba(0,0,0,0.6)',
+                              display: 'flex', flexDirection: 'column',
+                              alignItems: 'center', justifyContent: 'center', color: 'white'
+                            }}>
+                              <CircularProgress color="inherit" />
+                              <Typography sx={{ mt: 2 }}>Analizando imagen...</Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                  </Fade>
+                )}
+              </Box>
             </Box>
           )}
-        </AnimatePresence>
-      </DialogContent>
-      {!success && (
-        <DialogActions sx={{ p: 3, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-          <Button onClick={handleClose} disabled={loading} color="inherit" sx={{ borderRadius: 2 }}>
-            Cancelar
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
+          <Button onClick={handleClose} disabled={loading} color="inherit">
+            {(success || errorType !== 'none') ? 'Cerrar' : 'Cancelar'}
           </Button>
-          {(tab === 1) && ( // Submit button logic is moved inside tab 1 content for better UX, but keeping a fallback here if needed or removed to clean up
-            null
-          )}
         </DialogActions>
-      )}
-      {/* Elemento temporal para Html5Qrcode (oculto) */}
-      <Box id="qr-image-reader-temp" style={{ display: 'none', position: 'absolute' }} />
-    </Dialog>
+
+        {/* Contenedor oculto para escaneo de imagen */}
+        <Box id="qr-image-reader-temp" style={{ display: 'none', position: 'absolute', top: 0, left: 0 }} />
+      </Dialog>
+    </>
   );
 }

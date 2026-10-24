@@ -1,12 +1,23 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import pool from '../config/database.js';
 import { signToken } from '../utils/jwt.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import passport from '../config/passport.js';
 import { logAction } from '../utils/auditLogger.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
 
 const router = express.Router();
+
+// Rate limiter para el endpoint de login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10,                   // máx 10 intentos por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { message: 'Demasiados intentos de inicio de sesión. Intentá de nuevo en 15 minutos.', code: 'TOO_MANY_REQUESTS' } }
+});
 
 // Register endpoint
 router.post('/register', async (req, res) => {
@@ -46,7 +57,7 @@ router.post('/register', async (req, res) => {
     if (existingUser.rows.length > 0) {
       return res.status(409).json({
         error: {
-          message: 'User with this email already exists',
+          message: 'Ya existe un usuario con este correo electrónico',
           code: 'EMAIL_EXISTS'
         }
       });
@@ -94,7 +105,7 @@ router.post('/register', async (req, res) => {
           role: user.role,
           provider: user.provider,
           is_active: user.is_active,
-          photo_url: user.photo_url,
+          photo_url: formatAvatarUrl(user.id, user.photo_url),
           created_at: user.created_at
         }
       }
@@ -112,13 +123,11 @@ router.post('/register', async (req, res) => {
 });
 
 // Login endpoint
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('🔍 Login attempt:', { email, password: '***' });
 
     if (!email || !password) {
-      console.log('❌ Missing fields');
       return res.status(400).json({
         error: {
           message: 'Email and password are required',
@@ -128,18 +137,14 @@ router.post('/login', async (req, res) => {
     }
 
     const normalizedEmail = email.toLowerCase();
-    console.log('🔍 Normalized email:', normalizedEmail);
 
-    // Find user
+    // Find user (incluimos must_change_password para verificar si el usuario debe cambiar su contraseña)
     const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
+      'SELECT id, email, display_name, password_hash, role, provider, is_active, photo_url, created_at, must_change_password FROM users WHERE email = $1',
       [normalizedEmail]
     );
 
-    console.log('🔍 User query result:', result.rows.length > 0 ? 'User found' : 'User not found');
-
     if (result.rows.length === 0) {
-      console.log('❌ User not found');
       return res.status(401).json({
         error: {
           message: 'Invalid credentials',
@@ -149,11 +154,9 @@ router.post('/login', async (req, res) => {
     }
 
     const user = result.rows[0];
-    console.log('🔍 User found:', { id: user.id, email: user.email, provider: user.provider, is_active: user.is_active });
 
     // Check if user is active
     if (!user.is_active) {
-      console.log('❌ Account deactivated');
       return res.status(403).json({
         error: {
           message: 'Account is deactivated',
@@ -164,7 +167,6 @@ router.post('/login', async (req, res) => {
 
     // Check if user has local authentication
     if (user.provider !== 'local' || !user.password_hash) {
-      console.log('❌ Provider mismatch:', { provider: user.provider, hasPassword: !!user.password_hash });
       return res.status(403).json({
         error: {
           message: 'Este usuario solo puede iniciar sesión con Google',
@@ -174,12 +176,9 @@ router.post('/login', async (req, res) => {
     }
 
     // Verify password
-    console.log('🔍 Verifying password...');
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
-    console.log('🔍 Password verification result:', isValidPassword);
 
     if (!isValidPassword) {
-      console.log('❌ Invalid password');
       return res.status(401).json({
         error: {
           message: 'Invalid credentials',
@@ -222,9 +221,10 @@ router.post('/login', async (req, res) => {
           role: user.role,
           provider: user.provider,
           is_active: user.is_active,
-          photo_url: user.photo_url,
+          photo_url: formatAvatarUrl(user.id, user.photo_url),
           created_at: user.created_at,
-          last_login: new Date().toISOString()
+          last_login: new Date().toISOString(),
+          must_change_password: user.must_change_password || false
         }
       }
     });
@@ -261,29 +261,80 @@ router.get('/me', authMiddleware, async (req, res) => {
 
 // Google OAuth routes
 router.get('/google', (req, res, next) => {
-  console.log('🔍 Google auth - query params:', req.query);
-  console.log('🔍 Google auth - flow param:', req.query.flow);
-
   // Store the flow parameter in session or pass it through state
   if (req.query.flow === 'redirect') {
-    // We'll use a custom state parameter to pass the flow type
     req.session = req.session || {};
     req.session.oauthFlow = 'redirect';
   }
 
+  // Detectar host dinámicamente (soporta ngrok, IP local y localhost)
+  const host = req.get('x-forwarded-host') || req.get('host');
+  const protocol = req.get('x-forwarded-proto') || req.protocol;
+  const isNgrokOrRemote = host && !host.includes('localhost') && !host.includes('127.0.0.1');
+  const callbackURL = isNgrokOrRemote
+    ? `${protocol}://${host}/api/auth/google/callback`
+    : (process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback');
+
+  // Detectar el origen exacto del frontend desde referer o headers para volver al mismo protocolo (https / http)
+  let clientOrigin = '';
+  const referer = req.get('referer');
+  if (referer) {
+    try {
+      const u = new URL(referer);
+      clientOrigin = `${u.protocol}//${u.host}`;
+    } catch (_) { }
+  }
+  if (!clientOrigin) {
+    clientOrigin = isNgrokOrRemote ? `${protocol}://${host}` : (process.env.CORS_ORIGIN?.split(',')[0] || 'https://localhost:5173');
+  }
+
+  const flowType = req.query.flow || 'redirect';
+  const statePayload = Buffer.from(JSON.stringify({ flow: flowType, origin: clientOrigin })).toString('base64url');
+
   passport.authenticate('google', {
     scope: ['profile', 'email'],
-    state: req.query.flow || 'popup' // Pass flow as state parameter
+    callbackURL,
+    state: statePayload
   })(req, res, next);
 });
 
-router.get('/google/callback',
-  passport.authenticate('google', { session: false }),
-  async (req, res) => {
+router.get('/google/callback', (req, res, next) => {
+  const host = req.get('x-forwarded-host') || req.get('host');
+  const protocol = req.get('x-forwarded-proto') || req.protocol;
+  const isNgrokOrRemote = host && !host.includes('localhost') && !host.includes('127.0.0.1');
+  const callbackURL = isNgrokOrRemote
+    ? `${protocol}://${host}/api/auth/google/callback`
+    : (process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback');
+
+  passport.authenticate('google', {
+    session: false,
+    callbackURL
+  }, async (err, user, info) => {
+    if (err || !user) {
+      console.error('Google OAuth callback error:', err || info);
+      return res.redirect('/auth-callback.html?error=OAuth%20authentication%20failed');
+    }
+
     try {
-      const user = req.user;
-      console.log('🔍 Google callback - query params:', req.query);
-      console.log('🔍 Google callback - state param:', req.query.state);
+      // Extraer flow y origin del state
+      let flow = 'redirect';
+      let frontendUrl = '';
+      if (req.query.state) {
+        try {
+          const raw = Buffer.from(req.query.state, 'base64url').toString('utf8');
+          const parsed = JSON.parse(raw);
+          flow = parsed.flow || 'redirect';
+          frontendUrl = parsed.origin || '';
+        } catch (_) {
+          flow = req.query.state;
+        }
+      }
+
+      if (!frontendUrl) {
+        frontendUrl = isNgrokOrRemote
+          ? `${protocol}://${host}`
+          : (process.env.CORS_ORIGIN?.split(',')[0] || 'https://localhost:5173');
+      }
 
       // Generate JWT token
       const token = signToken({
@@ -293,31 +344,42 @@ router.get('/google/callback',
         provider: user.provider
       });
 
-      const frontendUrl = process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:5173';
+      // Sanitizar objeto user para evitar desbordamiento de encabezados HTTP (Header overflow)
+      // Especialmente cuando photo_url contiene base64 de varios megabytes
+      const safeUser = {
+        id: user.id,
+        email: user.email,
+        display_name: user.display_name,
+        role: user.role,
+        provider: user.provider,
+        is_active: user.is_active,
+        photo_url: formatAvatarUrl(user.id, user.photo_url),
+        created_at: user.created_at,
+        last_login: user.last_login
+      };
 
       // Support full-page redirect flow to frontend (avoids popup/postMessage entirely)
-      if (req.query.state === 'redirect') {
-        console.log('✅ Using redirect flow to frontend');
+      if (flow === 'redirect' || req.query.state === 'redirect') {
         const encodedToken = encodeURIComponent(token);
-        const encodedUser = encodeURIComponent(JSON.stringify(user));
+        const encodedUser = encodeURIComponent(JSON.stringify(safeUser));
         return res.redirect(`${frontendUrl}/auth/callback?token=${encodedToken}&user=${encodedUser}`);
       }
 
       // If client prefers JSON
       if (req.headers.accept?.includes('application/json') || req.query.format === 'json') {
-        return res.json({ data: { token, user } });
+        return res.json({ data: { token, user: safeUser } });
       }
 
       // Redirect to static callback page with data in querystring (CSP-safe, no inline scripts)
-      const encodedUser = encodeURIComponent(JSON.stringify(user));
+      const encodedUser = encodeURIComponent(JSON.stringify(safeUser));
       const encodedFront = encodeURIComponent(frontendUrl);
       return res.redirect(`/auth-callback.html?token=${encodeURIComponent(token)}&user=${encodedUser}&front=${encodedFront}`);
     } catch (error) {
-      console.error('Google OAuth callback error:', error);
+      console.error('Google OAuth processing error:', error);
       return res.redirect('/auth-callback.html?error=OAuth%20authentication%20failed');
     }
-  }
-);
+  })(req, res, next);
+});
 
 // Update recovery email endpoint
 router.put('/update-recovery-email', authMiddleware, async (req, res) => {
@@ -326,8 +388,6 @@ router.put('/update-recovery-email', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const userEmail = req.user.email;
     const displayName = req.user.display_name;
-
-    console.log(`🔐 Intento de actualizar recovery_email para usuario ${userId}`);
 
     // Validaciones
     if (!recoveryEmail) {
@@ -382,8 +442,6 @@ router.put('/update-recovery-email', authMiddleware, async (req, res) => {
       'UPDATE users SET recovery_email = $1 WHERE id = $2',
       [normalizedRecoveryEmail, userId]
     );
-
-    console.log(`✅ Recovery email actualizado para usuario ${userId}: ${normalizedRecoveryEmail}`);
 
     // TODO: Enviar notificación al email principal
     // await emailService.sendRecoveryEmailChangedNotification(userEmail, normalizedRecoveryEmail, displayName);

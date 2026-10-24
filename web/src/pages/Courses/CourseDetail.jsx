@@ -49,6 +49,7 @@ import {
 } from '@mui/material';
 import {
   School,
+  MeetingRoom,
   People,
   Assignment,
   Message,
@@ -85,7 +86,9 @@ import {
   Star,
   Archive as ArchiveIcon,
   TrendingUp,
-  ArrowBack
+  ArrowBack,
+  CalendarMonth as CalendarIcon,
+  MenuBook as ClassIcon
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -102,6 +105,7 @@ const CourseDetail = () => {
   const [units, setUnits] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [scheduledClasses, setScheduledClasses] = useState([]);
   const [activeTab, setActiveTab] = useState(0);
   const [newMessageDialog, setNewMessageDialog] = useState(false);
   const [newMessage, setNewMessage] = useState({ title: '', content: '', type: 'announcement' });
@@ -159,14 +163,26 @@ const CourseDetail = () => {
         case 'units':
           setActiveTab(0);
           break;
-        case 'assignments':
+        case 'classes':
           setActiveTab(1);
+          setTimeout(() => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayCard = document.getElementById(`class-${todayStr}`);
+            if (todayCard) {
+              todayCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              todayCard.style.boxShadow = '0 0 0 3px #ff9800, 0 8px 24px rgba(255, 152, 0, 0.3)';
+              setTimeout(() => { todayCard.style.boxShadow = ''; }, 3000);
+            }
+          }, 350);
           break;
-        case 'messages':
+        case 'assignments':
           setActiveTab(2);
           break;
-        case 'students':
+        case 'messages':
           setActiveTab(3);
+          break;
+        case 'students':
+          setActiveTab(4);
           break;
         default:
           setActiveTab(0);
@@ -175,11 +191,9 @@ const CourseDetail = () => {
 
     // If there's an assignment ID, we could scroll to it or highlight it
     if (assignmentId && assignments.length > 0) {
-      // Find the assignment and scroll to it
       const assignmentElement = document.getElementById(`assignment-${assignmentId}`);
       if (assignmentElement) {
         assignmentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Add a highlight effect
         assignmentElement.style.backgroundColor = '#e3f2fd';
         setTimeout(() => {
           assignmentElement.style.backgroundColor = '';
@@ -188,15 +202,49 @@ const CourseDetail = () => {
     }
   }, [location.search, assignments]);
 
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+    const tabNames = ['units', 'classes', 'assignments', 'messages', 'students'];
+    const newUrl = `${location.pathname}?tab=${tabNames[newValue]}`;
+    window.history.pushState({}, '', newUrl);
+  };
+
+  const handleGoToUnit = (unitId) => {
+    if (!unitId) return;
+    // 1. Expandir la unidad en el acordeón
+    setExpandedUnits(prev => ({ ...prev, [unitId]: true }));
+    // 2. Cambiar a la pestaña de Unidades (tab 0)
+    setActiveTab(0);
+    // 3. Scroll y foco directo a la unidad exacta
+    setTimeout(() => {
+      const el = document.getElementById(`unit-${unitId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.transition = 'box-shadow 0.4s ease, border-color 0.4s ease';
+        el.style.boxShadow = '0 0 0 3px #7b1fa2, 0 8px 24px rgba(123, 31, 162, 0.25)';
+        el.style.borderColor = '#7b1fa2';
+        setTimeout(() => {
+          el.style.boxShadow = '';
+          el.style.borderColor = '';
+        }, 3000);
+      }
+    }, 180);
+  };
+
   const loadCourseData = async () => {
     try {
       setLoading(true);
-      const [courseRes, unitsRes, assignmentsRes, messagesRes] = await Promise.all([
+      const [courseRes, unitsRes, assignmentsRes, messagesRes, classesRes] = await Promise.all([
         api.request(`/courses/${courseId}`),
-        api.getUnits(courseId),
-        api.request(`/assignments/course/${courseId}`),
-        api.request(`/messages/${courseId}`)
+        api.getUnits(courseId).catch(() => ({ success: false, data: [] })),
+        api.request(`/assignments/course/${courseId}`).catch(() => ({ success: false, data: [] })),
+        api.request(`/messages/${courseId}`).catch(() => ({ success: false, data: [] })),
+        api.getCourseScheduledClasses(courseId).catch(() => ({ success: false, data: [] }))
       ]);
+
+      if (classesRes && (classesRes.data || Array.isArray(classesRes))) {
+        setScheduledClasses(classesRes.data || (Array.isArray(classesRes) ? classesRes : []));
+      }
 
       if (courseRes.success) {
         console.log('🔍 Course response data:', courseRes.data);
@@ -292,9 +340,23 @@ const CourseDetail = () => {
     }
   };
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
+  const reloadCourseMessages = async () => {
+    try {
+      const res = await api.request(`/messages/${courseId}?_t=${Date.now()}`);
+      if (res && res.success && res.data) {
+        setMessages(res.data);
+      }
+    } catch (_) {}
   };
+
+  // Live refresh of messages while user is on the messages tab
+  useEffect(() => {
+    if (activeTab === 3) {
+      reloadCourseMessages();
+      const interval = setInterval(reloadCourseMessages, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, courseId]);
 
   const handleCreateMessage = async () => {
     if (!newMessage.content.trim()) {
@@ -302,18 +364,38 @@ const CourseDetail = () => {
       return;
     }
 
-    try {
-      const response = await api.request('/messages', { method: 'POST', body: JSON.stringify({ course_id: courseId, ...newMessage }) });
+    const optimisticMessage = {
+      id: 'temp-' + Date.now(),
+      course_id: courseId,
+      sender_id: userProfile?.id,
+      title: newMessage.title,
+      content: newMessage.content,
+      type: newMessage.type,
+      is_pinned: false,
+      created_at: new Date().toISOString(),
+      author_name: userProfile?.display_name || userProfile?.name || 'Tú',
+      author_photo: userProfile?.photo_url,
+      comments: [],
+      attachments: [],
+      comment_count: 0
+    };
 
+    // Instant local render (0ms delay)
+    setMessages(prev => [optimisticMessage, ...prev]);
+    setNewMessageDialog(false);
+    const payload = { course_id: courseId, ...newMessage };
+    setNewMessage({ title: '', content: '', type: 'announcement' });
+    toast.success('Mensaje publicado exitosamente');
+
+    try {
+      const response = await api.request('/messages', { method: 'POST', body: JSON.stringify(payload) });
       if (response.success) {
-        toast.success('Mensaje publicado exitosamente');
-        setNewMessageDialog(false);
-        setNewMessage({ title: '', content: '', type: 'announcement' });
-        loadCourseData();
+        await reloadCourseMessages();
       }
     } catch (error) {
       console.error('Error creating message:', error);
-      toast.error('Error al publicar el mensaje');
+      toast.error('Error al sincronizar mensaje con el servidor');
+      await reloadCourseMessages();
     }
   };
 
@@ -433,17 +515,47 @@ const CourseDetail = () => {
       return;
     }
 
+    const targetMsgId = replyingToMessage;
+    const contentToSend = replyContent.trim();
+
+    const optimisticComment = {
+      id: 'temp-c-' + Date.now(),
+      message_id: targetMsgId,
+      author_id: userProfile?.id,
+      author_name: userProfile?.display_name || userProfile?.name || 'Tú',
+      author_photo: userProfile?.photo_url,
+      content: contentToSend,
+      created_at: new Date().toISOString()
+    };
+
+    // Instant local render (0ms delay)
+    setMessages(prev => prev.map(m => {
+      if (m.id === targetMsgId) {
+        const comments = m.comments || [];
+        return {
+          ...m,
+          comments: [...comments, optimisticComment],
+          comment_count: (m.comment_count || 0) + 1
+        };
+      }
+      return m;
+    }));
+
+    // Auto-expand this message so the newly posted comment is open and visible
+    setExpandedMessages(prev => new Set([...prev, targetMsgId]));
+    setReplyingToMessage(null);
+    setReplyContent('');
+    toast.success('Comentario enviado');
+
     try {
-      const response = await api.addCommentToMessage(replyingToMessage, replyContent);
+      const response = await api.addCommentToMessage(targetMsgId, contentToSend);
       if (response.success) {
-        toast.success('Comentario agregado exitosamente');
-        setReplyingToMessage(null);
-        setReplyContent('');
-        loadCourseData(); // Reload messages to get updated comments
+        await reloadCourseMessages();
       }
     } catch (error) {
       console.error('Error adding comment:', error);
-      toast.error('Error al agregar el comentario');
+      toast.error('Error al sincronizar comentario con el servidor');
+      await reloadCourseMessages();
     }
   };
 
@@ -548,7 +660,7 @@ const CourseDetail = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -557,12 +669,24 @@ const CourseDetail = () => {
       >
         <Box mb={2}>
           <Button
-            variant="outlined"
+            size="small"
             startIcon={<ArrowBack />}
-            onClick={() => navigate('/courses')}
-            sx={{ borderRadius: 2 }}
+            onClick={() => {
+              if (userProfile?.role === 'admin' || userProfile?.role === 'director' || userProfile?.role === 'coordinator') {
+                if (window.history.state && window.history.state.idx > 0) {
+                  navigate(-1);
+                } else {
+                  navigate('/admin/roles');
+                }
+              } else {
+                navigate('/courses');
+              }
+            }}
+            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 600 }}
           >
-            Volver a Mis Cursos
+            {userProfile?.role === 'admin' || userProfile?.role === 'director' || userProfile?.role === 'coordinator'
+              ? 'Volver a Supervisión / Roles'
+              : 'Mis Cursos'}
           </Button>
         </Box>
         <Box
@@ -576,7 +700,7 @@ const CourseDetail = () => {
             sx={{
               width: { xs: 50, sm: 60 },
               height: { xs: 50, sm: 60 },
-              borderRadius: 2,
+              borderRadius: "16px",
               backgroundColor: course.color,
               display: 'flex',
               alignItems: 'center',
@@ -587,26 +711,43 @@ const CourseDetail = () => {
           </Box>
           <Box flex={1} width="100%">
             <Typography
-              variant="h3"
-              fontWeight="bold"
-              sx={{ fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' } }}
+              variant="h1"
+              component="h1"
+              sx={{ fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' }, fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}
             >
               {course.name}
             </Typography>
             <Typography
-              variant="h6"
+              variant="body2"
               color="text.secondary"
-              sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
+              sx={{ mt: 0.5 }}
             >
-              {course.turn} {course.grade && `• ${course.grade}`}
+              {[course.turn, course.grade, course.semester, course.year ? `Año ${course.year}` : null].filter(Boolean).join(' · ')}
             </Typography>
-            <Typography
-              variant="body1"
-              color="text.secondary"
-              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-            >
-              {course.description}
-            </Typography>
+            {course.description && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mt: 0.5 }}
+              >
+                {course.description}
+              </Typography>
+            )}
+            {course.classroom_pavilion && (
+              <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Chip
+                  icon={<MeetingRoom fontSize="small" />}
+                  label={`Pabellón ${course.classroom_pavilion} · ${course.classroom_floor === 'PB' ? 'Planta Baja' : `Piso ${course.classroom_floor}`} · Aula ${course.classroom_number}`}
+                  color="primary"
+                  variant="outlined"
+                  sx={{
+                    fontWeight: 600,
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    backgroundColor: 'primary.50'
+                  }}
+                />
+              </Box>
+            )}
             {course.course_code && (
               <Box sx={{
                 mt: 2,
@@ -653,23 +794,23 @@ const CourseDetail = () => {
               <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
                 <Button
                   variant="contained"
+                  color="primary"
                   startIcon={<Star />}
                   onClick={() => navigate(`/courses/${courseId}/manage`)}
-                  sx={{
-                    bgcolor: '#1976d2',
-                    '&:hover': { bgcolor: '#1565c0' },
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    px: 2.5,
-                    py: 1,
-                    borderRadius: 2,
-                    boxShadow: 2
-                  }}
                 >
                   Administrar Curso
                 </Button>
                 <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<CalendarIcon />}
+                  onClick={() => navigate(`/courses/${courseId}/calendar`)}
+                >
+                  Calendario
+                </Button>
+                <Button
                   variant="contained"
+                  color="warning"
                   startIcon={<ArchiveIcon />}
                   onClick={async () => {
                     if (window.confirm('¿Estás seguro de que deseas archivar este curso? Todos los estudiantes serán removidos.')) {
@@ -682,16 +823,6 @@ const CourseDetail = () => {
                       }
                     }
                   }}
-                  sx={{
-                    bgcolor: '#ff9800',
-                    '&:hover': { bgcolor: '#f57c00' },
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    px: 2.5,
-                    py: 1,
-                    borderRadius: 2,
-                    boxShadow: 2
-                  }}
                 >
                   Archivar Curso
                 </Button>
@@ -703,20 +834,19 @@ const CourseDetail = () => {
               <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
                 <Button
                   variant="contained"
+                  color="secondary"
                   startIcon={<TrendingUp />}
                   onClick={() => navigate(`/courses/${courseId}/progress`)}
-                  sx={{
-                    bgcolor: '#9c27b0',
-                    '&:hover': { bgcolor: '#7b1fa2' },
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    px: 2.5,
-                    py: 1,
-                    borderRadius: 2,
-                    boxShadow: 2
-                  }}
                 >
                   Ver mi progreso
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<CalendarIcon />}
+                  onClick={() => navigate(`/courses/${courseId}/calendar`)}
+                >
+                  Calendario
                 </Button>
               </Box>
             )}
@@ -734,7 +864,7 @@ const CourseDetail = () => {
       </motion.div>
 
       {/* Tabs */}
-      <Card sx={{ borderRadius: 3 }}>
+      <Card sx={{ borderRadius: "20px" }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
             value={activeTab}
@@ -750,6 +880,7 @@ const CourseDetail = () => {
             }}
           >
             <Tab label="Unidades" />
+            <Tab label="Clases" />
             <Tab label="Tareas" />
             <Tab label="Mensajes" />
             {isTeacher && <Tab label="Alumnos" />}
@@ -788,7 +919,7 @@ const CourseDetail = () => {
                     startIcon={<Add />}
                     onClick={() => setNewUnitDialog(true)}
                     sx={{
-                      borderRadius: 2,
+                      borderRadius: "16px",
                       width: { xs: '100%', sm: 'auto' }
                     }}
                   >
@@ -802,12 +933,14 @@ const CourseDetail = () => {
                   {units.map((unit, index) => (
                     <Accordion
                       key={unit.id}
+                      id={`unit-${unit.id}`}
                       expanded={!!expandedUnits[unit.id]}
                       onChange={() => setExpandedUnits(prev => ({ ...prev, [unit.id]: !prev[unit.id] }))}
                       sx={{
                         border: '1px solid',
                         borderColor: 'divider',
-                        borderRadius: 3,
+                        borderRadius: "20px",
+                        backgroundColor: 'background.paper',
                         '&:before': { display: 'none' },
                         boxShadow: 'none',
                         '&:hover': {
@@ -819,10 +952,10 @@ const CourseDetail = () => {
                       <AccordionSummary
                         expandIcon={<ExpandMore />}
                         sx={{
-                          backgroundColor: 'grey.50',
-                          borderRadius: '12px 12px 0 0',
+                          backgroundColor: 'surfaceContainerLow',
+                          borderRadius: '20px',
                           '&.Mui-expanded': {
-                            borderRadius: '12px 12px 0 0'
+                            borderRadius: '20px 20px 0 0'
                           },
                           px: { xs: 1, sm: 2 },
                           py: { xs: 1, sm: 1.5 }
@@ -922,7 +1055,7 @@ const CourseDetail = () => {
                           <Paper elevation={0} sx={{
                             p: { xs: 1.5, sm: 2 },
                             mb: 2,
-                            backgroundColor: 'grey.25',
+                            backgroundColor: 'action.hover',
                             borderRadius: 2
                           }}>
                             <Box
@@ -943,7 +1076,7 @@ const CourseDetail = () => {
                                   variant="outlined"
                                   startIcon={<Add />}
                                   onClick={() => handleOpenMaterialUpload(unit.id)}
-                                  sx={{ borderRadius: 2 }}
+                                  sx={{ borderRadius: "16px" }}
                                 >
                                   Agregar Material
                                 </Button>
@@ -967,7 +1100,7 @@ const CourseDetail = () => {
                           </Paper>
 
                           {/* Tareas de la unidad */}
-                          <Paper elevation={0} sx={{ p: 2, backgroundColor: 'grey.25', borderRadius: 2 }}>
+                          <Paper elevation={0} sx={{ p: 2, backgroundColor: 'action.hover', borderRadius: "16px" }}>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                               <Typography variant="subtitle1" fontWeight="bold" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Assignment color="primary" />
@@ -979,7 +1112,7 @@ const CourseDetail = () => {
                                   variant="outlined"
                                   startIcon={<Add />}
                                   onClick={() => handleOpenNewTask(unit.id)}
-                                  sx={{ borderRadius: 2 }}
+                                  sx={{ borderRadius: "16px" }}
                                 >
                                   Nueva Tarea
                                 </Button>
@@ -1082,12 +1215,12 @@ const CourseDetail = () => {
                   ))}
                 </Stack>
               ) : (
-                <Box textAlign="center" py={6}>
-                  <Folder sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                <Box textAlign="center" py={5}>
+                  <FolderOpen sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" fontWeight={700}>
                     No hay unidades aún
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     {isTeacher ? 'Crea la primera unidad para organizar el contenido del curso' : 'Las unidades aparecerán aquí cuando el profesor las publique'}
                   </Typography>
                   {isTeacher && (
@@ -1096,7 +1229,7 @@ const CourseDetail = () => {
                       startIcon={<Add />}
                       onClick={() => setNewUnitDialog(true)}
                       size="large"
-                      sx={{ borderRadius: 2 }}
+                      sx={{ borderRadius: "16px" }}
                     >
                       Crear Primera Unidad
                     </Button>
@@ -1106,7 +1239,352 @@ const CourseDetail = () => {
             </Box>
           )}
 
+          {/* Tab 1: Clases y Cronograma */}
           {activeTab === 1 && (
+            <Box>
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                mb={3}
+                flexDirection={{ xs: 'column', sm: 'row' }}
+                gap={{ xs: 2, sm: 0 }}
+              >
+                <Box>
+                  <Typography
+                    variant="h5"
+                    fontWeight="bold"
+                    component="div"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      fontSize: { xs: '1.25rem', sm: '1.5rem' }
+                    }}
+                  >
+                    <ClassIcon color="primary" sx={{ fontSize: { xs: 20, sm: 24 } }} />
+                    Clases del Curso
+                    <Chip
+                      label={`${scheduledClasses.length} programada${scheduledClasses.length === 1 ? '' : 's'}`}
+                      size="small"
+                      color="primary"
+                      sx={{ fontWeight: 700, ml: 0.5 }}
+                    />
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Cronograma de clases asignadas y las unidades temáticas correspondientes a cada día
+                  </Typography>
+                </Box>
+
+                <Button
+                  variant="contained"
+                  startIcon={<CalendarIcon />}
+                  onClick={() => navigate(`/courses/${courseId}/calendar`)}
+                  sx={{
+                    borderRadius: "16px",
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    width: { xs: '100%', sm: 'auto' }
+                  }}
+                >
+                  📅 Abrir Calendario Escolar
+                </Button>
+              </Box>
+
+              {scheduledClasses.length > 0 ? (
+                <Grid container spacing={2.5}>
+                  {[...scheduledClasses]
+                    .sort((a, b) => new Date(a.class_date) - new Date(b.class_date))
+                    .map((sc, idx) => {
+                      const todayStr = new Date().toISOString().split('T')[0];
+                      const classDateStr = sc.class_date?.split('T')[0];
+                      const isToday = classDateStr === todayStr;
+                      const isPast = classDateStr < todayStr;
+                      const dateObj = new Date(sc.class_date);
+                      const monthStr = dateObj.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase().replace('.', '');
+                      const dayNum = dateObj.getDate();
+                      const weekdayStr = dateObj.toLocaleDateString('es-ES', { weekday: 'long' });
+
+                      // Obtener todas las unidades asignadas a esta clase (soporte múltiple)
+                      const assignedUnitsList = (sc.assigned_units && sc.assigned_units.length > 0)
+                        ? sc.assigned_units
+                        : (sc.unit_ids && Array.isArray(sc.unit_ids) && sc.unit_ids.length > 0)
+                        ? units.filter((u) => sc.unit_ids.includes(u.id))
+                        : sc.unit_id
+                        ? units.filter((u) => u.id === sc.unit_id)
+                        : [];
+
+                      return (
+                        <Grid item xs={12} key={sc.id || idx}>
+                          <Card
+                            id={`class-${classDateStr}`}
+                            variant="outlined"
+                            sx={{
+                              borderRadius: '16px',
+                              border: isToday ? '2px solid #ff9800' : '1px solid',
+                              borderColor: isToday ? '#ff9800' : 'divider',
+                              boxShadow: isToday ? '0 4px 16px rgba(255, 152, 0, 0.18)' : '0 1px 4px rgba(0,0,0,0.04)',
+                              overflow: 'hidden',
+                              transition: 'transform 0.2s, box-shadow 0.2s',
+                              '&:hover': {
+                                boxShadow: 3,
+                                borderColor: isToday ? '#ff9800' : 'primary.main'
+                              }
+                            }}
+                          >
+                            <Box display="flex" flexDirection={{ xs: 'column', md: 'row' }}>
+                              {/* Left Date Block */}
+                              <Box
+                                sx={{
+                                  width: { xs: '100%', md: 140 },
+                                  p: 2,
+                                  display: 'flex',
+                                  flexDirection: { xs: 'row', md: 'column' },
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: { xs: 1.5, md: 0.5 },
+                                  background: isToday
+                                    ? 'linear-gradient(135deg, rgba(255, 179, 0, 0.2) 0%, rgba(255, 152, 0, 0.35) 100%)'
+                                    : isPast
+                                    ? 'linear-gradient(135deg, rgba(46, 125, 50, 0.08) 0%, rgba(46, 125, 50, 0.15) 100%)'
+                                    : 'linear-gradient(135deg, rgba(33, 150, 243, 0.08) 0%, rgba(33, 150, 243, 0.18) 100%)',
+                                  borderRight: { md: '1px solid' },
+                                  borderBottom: { xs: '1px solid', md: 'none' },
+                                  borderColor: 'divider',
+                                }}
+                              >
+                                {isToday && (
+                                  <Chip
+                                    label="HOY"
+                                    size="small"
+                                    sx={{
+                                      backgroundColor: '#ff9800',
+                                      color: '#fff',
+                                      fontWeight: 900,
+                                      fontSize: '0.65rem',
+                                      height: 20,
+                                      mb: { md: 0.5 }
+                                    }}
+                                  />
+                                )}
+                                <Typography
+                                  variant="caption"
+                                  fontWeight={800}
+                                  sx={{
+                                    color: isToday ? '#e65100' : isPast ? '#2e7d32' : 'primary.main',
+                                    fontSize: '0.75rem',
+                                    letterSpacing: '0.05em'
+                                  }}
+                                >
+                                  {monthStr}
+                                </Typography>
+                                <Typography
+                                  variant="h4"
+                                  fontWeight={900}
+                                  sx={{
+                                    color: isToday ? '#e65100' : isPast ? '#2e7d32' : 'primary.main',
+                                    lineHeight: 1
+                                  }}
+                                >
+                                  {dayNum}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ textTransform: 'capitalize', fontSize: '0.7rem' }}
+                                >
+                                  {weekdayStr}
+                                </Typography>
+                              </Box>
+
+                              {/* Right Content Block */}
+                              <Box p={2.5} flex={1} display="flex" flexDirection="column" justifyContent="space-between">
+                                <Box>
+                                  {/* Title and Badges */}
+                                  <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} mb={1.5}>
+                                    <Box display="flex" alignItems="center" gap={1}>
+                                      <ClassIcon color="primary" sx={{ fontSize: 22 }} />
+                                      <Typography variant="h6" fontWeight={800} sx={{ fontSize: { xs: '1.05rem', sm: '1.2rem' } }}>
+                                        {sc.title}
+                                      </Typography>
+                                    </Box>
+
+                                    <Box display="flex" gap={0.75} alignItems="center">
+                                      {assignedUnitsList.length > 1 && (
+                                        <Chip
+                                          label={`${assignedUnitsList.length} Unidades`}
+                                          size="small"
+                                          color="secondary"
+                                          sx={{ fontWeight: 700 }}
+                                        />
+                                      )}
+                                      {isToday ? (
+                                        <Chip label="Clase de Hoy" size="small" sx={{ backgroundColor: '#ff9800', color: '#fff', fontWeight: 700 }} />
+                                      ) : isPast ? (
+                                        <Chip label="Realizada" size="small" color="success" variant="outlined" sx={{ fontWeight: 600 }} />
+                                      ) : (
+                                        <Chip label="Próxima Clase" size="small" color="primary" variant="outlined" sx={{ fontWeight: 600 }} />
+                                      )}
+                                    </Box>
+                                  </Box>
+
+                                  {/* Assigned Units Details Cards */}
+                                  {assignedUnitsList.length > 0 ? (
+                                    <Box display="flex" flexDirection="column" gap={1.25} mb={1.5}>
+                                      {assignedUnitsList.map((unitItem, uIdx) => {
+                                        const fullUnit = units.find((u) => u.id === unitItem.id) || unitItem;
+                                        const unitMaterials = unitMaterialsMap[fullUnit.id] || fullUnit.materials || [];
+                                        const unitAssignments = unitAssignmentsMap[fullUnit.id] || [];
+
+                                        return (
+                                          <Paper
+                                            key={unitItem.id || uIdx}
+                                            variant="outlined"
+                                            sx={{
+                                              p: 1.75,
+                                              borderRadius: '12px',
+                                              backgroundColor: 'action.hover',
+                                              borderColor: 'divider',
+                                            }}
+                                          >
+                                            <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                                              <Box display="flex" alignItems="center" gap={1}>
+                                                <FolderOpen color="secondary" />
+                                                <Box>
+                                                  <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
+                                                    {assignedUnitsList.length > 1 ? `UNIDAD ASIGNADA (${uIdx + 1}/${assignedUnitsList.length})` : 'UNIDAD ASIGNADA'}
+                                                  </Typography>
+                                                  <Typography variant="subtitle2" fontWeight={800} color="text.primary">
+                                                    {fullUnit.title || sc.unit_title}
+                                                  </Typography>
+                                                </Box>
+                                              </Box>
+
+                                              {fullUnit.id && (
+                                                <Button
+                                                  size="small"
+                                                  variant="outlined"
+                                                  color="secondary"
+                                                  onClick={() => handleGoToUnit(fullUnit.id)}
+                                                  sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, fontSize: '0.75rem' }}
+                                                >
+                                                  Ver Unidad
+                                                </Button>
+                                              )}
+                                            </Box>
+
+                                            {fullUnit.description && (
+                                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                                                {fullUnit.description}
+                                              </Typography>
+                                            )}
+
+                                            {/* Materials and tasks badges */}
+                                            <Box display="flex" gap={1} mt={1.25} flexWrap="wrap">
+                                              <Chip
+                                                icon={<AttachFile sx={{ fontSize: '13px !important' }} />}
+                                                label={`${unitMaterials.length} material${unitMaterials.length === 1 ? '' : 'es'}`}
+                                                size="small"
+                                                variant="outlined"
+                                                sx={{ height: 22, fontSize: '0.7rem' }}
+                                              />
+                                              <Chip
+                                                icon={<Assignment sx={{ fontSize: '13px !important' }} />}
+                                                label={`${unitAssignments.length} tarea${unitAssignments.length === 1 ? '' : 's'}`}
+                                                size="small"
+                                                variant="outlined"
+                                                sx={{ height: 22, fontSize: '0.7rem' }}
+                                              />
+                                            </Box>
+                                          </Paper>
+                                        );
+                                      })}
+                                    </Box>
+                                  ) : sc.unit_title ? (
+                                    <Paper
+                                      variant="outlined"
+                                      sx={{
+                                        p: 1.75,
+                                        borderRadius: '12px',
+                                        backgroundColor: 'action.hover',
+                                        borderColor: 'divider',
+                                        mb: 1.5
+                                      }}
+                                    >
+                                      <Box display="flex" alignItems="center" gap={1}>
+                                        <FolderOpen color="secondary" />
+                                        <Box>
+                                          <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">
+                                            UNIDAD ASIGNADA
+                                          </Typography>
+                                          <Typography variant="subtitle2" fontWeight={800} color="text.primary">
+                                            {sc.unit_title}
+                                          </Typography>
+                                        </Box>
+                                      </Box>
+                                    </Paper>
+                                  ) : (
+                                    <Box
+                                      sx={{
+                                        p: 1.25,
+                                        borderRadius: '10px',
+                                        backgroundColor: 'action.hover',
+                                        mb: 1.5,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1
+                                      }}
+                                    >
+                                      <Typography variant="caption" color="text.secondary">
+                                        ℹ️ Esta clase no tiene una unidad específica asignada.
+                                      </Typography>
+                                    </Box>
+                                  )}
+
+                                  {/* Observation / Notes */}
+                                  {sc.description && (
+                                    <Box sx={{ mt: 1, p: 1.25, borderRadius: '10px', backgroundColor: 'rgba(25, 118, 210, 0.05)', border: '1px dashed rgba(25, 118, 210, 0.3)' }}>
+                                      <Typography variant="caption" color="primary" fontWeight={700} display="block">
+                                        Observación / Notas:
+                                      </Typography>
+                                      <Typography variant="body2" color="text.primary">
+                                        {sc.description}
+                                      </Typography>
+                                    </Box>
+                                  )}
+                                </Box>
+                              </Box>
+                            </Box>
+                          </Card>
+                        </Grid>
+                      );
+                    })}
+                </Grid>
+              ) : (
+                <Box textAlign="center" py={5}>
+                  <ClassIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" fontWeight={700}>
+                    No hay clases asignadas aún
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 500, mx: 'auto' }}>
+                    Asigna las clases del semestre a fechas específicas y vincula las unidades del curso desde el Calendario Escolar.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<CalendarIcon />}
+                    onClick={() => navigate(`/courses/${courseId}/calendar`)}
+                    size="large"
+                    sx={{ borderRadius: "16px", textTransform: 'none', fontWeight: 700 }}
+                  >
+                    📅 Abrir Calendario para Asignar Clases
+                  </Button>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* Tab 2: Tareas y Actividades */}
+          {activeTab === 2 && (
             <Box>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h5" fontWeight="bold">
@@ -1150,7 +1628,6 @@ const CourseDetail = () => {
                                   size="small"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // TODO: Implementar menú de opciones para la tarea
                                     console.log('🔍 Assignment menu clicked for:', assignment.id);
                                   }}
                                 >
@@ -1189,15 +1666,15 @@ const CourseDetail = () => {
                     No hay tareas aún
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {isTeacher ? 'Crea la primera tarea para los estudiantes' : 'Las tareas aparecerán aquí cuando el profesor las publique'}
+                    {isTeacher ? 'Las tareas se crean desde cada unidad en la pestaña "Unidades"' : 'Las tareas aparecerán aquí cuando el profesor las publique'}
                   </Typography>
                   {isTeacher && (
                     <Button
                       variant="contained"
                       startIcon={<Add />}
-                      onClick={() => navigate(`/courses/${courseId}/assignments/new`)}
+                      onClick={() => setActiveTab(0)}
                     >
-                      Crear Primera Tarea
+                      Ir a Unidades para crear tarea
                     </Button>
                   )}
                 </Box>
@@ -1205,7 +1682,8 @@ const CourseDetail = () => {
             </Box>
           )}
 
-          {activeTab === 2 && (
+          {/* Tab 3: Mensajes y Anuncios */}
+          {activeTab === 3 && (
             <Box>
               <Box
                 display="flex"
@@ -1264,7 +1742,6 @@ const CourseDetail = () => {
                             <Box
                               component="div"
                               display="flex"
-                              alignItems="center"
                               gap={1}
                               flexDirection={{ xs: 'column', sm: 'row' }}
                               alignItems={{ xs: 'flex-start', sm: 'center' }}
@@ -1291,85 +1768,43 @@ const CourseDetail = () => {
                               <Box sx={{
                                 display: 'flex',
                                 gap: { xs: 0.5, sm: 1 },
-                                flexWrap: 'wrap',
                                 alignItems: 'center'
                               }}>
-                                <Chip
-                                  label={getUserRole(message) === 'teacher' ? 'Profesor' : 'Alumno'}
-                                  size="small"
-                                  color={getUserRole(message) === 'teacher' ? 'primary' : 'default'}
-                                  variant={getUserRole(message) === 'teacher' ? 'filled' : 'outlined'}
-                                  sx={{
-                                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                                    height: { xs: 24, sm: 28 }
-                                  }}
-                                />
-                                <Chip
-                                  label={getMessageTypeLabel(message.type)}
-                                  size="small"
-                                  color={
-                                    message.type === 'announcement' ? 'info' :
-                                      message.type === 'discussion' ? 'secondary' :
-                                        message.type === 'question' ? 'warning' : 'primary'
-                                  }
-                                  sx={{
-                                    fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                                    height: { xs: 24, sm: 28 }
-                                  }}
-                                />
-                                {message.is_pinned && (
-                                  <Chip
-                                    label="Fijado"
-                                    size="small"
-                                    color="secondary"
-                                    sx={{
-                                      fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                                      height: { xs: 24, sm: 28 }
-                                    }}
-                                  />
-                                )}
-                                {message.updated_at && message.updated_at !== message.created_at && (
-                                  <Chip
-                                    label="Editado"
-                                    size="small"
-                                    color="warning"
-                                    variant="outlined"
-                                    sx={{
-                                      fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                                      height: { xs: 24, sm: 28 }
-                                    }}
-                                  />
-                                )}
-                              </Box>
-                              <Box sx={{
-                                ml: { xs: 0, sm: 'auto' },
-                                alignSelf: { xs: 'flex-end', sm: 'center' }
-                              }}>
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => handleMessageMenuOpen(e, message)}
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
                                 >
-                                  <MoreVert />
-                                </IconButton>
+                                  {new Date(message.created_at).toLocaleDateString()}
+                                </Typography>
+                                {message.type && (
+                                  <Chip
+                                    label={message.type === 'announcement' ? 'Anuncio' : message.type === 'question' ? 'Pregunta' : 'Material'}
+                                    size="small"
+                                    color={message.type === 'announcement' ? 'primary' : message.type === 'question' ? 'secondary' : 'default'}
+                                    sx={{ height: 20, fontSize: '0.65rem' }}
+                                  />
+                                )}
                               </Box>
                             </Box>
                           }
                           secondary={
-                            <Box component="div">
+                            <Box component="div" sx={{ mt: 1 }}>
                               {editingMessage === message.id ? (
-                                <Box sx={{ mb: 1 }}>
+                                <Box sx={{ mb: 2 }}>
                                   <TextField
                                     fullWidth
+                                    size="small"
                                     label="Título del mensaje"
                                     value={editMessageTitle}
                                     onChange={(e) => setEditMessageTitle(e.target.value)}
-                                    sx={{ mb: 1 }}
+                                    sx={{ mb: 1.5 }}
                                   />
                                   <TextField
                                     fullWidth
                                     multiline
                                     rows={3}
-                                    label="Contenido del mensaje"
+                                    placeholder="Edita tu mensaje..."
                                     value={editMessageContent}
                                     onChange={(e) => setEditMessageContent(e.target.value)}
                                     sx={{ mb: 1 }}
@@ -1379,13 +1814,12 @@ const CourseDetail = () => {
                                       size="small"
                                       variant="contained"
                                       startIcon={<Save />}
-                                      onClick={handleUpdateMessage}
+                                      onClick={() => handleUpdateMessage(message.id)}
                                     >
                                       Guardar
                                     </Button>
                                     <Button
                                       size="small"
-                                      startIcon={<Cancel />}
                                       onClick={() => {
                                         setEditingMessage(null);
                                         setEditMessageContent('');
@@ -1435,13 +1869,6 @@ const CourseDetail = () => {
                                   flexWrap: 'wrap'
                                 }}
                               >
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
-                                >
-                                  {new Date(message.created_at).toLocaleString()}
-                                </Typography>
                                 {message.comment_count > 0 && (
                                   <Button
                                     size="small"
@@ -1458,6 +1885,12 @@ const CourseDetail = () => {
                                 >
                                   Responder
                                 </Button>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => handleMessageMenuOpen(e, message)}
+                                >
+                                  <MoreVert />
+                                </IconButton>
                               </Box>
 
                               {/* Comments Section */}
@@ -1581,7 +2014,8 @@ const CourseDetail = () => {
             </MenuItem>
           </Menu>
 
-          {activeTab === 3 && isTeacher && (
+          {/* Tab 4: Alumnos */}
+          {activeTab === 4 && isTeacher && (
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h5" fontWeight="bold">
@@ -2274,7 +2708,7 @@ const CourseDetail = () => {
           />
           <TextField
             fullWidth
-            label="Descripción"
+            label="Descripción (opcional)"
             value={newUnit.description}
             onChange={(e) => setNewUnit(prev => ({ ...prev, description: e.target.value }))}
             multiline
@@ -2295,31 +2729,18 @@ const CourseDetail = () => {
             </Tabs>
           </Box>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Título del material"
-                value={materialForm.title}
-                onChange={(e) => setMaterialForm(prev => ({ ...prev, title: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Descripción (opcional)"
-                value={materialForm.description}
-                onChange={(e) => setMaterialForm(prev => ({ ...prev, description: e.target.value }))}
-                multiline
-                rows={2}
-              />
-            </Grid>
             {materialForm.type === 'file' ? (
               <Grid item xs={12}>
                 <Button variant="outlined" component="label" startIcon={<CloudUpload />}>
                   Seleccionar archivo
                   <input type="file" hidden onChange={(e) => {
                     const f = e.target.files?.[0] || null;
-                    setMaterialForm(prev => ({ ...prev, file: f }));
+                    if (f) {
+                      const nameWithoutExt = f.name.replace(/\.[^/.]+$/, '');
+                      setMaterialForm(prev => ({ ...prev, file: f, title: nameWithoutExt }));
+                    } else {
+                      setMaterialForm(prev => ({ ...prev, file: f }));
+                    }
                   }} />
                 </Button>
                 {materialForm.file && (
@@ -2329,26 +2750,39 @@ const CourseDetail = () => {
                 )}
               </Grid>
             ) : (
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label={materialForm.type === 'video' ? 'URL de YouTube' : 'URL del recurso'}
-                  placeholder={materialForm.type === 'video' ? 'https://www.youtube.com/watch?v=...' : 'https://...'}
-                  value={materialForm.url}
-                  onChange={(e) => setMaterialForm(prev => ({ ...prev, url: e.target.value }))}
-                />
-              </Grid>
+              <>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Título del material"
+                    value={materialForm.title}
+                    onChange={(e) => setMaterialForm(prev => ({ ...prev, title: e.target.value }))}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label={materialForm.type === 'video' ? 'URL de YouTube' : 'URL del recurso'}
+                    placeholder={materialForm.type === 'video' ? 'https://www.youtube.com/watch?v=...' : 'https://...'}
+                    value={materialForm.url}
+                    onChange={(e) => setMaterialForm(prev => ({ ...prev, url: e.target.value }))}
+                  />
+                </Grid>
+              </>
             )}
             <Grid item xs={12}>
               <Box display="flex" justifyContent="flex-end">
                 <Button variant="outlined" onClick={() => {
-                  if (!materialForm.title.trim()) { toast.error('El título del material es requerido'); return; }
+                  const effectiveTitle = materialForm.title.trim() ||
+                    (materialForm.file ? materialForm.file.name.replace(/\.[^/.]+$/, '') : '');
+                  if (!effectiveTitle.trim()) { toast.error('El título del material es requerido'); return; }
                   if (materialForm.type !== 'file' && !materialForm.url.trim()) { toast.error('La URL es requerida'); return; }
                   const newMat = {
                     id: `${Date.now()}`,
                     type: materialForm.type,
-                    title: materialForm.title.trim(),
-                    description: materialForm.description.trim(),
+                    title: effectiveTitle,
+                    description: '',
                     url: materialForm.type === 'file' ? '' : materialForm.url.trim(),
                     file: materialForm.file || null,
                     fileName: materialForm.file?.name || null,
@@ -2424,7 +2858,6 @@ const CourseDetail = () => {
             variant="contained"
             onClick={async () => {
               if (!newUnit.title.trim()) { toast.error('El título es requerido'); return; }
-              if (!newUnit.description.trim()) { toast.error('La descripción es requerida'); return; }
               try {
                 const res = await api.createUnit(courseId, { title: newUnit.title, description: newUnit.description, is_published: newUnit.is_published, order_index: newUnit.order });
                 if (res.success) {
@@ -2493,7 +2926,7 @@ const CourseDetail = () => {
           setNewTask(prev => ({ ...prev, selectedStudentIds: selectedIds }));
         }}
       />
-    </Container>
+    </Box>
   );
 };
 

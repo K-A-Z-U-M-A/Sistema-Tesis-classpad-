@@ -136,7 +136,6 @@ router.get('/my/:assignmentId', authMiddleware, async (req, res) => {
         [submission.id]
       );
       files = filesResult.rows;
-      console.log('🔍 Files query result:', files);
     }
 
     res.json({
@@ -162,8 +161,6 @@ router.post('/', authMiddleware, async (req, res) => {
     const { assignmentId, content, status } = req.body;
     const { role } = req.user;
 
-    console.log('🔍 Creating submission:', { assignmentId, content, status, role, userId: req.user.id });
-
     if (role !== 'student') {
       return res.status(403).json({
         success: false,
@@ -179,9 +176,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 
     // Check if student has access to this assignment
-    console.log('🔍 Checking access for user', req.user.id, 'to assignment', assignmentId);
     const hasAccess = await hasAssignmentAccess(req.user.id, assignmentId);
-    console.log('🔍 Access result:', hasAccess);
 
     if (!hasAccess) {
       return res.status(403).json({
@@ -203,9 +198,6 @@ router.post('/', authMiddleware, async (req, res) => {
     if (existingResult.rows.length > 0) {
       // Update existing submission
       const existingSubmission = existingResult.rows[0];
-      console.log('🔍 Updating existing submission:', existingSubmission.id);
-      console.log('🔍 Current status:', existingSubmission.status);
-      console.log('🔍 New status:', status);
 
       const updateData = {
         content: content || null,
@@ -216,8 +208,6 @@ router.post('/', authMiddleware, async (req, res) => {
         updateData.submitted_at = new Date();
       }
 
-      console.log('🔍 Update data:', updateData);
-
       const updateResult = await pool.query(
         `UPDATE submissions 
          SET content = $1, status = $2, submitted_at = $3
@@ -225,8 +215,6 @@ router.post('/', authMiddleware, async (req, res) => {
          RETURNING *`,
         [updateData.content, updateData.status, updateData.submitted_at, existingSubmission.id]
       );
-
-      console.log('🔍 Update result:', updateResult.rows[0]);
       submission = updateResult.rows[0];
     } else {
       // Create new submission
@@ -236,19 +224,12 @@ router.post('/', authMiddleware, async (req, res) => {
         submitted_at: status === 'submitted' ? new Date() : null
       };
 
-      console.log('🔍 Creating new submission with data:', insertData);
-      console.log('🔍 Cast type:', cast);
-      console.log('🔍 Assignment ID:', assignmentId);
-      console.log('🔍 User ID:', req.user.id);
-
       const insertResult = await pool.query(
         `INSERT INTO submissions (assignment_id, student_id, content, status, submitted_at)
          VALUES ($1${cast}, $2, $3, $4, $5)
          RETURNING *`,
         [assignmentId, req.user.id, insertData.content, insertData.status, insertData.submitted_at]
       );
-
-      console.log('🔍 Insert result:', insertResult.rows[0]);
       submission = insertResult.rows[0];
     }
 
@@ -267,12 +248,13 @@ router.post('/', authMiddleware, async (req, res) => {
         if (assignmentResult.rows.length > 0) {
           const assignment = assignmentResult.rows[0];
 
+          const courseCast = isUuid(assignment.course_id) ? '::uuid' : '';
           // Get all teachers in the course (owner + course teachers)
           const teachersResult = await pool.query(
             `SELECT DISTINCT user_id FROM (
-              SELECT owner_id as user_id FROM courses WHERE id = $1
+              SELECT owner_id as user_id FROM courses WHERE id = $1${courseCast}
               UNION
-              SELECT teacher_id as user_id FROM course_teachers WHERE course_id = $1
+              SELECT teacher_id as user_id FROM course_teachers WHERE course_id = $1${courseCast}
             ) as teachers`,
             [assignment.course_id]
           );
@@ -285,26 +267,28 @@ router.post('/', authMiddleware, async (req, res) => {
           const studentName = studentResult.rows[0]?.display_name || 'Un estudiante';
 
           // Create notifications for all teachers
+          const formattedDate = new Date().toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
           const notificationPromises = teachersResult.rows.map(teacher => {
             const title = 'Nueva entrega de tarea';
-            const messageText = `${studentName} ha entregado la tarea "${assignment.assignment_title}" en ${assignment.course_name}. ${content ? `Contenido: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}` : ''}`;
+            const messageText = `El estudiante ${studentName} ha entregado la tarea "${assignment.assignment_title}" en ${assignment.course_name}.`;
 
             return createNotification(
               teacher.user_id,
-              'assignment',
+              'submission',
               title,
               messageText,
               assignment.course_id,
               assignmentId,
               'assignment',
-              'normal'
+              'normal',
+              {
+                studentName,
+                submissionDate: formattedDate
+              }
             );
           });
 
-          // Create notifications asynchronously (don't wait for them)
-          Promise.all(notificationPromises).catch(error => {
-            console.error('Error creating submission notifications:', error);
-          });
+          await Promise.all(notificationPromises);
         }
       } catch (error) {
         console.error('Error creating submission notifications:', error);

@@ -1,0 +1,6 @@
+{
+  "watch": ["src", "services"],
+  "ignore": ["backups/**", "backups/*.sql", "backups/*.json"],
+  "ext": "js,mjs,json",
+  "quiet": true
+}

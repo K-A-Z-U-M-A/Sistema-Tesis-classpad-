@@ -11,7 +11,9 @@ class SessionManager {
     this._storagePrefix = null;
     this._isInitialized = false;
     this._tabFingerprint = null;
-    
+    // Fallback en memoria para cuando localStorage y sessionStorage estén llenos
+    this._memoryStore = new Map();
+
     this.init();
   }
 
@@ -40,7 +42,7 @@ class SessionManager {
     if (this._tabFingerprint) {
       return this._tabFingerprint;
     }
-    
+
     // Intentar recuperar de sessionStorage primero
     try {
       const stored = sessionStorage.getItem('app_tab_fingerprint');
@@ -54,21 +56,21 @@ class SessionManager {
     } catch (e) {
       console.warn('Error accediendo a sessionStorage para tabFingerprint:', e);
     }
-    
+
     // Si no existe, generar uno nuevo y persistirlo
     this._tabFingerprint = this.generateTabFingerprint();
-    
+
     // Persistir en sessionStorage para que sobreviva a recargas
     try {
       sessionStorage.setItem('app_tab_fingerprint', this._tabFingerprint);
     } catch (e) {
       console.warn('Error guardando tabFingerprint en sessionStorage:', e);
     }
-    
+
     if (process.env.NODE_ENV === 'development') {
       console.log(`🔐 Nuevo tabFingerprint generado y persistido: ${this._tabFingerprint.substring(0, 20)}...`);
     }
-    
+
     return this._tabFingerprint;
   }
 
@@ -80,7 +82,7 @@ class SessionManager {
     try {
       const prefix = `session_${sessionId}_`;
       const keys = Object.keys(localStorage);
-      
+
       for (const key of keys) {
         if (key.startsWith(prefix)) {
           try {
@@ -123,17 +125,17 @@ class SessionManager {
    */
   init() {
     if (this._isInitialized) return;
-    
+
     // Obtener o crear sessionId desde sessionStorage
     this._sessionId = this.getOrCreateSessionId();
-    
+
     // Obtener o crear tabFingerprint (se persiste en sessionStorage para sobrevivir recargas)
     // Esto asegura que cada pestaña tenga su propio fingerprint único que persiste
     this._tabFingerprint = this.getOrCreateTabFingerprint();
-    
+
     this._storagePrefix = `session_${this._sessionId}_`;
     this._isInitialized = true;
-    
+
     // Log para debugging (solo en desarrollo)
     if (process.env.NODE_ENV === 'development') {
       console.log(`🔐 SessionManager inicializado - SessionID: ${this._sessionId.substring(0, 20)}...`);
@@ -149,7 +151,7 @@ class SessionManager {
     try {
       const prefix = `session_${sessionId}_`;
       const keys = Object.keys(localStorage);
-      
+
       for (const key of keys) {
         if (key.startsWith(prefix)) {
           try {
@@ -196,19 +198,19 @@ class SessionManager {
    */
   getOrCreateSessionId() {
     let sessionId = null;
-    
+
     try {
       sessionId = sessionStorage.getItem('app_session_id');
     } catch (e) {
       console.warn('Error accediendo a sessionStorage:', e);
     }
-    
+
     // Si existe un sessionId, verificar si es válido para esta pestaña
     if (sessionId) {
       // Verificar si hay datos en localStorage para este sessionId
       const testKey = `session_${sessionId}_authToken`;
       const tokenData = localStorage.getItem(testKey);
-      
+
       if (tokenData) {
         // Hay datos para este sessionId - verificar que pertenecen a esta sesión
         try {
@@ -229,11 +231,11 @@ class SessionManager {
           return sessionId;
         }
       }
-      
+
       // No hay datos para este sessionId - puede ser una pestaña duplicada
       // Verificar si hay CUALQUIER dato con este prefijo
       const hasAnyData = this.hasDataForSession(sessionId);
-      
+
       if (!hasAnyData) {
         // No hay datos para este sessionId
         // Esto puede ser:
@@ -243,7 +245,7 @@ class SessionManager {
         // SOLUCIÓN: Si sessionStorage tiene sessionId pero localStorage no tiene datos,
         // y la pestaña se acaba de abrir (sin datos de sesión previos),
         // es muy probable que sea una duplicación. Crear nuevo sessionId.
-        
+
         // Verificar si sessionInfo es reciente (menos de 1 segundo)
         // Si es muy reciente, es probable que sea una duplicación
         try {
@@ -254,7 +256,7 @@ class SessionManager {
               const created = new Date(info.createdAt);
               const now = new Date();
               const secondsDiff = (now - created) / 1000;
-              
+
               // Si la sesión tiene menos de 2 segundos y no hay datos,
               // es muy probable que sea una duplicación
               if (secondsDiff < 2) {
@@ -284,11 +286,11 @@ class SessionManager {
         return sessionId;
       }
     }
-    
+
     // Crear nuevo sessionId (no existe o es una duplicación)
     if (!sessionId) {
       sessionId = this.createNewSessionId();
-      
+
       try {
         // Limpiar sessionId anterior si existe (por si acaso)
         const oldSessionId = sessionStorage.getItem('app_session_id');
@@ -296,10 +298,10 @@ class SessionManager {
           sessionStorage.removeItem('app_session_id');
           sessionStorage.removeItem('app_session_info');
         }
-        
+
         // Guardar nuevo sessionId
         sessionStorage.setItem('app_session_id', sessionId);
-        
+
         const sessionInfo = {
           id: sessionId,
           createdAt: new Date().toISOString(),
@@ -309,7 +311,7 @@ class SessionManager {
           tabId: `tab_${performance.now()}_${Math.random().toString(36).substring(2, 9)}`
         };
         sessionStorage.setItem('app_session_info', JSON.stringify(sessionInfo));
-        
+
         if (process.env.NODE_ENV === 'development') {
           console.log(`🔐 ✅ Nueva sesión creada: ${sessionId.substring(0, 20)}...`);
         }
@@ -317,7 +319,7 @@ class SessionManager {
         console.error('Error guardando sessionId:', e);
       }
     }
-    
+
     return sessionId;
   }
 
@@ -381,50 +383,104 @@ class SessionManager {
   }
 
   /**
+   * Limpia sesiones antiguas y datos obsoletos del localStorage
+   */
+  cleanOldSessions() {
+    try {
+      const keys = Object.keys(localStorage);
+      const now = Date.now();
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+
+      for (const key of keys) {
+        if (key.startsWith('session_')) {
+          // Si no pertenece a la sesión activa actual
+          if (this.storagePrefix && !key.startsWith(this.storagePrefix)) {
+            try {
+              const item = JSON.parse(localStorage.getItem(key));
+              if (!item?.timestamp || (now - item.timestamp > ONE_DAY)) {
+                localStorage.removeItem(key);
+              }
+            } catch {
+              localStorage.removeItem(key);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Error durante la limpieza de sesiones antiguas:', err);
+    }
+  }
+
+  /**
    * Guarda un valor en localStorage con prefijo de sesión
    * IMPORTANTE: Incluye la huella digital de la pestaña para detectar duplicaciones
    */
   setItem(key, value) {
     const prefixedKey = this.getKey(key);
+    const data = {
+      value: value,
+      sessionId: this.sessionId,
+      tabFingerprint: this.getTabFingerprint(),
+      timestamp: Date.now()
+    };
+    const jsonStr = JSON.stringify(data);
+
+    // Siempre guardar en memoria como respaldo instantáneo (no expira, no falla)
+    this._memoryStore.set(prefixedKey, data);
+
     try {
-      // Guardar con metadata que incluye sessionId y tabFingerprint
-      const data = {
-        value: value,
-        sessionId: this.sessionId,
-        tabFingerprint: this.getTabFingerprint(), // Identificador único de esta pestaña
-        timestamp: Date.now()
-      };
-      localStorage.setItem(prefixedKey, JSON.stringify(data));
-      
+      localStorage.setItem(prefixedKey, jsonStr);
+
       if (process.env.NODE_ENV === 'development' && (key === 'user' || key === 'authToken')) {
         console.log(`💾 Guardado ${key} para sesión: ${this.sessionId.substring(0, 12)}..., tab: ${this.getTabFingerprint().substring(0, 12)}...`);
       }
+      return; // éxito en localStorage
     } catch (e) {
-      console.error('Error guardando en localStorage:', e);
+      if (e.name === 'QuotaExceededError' || e.code === 22 || e.number === -2147024882) {
+        console.warn('⚠️ QuotaExceededError detectado, ejecutando limpieza agresiva de sesiones...');
+        this.cleanOldSessions();
+        try {
+          localStorage.setItem(prefixedKey, jsonStr);
+          return; // éxito tras limpieza
+        } catch (retryError) {
+          // sigue al fallback sessionStorage
+        }
+      }
+      // Respaldo en sessionStorage
+      try {
+        sessionStorage.setItem(prefixedKey, jsonStr);
+        return; // éxito en sessionStorage
+      } catch (sessionErr) {
+        // El dato ya está en _memoryStore, continúa sin error
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(`⚠️ Storage lleno - ${key} guardado solo en memoria (se perderá al recargar)`);
+        }
+      }
     }
   }
 
   /**
-   * Obtiene un valor de localStorage con prefijo de sesión
-   * Solo obtiene valores de esta sesión específica
-   * CRÍTICO: Verifica que el sessionId Y tabFingerprint coincidan
-   * Si tabFingerprint no coincide, es una pestaña duplicada y NO debe leer esos datos
+   * Obtiene un valor de localStorage con prefijo de sesión (o sessionStorage fallback)
    */
   getItem(key) {
     const prefixedKey = this.getKey(key);
     const currentSessionId = this.sessionId;
     const currentTabFingerprint = this.getTabFingerprint();
-    
+
     try {
-      const stored = localStorage.getItem(prefixedKey);
+      let stored = localStorage.getItem(prefixedKey);
+      if (!stored) {
+        // Buscar en sessionStorage fallback
+        stored = sessionStorage.getItem(prefixedKey);
+      }
       if (!stored) {
         return null;
       }
-      
+
       // Intentar parsear como JSON (nuevo formato con metadata)
       try {
         const data = JSON.parse(stored);
-        
+
         // VERIFICACIÓN CRÍTICA: 
         // 1. El sessionId debe coincidir
         // 2. El tabFingerprint debe coincidir EXACTAMENTE
@@ -468,12 +524,12 @@ class SessionManager {
             return null;
           }
         }
-        
+
         // SessionId no coincide - datos de otra sesión
         if (process.env.NODE_ENV === 'development' && data.sessionId && data.sessionId !== currentSessionId) {
           console.warn(`⚠️ Intento de leer datos de otra sesión. Key: ${key}, SessionId esperado: ${currentSessionId.substring(0, 12)}..., encontrado: ${data.sessionId.substring(0, 12)}...`);
         }
-        
+
         return null;
       } catch (e) {
         // Si no es JSON, es un valor antiguo sin metadata
@@ -492,8 +548,14 @@ class SessionManager {
       }
     } catch (e) {
       console.error('Error leyendo de localStorage:', e);
-      return null;
+      // Último recurso: leer de memoria
+      const memData = this._memoryStore.get(prefixedKey);
+      return memData ? memData.value : null;
     }
+
+    // Si llegamos aquí sin haber retornado, intentar memoria
+    const memData = this._memoryStore.get(prefixedKey);
+    return memData ? memData.value : null;
   }
 
   /**
@@ -517,7 +579,7 @@ class SessionManager {
     const keys = Object.keys(localStorage);
     const currentSessionId = this.sessionId;
     const currentTabFingerprint = this.getTabFingerprint();
-    
+
     keys.forEach(key => {
       if (key.startsWith(`session_${currentSessionId}_`)) {
         try {
@@ -535,12 +597,12 @@ class SessionManager {
         }
       }
     });
-    
+
     // Limpiar sessionStorage
     sessionStorage.removeItem('app_session_id');
     sessionStorage.removeItem('app_session_info');
     sessionStorage.removeItem('app_tab_fingerprint');
-    
+
     // Resetear estado interno
     this._tabFingerprint = null;
   }
@@ -551,7 +613,7 @@ class SessionManager {
   getAllSessions() {
     const keys = Object.keys(localStorage);
     const sessions = new Set();
-    
+
     keys.forEach(key => {
       if (key.startsWith('session_')) {
         // Extraer el sessionId correctamente (formato: session_sess_xxx_key)
@@ -563,7 +625,7 @@ class SessionManager {
         }
       }
     });
-    
+
     return Array.from(sessions);
   }
 
@@ -581,11 +643,11 @@ class SessionManager {
     const prefixedKey = this.getKey(key);
     const currentSessionId = this.sessionId;
     const currentTabFingerprint = this.getTabFingerprint();
-    
+
     try {
       const stored = localStorage.getItem(prefixedKey);
       if (!stored) return false;
-      
+
       try {
         const data = JSON.parse(stored);
         // Verificar sessionId
@@ -609,12 +671,46 @@ class SessionManager {
   }
 
   /**
+   * Limpia sesiones antiguas y datos huérfanos de localStorage para liberar espacio de cuota
+   */
+  cleanOldSessions() {
+    try {
+      const keys = Object.keys(localStorage);
+      const currentPrefix = `session_${this.sessionId}_`;
+      let deletedCount = 0;
+
+      // 1. Eliminar todas las entradas de sesiones que no coincidan con la sesión actual
+      keys.forEach(key => {
+        if (key.startsWith('session_') && !key.startsWith(currentPrefix)) {
+          localStorage.removeItem(key);
+          deletedCount++;
+        }
+      });
+
+      // 2. Si todavía hay muchas entradas, limpiar registros de cache y toast
+      const remainingKeys = Object.keys(localStorage);
+      remainingKeys.forEach(key => {
+        if (key.startsWith('cache_') || key.startsWith('temp_') || key.startsWith('toast_')) {
+          localStorage.removeItem(key);
+          deletedCount++;
+        }
+      });
+
+      if (deletedCount > 0) {
+        console.log(`🧹 Limpieza de almacenamiento completada: ${deletedCount} entradas antiguas liberadas`);
+      }
+    } catch (e) {
+      console.warn('Error durante la limpieza de sesiones:', e);
+    }
+  }
+
+  /**
    * Verifica si hay otra sesión activa con el mismo usuario
    */
   hasOtherActiveSessions(userId) {
     const keys = Object.keys(localStorage);
     const otherSessions = [];
-    
+
     keys.forEach(key => {
       if (key.startsWith('session_') && key.includes('_user')) {
         const sessionId = key.split('_')[1];
@@ -633,7 +729,7 @@ class SessionManager {
         }
       }
     });
-    
+
     return otherSessions.length > 0;
   }
 }

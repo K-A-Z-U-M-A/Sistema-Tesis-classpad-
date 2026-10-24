@@ -105,8 +105,10 @@ const RecoveryEmailSettings = ({ currentRecoveryEmail, userEmail, onUpdate }) =>
         <Box
             sx={{
                 mb: 4,
-                backgroundColor: 'white',
+                backgroundColor: 'background.paper',
                 borderRadius: '16px',
+                border: '1px solid',
+                borderColor: 'divider',
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
                 p: 3
             }}
@@ -220,35 +222,7 @@ const RecoveryEmailSettings = ({ currentRecoveryEmail, userEmail, onUpdate }) =>
                         onChange={(e) => setRecoveryEmail(e.target.value)}
                         placeholder="correo@ejemplo.com"
                         disabled={loading}
-                        sx={{
-                            mb: 2,
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '12px',
-                                backgroundColor: '#F9FAFB',
-                                '&:hover': {
-                                    backgroundColor: '#F3F4F6',
-                                },
-                                '&.Mui-focused': {
-                                    backgroundColor: 'white',
-                                },
-                                '& fieldset': {
-                                    borderColor: '#E5E7EB',
-                                },
-                                '&:hover fieldset': {
-                                    borderColor: '#D1D5DB',
-                                },
-                                '&.Mui-focused fieldset': {
-                                    borderColor: '#007AFF',
-                                    borderWidth: '2px',
-                                },
-                            },
-                            '& .MuiInputLabel-root': {
-                                fontSize: '14px',
-                                '&.Mui-focused': {
-                                    color: '#007AFF',
-                                }
-                            }
-                        }}
+                        sx={{ mb: 2 }}
                         InputProps={{
                             startAdornment: (
                                 <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
@@ -266,35 +240,7 @@ const RecoveryEmailSettings = ({ currentRecoveryEmail, userEmail, onUpdate }) =>
                         onChange={(e) => setConfirmEmail(e.target.value)}
                         placeholder="correo@ejemplo.com"
                         disabled={loading}
-                        sx={{
-                            mb: 2.5,
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: '12px',
-                                backgroundColor: '#F9FAFB',
-                                '&:hover': {
-                                    backgroundColor: '#F3F4F6',
-                                },
-                                '&.Mui-focused': {
-                                    backgroundColor: 'white',
-                                },
-                                '& fieldset': {
-                                    borderColor: '#E5E7EB',
-                                },
-                                '&:hover fieldset': {
-                                    borderColor: '#D1D5DB',
-                                },
-                                '&.Mui-focused fieldset': {
-                                    borderColor: '#007AFF',
-                                    borderWidth: '2px',
-                                },
-                            },
-                            '& .MuiInputLabel-root': {
-                                fontSize: '14px',
-                                '&.Mui-focused': {
-                                    color: '#007AFF',
-                                }
-                            }
-                        }}
+                        sx={{ mb: 2.5 }}
                         InputProps={{
                             startAdornment: (
                                 <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>

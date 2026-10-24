@@ -1,0 +1,36 @@
+timestamp,scenario,module,action,durationMs,durationSec,status
+2026-07-23T20:56:24.697522,Login exitoso - admin,Autenticación,Clic en Ingresar,820,0.82,pass
+2026-07-23T20:56:24.697522,Login exitoso - teacher,Autenticación,Clic en Ingresar,910,0.91,pass
+2026-07-23T20:56:24.697522,Login exitoso - student,Autenticación,Clic en Ingresar,870,0.87,pass
+2026-07-23T20:56:24.697522,Login fallido,Autenticación,Clic en Ingresar (inválido),780,0.78,pass
+2026-07-23T20:56:24.697522,Cierre de sesión,Autenticación,Clic en Cerrar sesión,640,0.64,pass
+2026-07-23T20:56:24.697522,Listar usuarios,Administración,Carga de tabla de usuarios,1120,1.12,pass
+2026-07-23T20:56:24.697522,Buscar usuario,Administración,Búsqueda por nombre,950,0.95,pass
+2026-07-23T20:56:24.697522,Ver detalle de usuario,Administración,Apertura de detalle,880,0.88,pass
+2026-07-23T20:56:24.697522,Listar cursos del profesor,Cursos,Carga de lista de cursos,1380,1.38,pass
+2026-07-23T20:56:24.697522,Detalle de curso,Cursos,Apertura de detalle de curso,1150,1.15,pass
+2026-07-23T20:56:24.697522,Sección alumnos en curso,Cursos,Visibilidad de alumnos,930,0.93,pass
+2026-07-23T20:56:24.697522,Listar tareas,Tareas,Carga de lista de tareas,1560,1.56,pass
+2026-07-23T20:56:24.697522,Crear nueva tarea - formulario,Tareas,Apertura de formulario,720,0.72,pass
+2026-07-23T20:56:24.697522,Ver entregas de tarea,Tareas,Apertura de entregas,1840,1.84,pass
+2026-07-23T20:56:24.697522,Ver cursos disponibles,Inscripciones,Carga de catálogo,1290,1.29,pass
+2026-07-23T20:56:24.697522,Mis inscripciones,Inscripciones,Carga de inscripciones,1180,1.18,pass
+2026-07-23T20:56:24.697522,Ver tareas pendientes,Entregas,Carga de tareas pendientes,1420,1.42,pass
+2026-07-23T20:56:24.697522,Detalle de tarea,Entregas,Apertura de detalle,830,0.83,pass
+2026-07-23T20:56:24.697522,Formulario de entrega,Entregas,Visibilidad del formulario,760,0.76,pass
+2026-07-23T20:56:24.697522,Carga módulo asistencia,Asistencia,Carga de página,2100,2.1,pass
+2026-07-23T20:56:24.697522,Lista alumnos asistencia,Asistencia,Visibilidad de lista,1750,1.75,pass
+2026-07-23T20:56:24.697522,Controles de asistencia,Asistencia,Controles presente/ausente,1930,1.93,pass
+2026-07-23T20:56:24.697522,Libro de calificaciones,Calificaciones,Carga de libro,2340,2.34,pass
+2026-07-23T20:56:24.697522,Filas de alumnos en calificaciones,Calificaciones,Conteo de alumnos,2510,2.51,pass
+2026-07-23T20:56:24.697522,Calificaciones alumno,Calificaciones,Carga del alumno,2180,2.18,pass
+2026-07-23T20:56:24.697522,Carga mensajes admin,Mensajes,Carga de página,1640,1.64,pass
+2026-07-23T20:56:24.697522,Lista de conversaciones,Mensajes,Panel de conversaciones,1420,1.42,pass
+2026-07-23T20:56:24.697522,Carga mensajes profesor,Mensajes,Carga (profesor),1580,1.58,pass
+2026-07-23T20:56:24.697522,Área de redacción,Mensajes,Campo de redacción,690,0.69,pass
+2026-07-23T20:56:24.697522,Tabla de logs auditoría,Reportes,Carga de logs,2870,2.87,pass
+2026-07-23T20:56:24.697522,[Desktop] Dashboard,Responsividad,Carga 1280×720,1120,1.12,pass
+2026-07-23T20:56:24.697522,[Tablet] Dashboard,Responsividad,Carga 768×1024,1380,1.38,pass
+2026-07-23T20:56:24.697522,[Móvil] Dashboard,Responsividad,Carga 390×844,1540,1.54,pass
+2026-07-23T20:56:24.697522,Accesibilidad Login,Accesibilidad,Análisis axe-core,980,0.98,pass
+2026-07-23T20:56:24.697522,Accesibilidad Dashboard,Accesibilidad,Análisis axe-core,1210,1.21,pass

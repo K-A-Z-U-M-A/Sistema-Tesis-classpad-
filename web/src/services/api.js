@@ -41,7 +41,23 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      const data = await response.json();
+      const text = await response.text();
+      let data = {};
+
+      if (text.trim()) {
+        try {
+          data = JSON.parse(text);
+        } catch (parseError) {
+          console.error('Failed to parse JSON response:', text);
+          if (!response.ok) {
+            const error = new Error(`HTTP error! status: ${response.status}`);
+            error.status = response.status;
+            error.code = 'HTTP_ERROR';
+            throw error;
+          }
+          throw new SyntaxError('Response is not valid JSON');
+        }
+      }
 
       console.log('🔍 API Response:');
       console.log('  - endpoint:', endpoint);
@@ -54,10 +70,17 @@ class ApiService {
         const error = new Error(data.error?.message || `HTTP error! status: ${response.status}`);
         error.code = data.error?.code;
         error.status = response.status;
+        error.details = data.error?.details || data.error?.errors || null;
 
         // Si el token es inválido, limpiar el localStorage y redirigir al login
         // Evitar bucle infinito si la falla ocurre justo en el logout
-        if (endpoint !== '/auth/logout' && response.status === 401 && (error.code === 'INVALID_TOKEN' || error.message.includes('Invalid token'))) {
+        // NO CERRAR SESIÓN si el código es INVALID_CURRENT_PASSWORD o INVALID_PASSWORD
+        const isAuthError = response.status === 401 && 
+                            error.code !== 'INVALID_CURRENT_PASSWORD' && 
+                            error.code !== 'INVALID_PASSWORD' &&
+                            (error.code === 'INVALID_TOKEN' || error.message.includes('Invalid token'));
+
+        if (endpoint !== '/auth/logout' && isAuthError) {
           console.log('🔍 Token inválido detectado, limpiando localStorage');
           this.logout();
           // Redirigir al login si estamos en el navegador
@@ -151,22 +174,21 @@ class ApiService {
   }
 
   // Admin User Management
-  async getUsers(role = null) {
-    const query = role ? `?role=${role}` : '';
+  async getUsers(role = null, includeInactive = false) {
+    const params = new URLSearchParams();
+    if (role) params.append('role', role);
+    if (includeInactive) params.append('includeInactive', 'true');
+    const query = params.toString() ? `?${params.toString()}` : '';
     return this.request(`/users${query}`);
   }
 
   async createUser(data) {
-    // Currently only create-teacher is supported explicitly for admin specific creation endpoint
-    // If creating a teacher, use the specific endpoint
-    if (data.role === 'teacher') {
-      return this.request('/users/create-teacher', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
-    }
-    // Generic create? We don't have one yet, assume teacher for now or register
-    return this.register(data);
+    // La creación de usuarios desde el panel admin es exclusiva para docentes.
+    // El endpoint /users/create-teacher está protegido con authMiddleware + requireRole('admin').
+    return this.request('/users/create-teacher', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 
   async updateUser(userId, data) {
@@ -223,6 +245,13 @@ class ApiService {
     return this.request('/courses', { method: 'POST', body: JSON.stringify(data) });
   }
 
+  /** Verifica si ya existe un curso con un nombre similar (para validación en tiempo real) */
+  checkCourseName(name, excludeId = null) {
+    const params = new URLSearchParams({ name });
+    if (excludeId) params.append('exclude_id', excludeId);
+    return this.request(`/courses/check-name?${params.toString()}`);
+  }
+
   updateCourse(id, data) {
     return this.request(`/courses/${id}`, { method: 'PUT', body: JSON.stringify(data) });
   }
@@ -233,7 +262,7 @@ class ApiService {
 
   // Units
   getUnits(courseId) {
-    return this.request(`/courses/${courseId}/units`);
+    return this.request(`/units/${courseId}`);
   }
 
   createUnit(courseId, data) {
@@ -370,11 +399,12 @@ class ApiService {
   }
 
   // Notification methods
-  async getNotifications(page = 1, limit = 20, unreadOnly = false) {
+  async getNotifications(page = 1, limit = 20, unreadOnly = false, filter = null) {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
-      ...(unreadOnly && { unread_only: 'true' })
+      ...(unreadOnly && { unread_only: 'true' }),
+      ...(filter && { filter })
     });
     return this.request(`/notifications?${params}`);
   }
@@ -401,6 +431,17 @@ class ApiService {
     });
   }
 
+  async getNotificationPreferences() {
+    return this.request('/notifications/preferences');
+  }
+
+  async updateNotificationPreferences(preferences) {
+    return this.request('/notifications/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(preferences)
+    });
+  }
+
   // Student management methods
   async getCourseStudents(courseId) {
     return this.request(`/courses/${courseId}/students`);
@@ -411,6 +452,10 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ cedula, nombre, email })
     });
+  }
+
+  async lookupStudentByCedula(cedula) {
+    return this.request(`/students/lookup/${encodeURIComponent(cedula)}`);
   }
 
   async unenrollStudent(courseId, studentId) {
@@ -633,6 +678,233 @@ class ApiService {
 
   async getAuditStats() {
     return this.request('/audit/stats');
+  }
+
+  /** Obtener unidades creadas de un curso */
+  getUnits(courseId) {
+    return this.request(`/units/${courseId}`);
+  }
+
+  // ── Calendar & Holidays ───────────────────────────────────────────────────
+
+  /** Obtener calendario + días de clase + feriados del curso */
+  getCourseCalendar(courseId) {
+    return this.request(`/calendar/course/${courseId}`);
+  }
+
+  /** Crear o actualizar el calendario escolar de un curso */
+  saveCourseCalendar(courseId, data) {
+    return this.request(`/calendar/course/${courseId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Obtener feriados nacionales de Paraguay (filtro por año) */
+  getHolidays(year = null) {
+    const query = year ? `?year=${year}` : '';
+    return this.request(`/calendar/holidays${query}`);
+  }
+
+  /** Crear un nuevo feriado o asueto */
+  createHoliday(data) {
+    return this.request('/calendar/holidays', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Actualizar / trasladar un feriado */
+  updateHoliday(holidayId, data) {
+    return this.request(`/calendar/holidays/${holidayId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Eliminar un feriado */
+  deleteHoliday(holidayId) {
+    return this.request(`/calendar/holidays/${holidayId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /** Obtener clases/temas programados para hoy */
+  getTodayClasses() {
+    return this.request('/calendar/today-classes');
+  }
+
+  /** Obtener clases programadas de un curso */
+  getCourseScheduledClasses(courseId) {
+    return this.request(`/calendar/course/${courseId}/classes`);
+  }
+
+  /** Asignar o editar clase/tema para una fecha */
+  scheduleClassTopic(courseId, data) {
+    return this.request(`/calendar/course/${courseId}/classes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Alias: Asignar o editar clase/tema para una fecha */
+  scheduleClassDate(courseId, data) {
+    return this.scheduleClassTopic(courseId, data);
+  }
+
+  /** Eliminar asignación de clase */
+  deleteScheduleClass(courseId, classId) {
+    // Si se pasa solo un ID o dos argumentos
+    if (!classId) {
+      return this.request(`/calendar/classes/${courseId}`, {
+        method: 'DELETE',
+      }).catch(() => {
+        // Fallback por si la ruta requiere courseId
+        return this.request(`/calendar/course/delete-class/${courseId}`, { method: 'DELETE' });
+      });
+    }
+    return this.request(`/calendar/course/${courseId}/classes/${classId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /** Alias para eliminar clase */
+  deleteScheduledClass(courseId, classId) {
+    return this.deleteScheduleClass(courseId, classId);
+  }
+
+  // ─── ROLES & PERMISSIONS API ───────────────────────────────────────────────
+
+  /** Obtener lista completa de roles con estadísticas de usuarios */
+  getRoles() {
+    return this.request('/roles');
+  }
+
+  /** Obtener detalle de un rol por ID */
+  getRole(id) {
+    return this.request(`/roles/${id}`);
+  }
+
+  /** Crear un rol personalizado */
+  createRole(data) {
+    return this.request('/roles', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Modificar un rol existente */
+  updateRole(id, data) {
+    return this.request(`/roles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Eliminar un rol personalizado */
+  deleteRole(id) {
+    return this.request(`/roles/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /** Asignar un rol a un usuario */
+  assignUserRole(userId, roleSlug) {
+    return this.request('/roles/assign', {
+      method: 'POST',
+      body: JSON.stringify({ userId, roleSlug }),
+    });
+  }
+
+  /** Obtener seguimiento de carga de clases de profesores (Supervisión / Coordinación) */
+  getCoordinatorCoursesTracking() {
+    return this.request('/roles/coordinator/courses-tracking');
+  }
+
+  // ─── BACKUPS & PERSISTENCE API ─────────────────────────────────────────────
+
+  /** Obtener listado de backups y configuración */
+  getBackups() {
+    return this.request('/admin/backups');
+  }
+
+  /** Crear una copia de seguridad manual */
+  createBackup() {
+    return this.request('/admin/backups', {
+      method: 'POST',
+    });
+  }
+
+  /** Descargar archivo de copia de seguridad */
+  async downloadBackup(filename) {
+    const token = this.sessionManager.getItem('authToken')?.replace(/^"|"$/g, '').trim();
+    const url = `${this.baseURL}/admin/backups/${encodeURIComponent(filename)}/download`;
+    
+    const res = await fetch(url, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!res.ok) throw new Error('Error al descargar el archivo de respaldo');
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  }
+
+  /** Eliminar un archivo de copia de seguridad */
+  deleteBackup(filename) {
+    return this.request(`/admin/backups/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /** Subir un backup a Google Drive */
+  uploadBackupToDrive(filename) {
+    return this.request(`/admin/backups/${encodeURIComponent(filename)}/upload-drive`, {
+      method: 'POST',
+    });
+  }
+
+  /** Restaurar base de datos desde un backup */
+  restoreBackup(filename) {
+    return this.request(`/admin/backups/${encodeURIComponent(filename)}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  /** Guardar configuración de Google Drive y auto-backup */
+  saveBackupDriveConfig(config) {
+    return this.request('/admin/backups/drive-config', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  }
+
+  /** Probar conexión con Google Drive */
+  testDriveConnection(credentials) {
+    return this.request('/admin/backups/test-drive', {
+      method: 'POST',
+      body: JSON.stringify(credentials || {}),
+    });
+  }
+
+  /** Obtener URL para conectar con Google Drive vía OAuth */
+  getDriveAuthUrl() {
+    return this.request('/admin/backups/auth-url');
+  }
+
+  /** Desconectar cuenta de Google Drive */
+  disconnectDriveOAuth() {
+    return this.request('/admin/backups/disconnect-oauth', {
+      method: 'POST',
+    });
   }
 }
 

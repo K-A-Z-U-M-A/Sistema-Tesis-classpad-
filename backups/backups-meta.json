@@ -1,0 +1,42 @@
+[
+  {
+    "filename": "backup_classpad_manual_2026-08-28T19-09-21-695Z.sql",
+    "type": "manual",
+    "sizeBytes": 8904387,
+    "createdAt": "2026-08-28T19:09:22.548Z",
+    "uploadedToDrive": false,
+    "driveFileId": null,
+    "driveLink": null,
+    "driveUploadedAt": null
+  },
+  {
+    "filename": "backup_classpad_auto_2026-08-28T19-00-00-010Z.sql",
+    "type": "auto",
+    "sizeBytes": 8904387,
+    "createdAt": "2026-08-28T19:00:01.073Z",
+    "uploadedToDrive": false,
+    "driveFileId": null,
+    "driveLink": null,
+    "driveUploadedAt": null
+  },
+  {
+    "filename": "backup_classpad_auto_2026-08-28T19-00-00-015Z.sql",
+    "type": "auto",
+    "sizeBytes": 8904387,
+    "createdAt": "2026-08-28T19:00:01.065Z",
+    "uploadedToDrive": false,
+    "driveFileId": null,
+    "driveLink": null,
+    "driveUploadedAt": null
+  },
+  {
+    "filename": "backup_classpad_auto_2026-08-28T19-00-00-010Z.sql",
+    "type": "auto",
+    "sizeBytes": 8904387,
+    "createdAt": "2026-08-28T19:00:00.972Z",
+    "uploadedToDrive": false,
+    "driveFileId": null,
+    "driveLink": null,
+    "driveUploadedAt": null
+  }
+]

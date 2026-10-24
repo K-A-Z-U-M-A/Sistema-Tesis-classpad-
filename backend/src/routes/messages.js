@@ -3,26 +3,11 @@ import pool from '../config/database.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 import { createNotification } from './notifications.js';
 import { logAction } from '../utils/auditLogger.js';
+import { formatAvatarUrl } from '../utils/avatarHelper.js';
+
+import { hasCourseAccess } from '../utils/uuid.js';
 
 const router = express.Router();
-
-// Helper function to check if user has access to course
-async function hasCourseAccess(userId, courseId) {
-  const result = await pool.query(
-    `SELECT 1 FROM courses c 
-     LEFT JOIN course_teachers ct ON c.id = ct.course_id 
-     LEFT JOIN course_students cs ON c.id = cs.course_id
-     LEFT JOIN enrollments e ON c.id = e.course_id
-     WHERE c.id = $1 AND (
-       c.owner_id = $2 OR 
-       ct.teacher_id = $2 OR 
-       (cs.student_id = $2 AND cs.status = 'active') OR
-       (e.student_id = $2 AND e.status = 'active')
-     )`,
-    [courseId, userId]
-  );
-  return result.rows.length > 0;
-}
 
 // GET /api/messages - Get all messages from all courses the user has access to
 router.get('/', authMiddleware, async (req, res) => {
@@ -86,7 +71,7 @@ router.get('/', authMiddleware, async (req, res) => {
           id: message.sender_id,
           name: message.author_name,
           email: message.author_email,
-          photo_url: message.author_photo
+          photo_url: formatAvatarUrl(message.sender_id, message.author_photo)
         }
       });
     });
@@ -132,11 +117,20 @@ router.get('/:courseId', authMiddleware, async (req, res) => {
       });
     }
 
-    // Get messages
+    // Get messages list first
     const messagesResult = await pool.query(
-      `SELECT m.*, 
-              u.display_name as author_name,
-              u.photo_url as author_photo
+      `SELECT
+         m.id,
+         m.course_id,
+         m.sender_id,
+         m.title,
+         m.content,
+         m.type        AS msg_type,
+         m.is_pinned,
+         m.created_at,
+         m.updated_at,
+         u.display_name AS author_name,
+         u.photo_url    AS author_photo
        FROM messages m
        JOIN users u ON m.sender_id = u.id
        WHERE m.course_id = $1
@@ -144,36 +138,62 @@ router.get('/:courseId', authMiddleware, async (req, res) => {
       [courseId]
     );
 
-    // Get attachments and comments for each message
-    const messages = [];
-    for (const message of messagesResult.rows) {
-      // Get attachments
-      const attachmentsResult = await pool.query(
-        `SELECT * FROM message_attachments 
-         WHERE message_id = $1 
-         ORDER BY uploaded_at`,
-        [message.id]
-      );
-
-      // Get comments
-      const commentsResult = await pool.query(
-        `SELECT c.*, 
-                u.display_name as author_name,
-                u.photo_url as author_photo
-         FROM comments c
-         JOIN users u ON c.author_id = u.id
-         WHERE c.message_id = $1
-         ORDER BY c.created_at`,
-        [message.id]
-      );
-
-      messages.push({
-        ...message,
-        attachments: attachmentsResult.rows,
-        comments: commentsResult.rows,
-        comment_count: commentsResult.rows.length
-      });
+    if (messagesResult.rows.length === 0) {
+      return res.json({ success: true, data: [] });
     }
+
+    const msgIds = messagesResult.rows.map(r => r.id);
+
+    // Fetch all comments for these messages in one query
+    const commentsResult = await pool.query(
+      `SELECT c.id, c.message_id, c.content, c.created_at, c.author_id,
+              u.display_name AS author_name, u.photo_url AS author_photo
+       FROM comments c
+       JOIN users u ON u.id = c.author_id
+       WHERE c.message_id = ANY($1::uuid[])
+       ORDER BY c.created_at`,
+      [msgIds]
+    );
+
+    // Fetch all attachments for these messages in one query
+    const attachmentsResult = await pool.query(
+      `SELECT id, message_id, file_name, original_name, url, file_size, mime_type, uploaded_at
+       FROM message_attachments
+       WHERE message_id = ANY($1::uuid[])`,
+      [msgIds]
+    );
+
+    // Group by message id
+    const commentsByMsg = {};
+    commentsResult.rows.forEach(c => {
+      if (!commentsByMsg[c.message_id]) commentsByMsg[c.message_id] = [];
+      commentsByMsg[c.message_id].push({
+        ...c,
+        author_photo: formatAvatarUrl(c.author_id, c.author_photo)
+      });
+    });
+
+    const attachmentsByMsg = {};
+    attachmentsResult.rows.forEach(a => {
+      if (!attachmentsByMsg[a.message_id]) attachmentsByMsg[a.message_id] = [];
+      attachmentsByMsg[a.message_id].push({
+        ...a,
+        title: a.original_name || a.file_name,
+        type: a.mime_type?.startsWith('image/') ? 'image' : 'file'
+      });
+    });
+
+    const messages = messagesResult.rows.map(row => {
+      const comments = commentsByMsg[row.id] || [];
+      return {
+        ...row,
+        author_photo: formatAvatarUrl(row.sender_id, row.author_photo),
+        type: row.msg_type,
+        comments,
+        attachments: attachmentsByMsg[row.id] || [],
+        comment_count: comments.length
+      };
+    });
 
     res.json({
       success: true,
@@ -240,9 +260,16 @@ router.post('/', authMiddleware, async (req, res) => {
     if (attachments && attachments.length > 0) {
       for (const attachment of attachments) {
         await pool.query(
-          `INSERT INTO message_attachments (message_id, type, title, url, file_name, file_size, mime_type)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [message.id, attachment.type, attachment.title, attachment.url, attachment.file_name, attachment.file_size, attachment.mime_type]
+          `INSERT INTO message_attachments (message_id, file_name, original_name, url, file_size, mime_type)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            message.id,
+            attachment.file_name || attachment.name || 'file',
+            attachment.title || attachment.original_name || attachment.file_name || 'Archivo adjunto',
+            attachment.url || '',
+            attachment.file_size || 0,
+            attachment.mime_type || 'application/octet-stream'
+          ]
         );
       }
     }
@@ -254,25 +281,33 @@ router.post('/', authMiddleware, async (req, res) => {
     );
     const course = courseResult.rows[0];
 
+    const courseCast = isUuid(course_id) ? '::uuid' : '';
     // Get all students and teachers in the course
     const membersResult = await pool.query(
       `SELECT DISTINCT user_id FROM (
-        SELECT student_id as user_id FROM enrollments WHERE course_id = $1 AND status = 'active'
+        SELECT student_id as user_id FROM enrollments WHERE course_id = $1${courseCast} AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))
         UNION
-        SELECT teacher_id as user_id FROM course_teachers WHERE course_id = $1
+        SELECT student_id as user_id FROM course_students WHERE course_id = $1${courseCast} AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))
         UNION
-        SELECT owner_id as user_id FROM courses WHERE id = $1
+        SELECT teacher_id as user_id FROM course_teachers WHERE course_id = $1${courseCast}
+        UNION
+        SELECT owner_id as user_id FROM courses WHERE id = $1${courseCast}
       ) as members`,
       [course_id]
     );
 
+    // Get author name
+    const authorName = req.user.display_name || (req.user.role === 'teacher' ? 'El profesor' : 'Un usuario');
+
     // Create notifications for all course members except the message author
     const notificationPromises = membersResult.rows
-      .filter(member => member.user_id !== req.user.id)
+      .filter(member => String(member.user_id) !== String(req.user.id))
       .map(member => {
         const notificationType = type === 'announcement' ? 'announcement' : 'message';
-        const title = type === 'announcement' ? 'Nuevo anuncio' : 'Nuevo mensaje';
-        const messageText = `${title} en ${course.name}: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
+        const title = type === 'announcement' 
+          ? `📢 Nuevo anuncio de ${authorName}` 
+          : `💬 Nuevo mensaje de ${authorName}`;
+        const messageText = `${course?.name || 'Curso'}: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
 
         return createNotification(
           member.user_id,
@@ -280,14 +315,13 @@ router.post('/', authMiddleware, async (req, res) => {
           title,
           messageText,
           course_id,
-          null,
+          message.id,
           'message',
           'normal'
         );
       });
 
-    // Create notifications asynchronously (don't wait for them)
-    Promise.all(notificationPromises).catch(error => {
+    await Promise.all(notificationPromises).catch(error => {
       console.error('Error creating notifications:', error);
     });
 
@@ -542,49 +576,57 @@ router.post('/:id/comments', authMiddleware, async (req, res) => {
       [messageId, req.user.id, content.trim()]
     );
 
+    const messageCast = isUuid(messageId) ? '::uuid' : '';
     // Get message and course information for notification
     const messageInfoResult = await pool.query(
       `SELECT m.title, m.sender_id, c.name as course_name, c.owner_id
        FROM messages m
        JOIN courses c ON m.course_id = c.id
-       WHERE m.id = $1`,
+       WHERE m.id = $1${messageCast}`,
       [messageId]
     );
     const messageInfo = messageInfoResult.rows[0];
 
+    const courseCast = isUuid(courseId) ? '::uuid' : '';
     // Get all course members except the comment author
     const membersResult = await pool.query(
       `SELECT DISTINCT user_id FROM (
-        SELECT student_id as user_id FROM enrollments WHERE course_id = $1 AND status = 'active'
+        SELECT student_id as user_id FROM enrollments WHERE course_id = $1${courseCast} AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))
         UNION
-        SELECT teacher_id as user_id FROM course_teachers WHERE course_id = $1
+        SELECT student_id as user_id FROM course_students WHERE course_id = $1${courseCast} AND (status IS NULL OR LOWER(status) IN ('active', 'enrolled', 'matriculado'))
         UNION
-        SELECT owner_id as user_id FROM courses WHERE id = $1
+        SELECT teacher_id as user_id FROM course_teachers WHERE course_id = $1${courseCast}
+        UNION
+        SELECT owner_id as user_id FROM courses WHERE id = $1${courseCast}
       ) as members`,
       [courseId]
     );
 
+    const authorName = req.user.display_name || (req.user.role === 'teacher' ? 'El profesor' : 'Un usuario');
+
     // Create notifications for all course members except the comment author
     const notificationPromises = membersResult.rows
-      .filter(member => member.user_id !== req.user.id)
+      .filter(member => String(member.user_id) !== String(req.user.id))
       .map(member => {
-        const title = 'Nuevo comentario';
-        const messageText = `Nuevo comentario en "${messageInfo.title}" de ${messageInfo.course_name}: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
+        const isMsgAuthor = String(member.user_id) === String(messageInfo?.sender_id);
+        const title = isMsgAuthor
+          ? `💬 ${authorName} respondió a tu mensaje`
+          : `💬 ${authorName} comentó en "${messageInfo?.title || 'Mensaje'}"`;
+        const messageText = `${messageInfo?.course_name || 'Curso'}: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`;
 
         return createNotification(
           member.user_id,
-          'comment',
+          'message',
           title,
           messageText,
           courseId,
           messageId,
-          'comment',
+          'message',
           'normal'
         );
       });
 
-    // Create notifications asynchronously (don't wait for them)
-    Promise.all(notificationPromises).catch(error => {
+    await Promise.all(notificationPromises).catch(error => {
       console.error('Error creating comment notifications:', error);
     });
 

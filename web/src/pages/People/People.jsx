@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -91,6 +91,68 @@ export default function People() {
   const [enrollLoading, setEnrollLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
 
+  // Lookup state for auto-filling student data from cédula
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [foundExistingStudent, setFoundExistingStudent] = useState(null);
+  const lookupTimerRef = useRef(null);
+
+  // Check if the cédula is already enrolled and active in the selected course
+  const alreadyEnrolledStudent = React.useMemo(() => {
+    const cedula = enrollForm.cedula.trim();
+    if (!cedula || !students.length) return null;
+    return students.find(
+      (s) => s.cedula === cedula && s.status === 'active'
+    ) || null;
+  }, [enrollForm.cedula, students]);
+
+  // Debounced lookup: when cédula changes, search for existing student in the system
+  useEffect(() => {
+    const cedula = enrollForm.cedula.trim();
+
+    // Clear previous timer
+    if (lookupTimerRef.current) {
+      clearTimeout(lookupTimerRef.current);
+      lookupTimerRef.current = null;
+    }
+
+    // Reset if cédula is empty or already enrolled in this course
+    if (!cedula || alreadyEnrolledStudent) {
+      setFoundExistingStudent(null);
+      setLookupLoading(false);
+      return;
+    }
+
+    setLookupLoading(true);
+
+    lookupTimerRef.current = setTimeout(async () => {
+      try {
+        const response = await api.lookupStudentByCedula(cedula);
+        if (response.success && response.found && response.data) {
+          setFoundExistingStudent(response.data);
+          // Auto-fill the form fields
+          setEnrollForm(prev => ({
+            ...prev,
+            nombre: response.data.displayName || prev.nombre,
+            email: response.data.email || prev.email
+          }));
+        } else {
+          setFoundExistingStudent(null);
+        }
+      } catch (error) {
+        console.error('Error looking up student:', error);
+        setFoundExistingStudent(null);
+      } finally {
+        setLookupLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      if (lookupTimerRef.current) {
+        clearTimeout(lookupTimerRef.current);
+      }
+    };
+  }, [enrollForm.cedula, alreadyEnrolledStudent]);
+
   // Student progress dialog
   const [progressDialogOpen, setProgressDialogOpen] = useState(false);
   const [selectedStudentProgress, setSelectedStudentProgress] = useState(null);
@@ -158,6 +220,7 @@ export default function People() {
         toast.success(response.message || 'Estudiante matriculado exitosamente');
         setEnrollDialogOpen(false);
         setEnrollForm({ cedula: '', nombre: '', email: '' });
+        setFoundExistingStudent(null);
         loadStudents(selectedCourse.id);
       }
     } catch (error) {
@@ -317,18 +380,18 @@ export default function People() {
   // Check if user is teacher
   if (userProfile?.role !== 'teacher') {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
         <Alert severity="info">
           Esta sección es solo para docentes.
         </Alert>
-      </Container>
+      </Box>
     );
   }
 
   // If no course selected, show course selection
   if (!selectedCourse) {
     return (
-      <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+      <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -351,7 +414,7 @@ export default function People() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
         >
-          <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2 }}>
+          <Paper sx={{ p: 2.5, mb: 3, borderRadius: "16px" }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={8} md={6}>
                 <TextField
@@ -404,7 +467,7 @@ export default function People() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
+            <Paper sx={{ p: 6, textAlign: 'center', borderRadius: "20px" }}>
               <Avatar sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: 'primary.light' }}>
                 <School sx={{ fontSize: 40 }} />
               </Avatar>
@@ -432,7 +495,7 @@ export default function People() {
                       height: '100%',
                       cursor: 'pointer',
                       transition: 'all 0.3s ease',
-                      borderRadius: 3,
+                      borderRadius: "20px",
                       border: '1px solid',
                       borderColor: 'divider',
                       '&:hover': {
@@ -450,7 +513,7 @@ export default function People() {
                           sx={{
                             width: 50,
                             height: 50,
-                            borderRadius: 2,
+                            borderRadius: "16px",
                             backgroundColor: course.color || 'primary.main',
                             display: 'flex',
                             alignItems: 'center',
@@ -509,48 +572,39 @@ export default function People() {
             ))}
           </Grid>
         )}
-      </Container>
+      </Box>
     );
   }
 
   // If course selected, show students list
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 4 }, px: { xs: 2, sm: 3 } }}>
+    <Box sx={{ maxWidth: 1360, mx: 'auto', px: { xs: 2, sm: 3, md: 4 }, py: { xs: 3, sm: 3.5, md: 4 }, width: '100%' }}>
       {/* Header with Back Button */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <Box sx={{ mb: 4 }}>
+        <Box sx={{ mb: 3 }}>
           <Button
             startIcon={<ArrowBack />}
             onClick={handleBackToCourses}
-            sx={{ mb: 2 }}
+            sx={{ mb: 1.5, color: 'text.secondary' }}
+            size="small"
           >
             Volver a cursos
           </Button>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-            <Box
-              sx={{
-                width: 60,
-                height: 60,
-                borderRadius: 2,
-                backgroundColor: selectedCourse.color || 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <School sx={{ color: 'white', fontSize: 32 }} />
+            <Box sx={{ width: 48, height: 48, borderRadius: '12px', backgroundColor: selectedCourse.color || '#6750A4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <School sx={{ color: 'white', fontSize: 24 }} />
             </Box>
             <Box>
-              <Typography variant="h4" fontWeight="bold">
+              <Typography variant="h1" component="h1" sx={{ fontSize: { xs: '1.4rem', sm: '1.6rem' }, fontWeight: 700, color: 'text.primary', lineHeight: 1.2 }}>
                 {selectedCourse.name}
               </Typography>
-              <Typography variant="body1" color="text.secondary">
-                {selectedCourse.turn && `${selectedCourse.turn} • `}
-                {selectedCourse.course_code && `Código: ${selectedCourse.course_code}`}
+              <Typography variant="body2" color="text.secondary">
+                {selectedCourse.turn && `${selectedCourse.turn} · `}
+                {selectedCourse.course_code && `Cod: ${selectedCourse.course_code}`}
               </Typography>
             </Box>
           </Box>
@@ -565,7 +619,7 @@ export default function People() {
       >
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: "16px" }}>
               <Typography variant="h4" color="primary" fontWeight="bold">
                 {filteredAndSortedStudents.length}
               </Typography>
@@ -575,7 +629,7 @@ export default function People() {
             </Paper>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: "16px" }}>
               <Typography variant="h4" color="success.main" fontWeight="bold">
                 {students.filter(s => s.status === 'active').length}
               </Typography>
@@ -585,7 +639,7 @@ export default function People() {
             </Paper>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: "16px" }}>
               <Typography variant="h4" color="warning.main" fontWeight="bold">
                 {students.filter(s => s.status !== 'active').length}
               </Typography>
@@ -595,7 +649,7 @@ export default function People() {
             </Paper>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, textAlign: 'center', borderRadius: "16px" }}>
               <Typography variant="h4" color="info.main" fontWeight="bold">
                 {students.length}
               </Typography>
@@ -613,7 +667,7 @@ export default function People() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
       >
-        <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2 }}>
+        <Paper sx={{ p: 2.5, mb: 3, borderRadius: "16px" }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={4}>
               <TextField
@@ -671,7 +725,7 @@ export default function People() {
                 onClick={() => setEnrollDialogOpen(true)}
                 disabled={loading}
                 fullWidth
-                sx={{ borderRadius: 2 }}
+                sx={{ borderRadius: "16px" }}
               >
                 Matricular
               </Button>
@@ -691,7 +745,7 @@ export default function People() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
         >
-          <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
+          <Paper sx={{ p: 6, textAlign: 'center', borderRadius: "20px" }}>
             <Avatar sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: 'primary.light' }}>
               <Badge sx={{ fontSize: 40 }} />
             </Avatar>
@@ -708,7 +762,7 @@ export default function People() {
                 variant="contained"
                 startIcon={<PersonAdd />}
                 onClick={() => setEnrollDialogOpen(true)}
-                sx={{ borderRadius: 2 }}
+                sx={{ borderRadius: "16px" }}
               >
                 Matricular Primer Alumno
               </Button>
@@ -721,7 +775,7 @@ export default function People() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
+          <TableContainer component={Paper} sx={{ borderRadius: "20px" }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'action.hover' }}>
@@ -845,10 +899,14 @@ export default function People() {
       {/* Dialogs */}
       <Dialog
         open={enrollDialogOpen}
-        onClose={() => setEnrollDialogOpen(false)}
+        onClose={() => {
+          setEnrollDialogOpen(false);
+          setEnrollForm({ cedula: '', nombre: '', email: '' });
+          setFoundExistingStudent(null);
+        }}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: "20px" } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="h5" fontWeight="bold">Matricular Nuevo Alumno</Typography>
@@ -858,24 +916,64 @@ export default function People() {
             <TextField
               label="Número de Cédula"
               value={enrollForm.cedula}
-              onChange={(e) => setEnrollForm(prev => ({ ...prev, cedula: e.target.value }))}
+              onChange={(e) => {
+                setEnrollForm(prev => ({ ...prev, cedula: e.target.value }));
+                // Reset found student when cédula changes manually
+                if (foundExistingStudent) {
+                  setFoundExistingStudent(null);
+                  setEnrollForm(prev => ({ ...prev, cedula: e.target.value, nombre: '', email: '' }));
+                }
+              }}
               fullWidth
               required
-              helperText="La cédula se usará como contraseña si el alumno no existe"
+              error={!!alreadyEnrolledStudent}
+              color={foundExistingStudent && !alreadyEnrolledStudent ? 'success' : undefined}
+              helperText={
+                alreadyEnrolledStudent
+                  ? `Este alumno ya se encuentra matriculado y activo en este curso`
+                  : foundExistingStudent
+                    ? `✓ Alumno encontrado en el sistema — datos cargados automáticamente`
+                    : lookupLoading
+                      ? 'Buscando alumno en el sistema...'
+                      : "La cédula se usará como contraseña si el alumno no existe"
+              }
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <Badge />
                   </InputAdornment>
-                )
+                ),
+                endAdornment: lookupLoading ? (
+                  <InputAdornment position="end">
+                    <CircularProgress size={20} />
+                  </InputAdornment>
+                ) : foundExistingStudent && !alreadyEnrolledStudent ? (
+                  <InputAdornment position="end">
+                    <CheckCircle color="success" />
+                  </InputAdornment>
+                ) : null
               }}
             />
+            {alreadyEnrolledStudent && (
+              <Alert severity="warning" sx={{ borderRadius: "16px" }}>
+                El alumno <strong>{alreadyEnrolledStudent.display_name}</strong> (Cédula: {alreadyEnrolledStudent.cedula}) ya está matriculado y activo en el curso "{selectedCourse?.name}". No es posible matricularlo nuevamente.
+              </Alert>
+            )}
+            {foundExistingStudent && !alreadyEnrolledStudent && (
+              <Alert severity="success" sx={{ borderRadius: "16px" }}>
+                El alumno <strong>{foundExistingStudent.displayName}</strong> ya existe en el sistema. Sus datos se han cargado automáticamente.
+              </Alert>
+            )}
             <TextField
               label="Nombre Completo"
               value={enrollForm.nombre}
               onChange={(e) => setEnrollForm(prev => ({ ...prev, nombre: e.target.value }))}
               fullWidth
               required
+              disabled={!!foundExistingStudent}
+              InputProps={{
+                readOnly: !!foundExistingStudent
+              }}
             />
             <TextField
               label="Correo Electrónico"
@@ -884,7 +982,9 @@ export default function People() {
               onChange={(e) => setEnrollForm(prev => ({ ...prev, email: e.target.value }))}
               fullWidth
               required
+              disabled={!!foundExistingStudent}
               InputProps={{
+                readOnly: !!foundExistingStudent,
                 startAdornment: (
                   <InputAdornment position="start">
                     <Email />
@@ -892,20 +992,24 @@ export default function People() {
                 )
               }}
             />
-            <Alert severity="info" sx={{ borderRadius: 2 }}>
+            <Alert severity="info" sx={{ borderRadius: "16px" }}>
               Si el alumno no existe en el sistema, se creará automáticamente con la cédula como contraseña.
             </Alert>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={() => setEnrollDialogOpen(false)} disabled={enrollLoading}>
+          <Button onClick={() => {
+            setEnrollDialogOpen(false);
+            setEnrollForm({ cedula: '', nombre: '', email: '' });
+            setFoundExistingStudent(null);
+          }} disabled={enrollLoading}>
             Cancelar
           </Button>
           <Button
             variant="contained"
             onClick={handleEnroll}
-            disabled={enrollLoading}
-            sx={{ borderRadius: 2, minWidth: 120 }}
+            disabled={enrollLoading || !!alreadyEnrolledStudent}
+            sx={{ borderRadius: "16px", minWidth: 120 }}
           >
             {enrollLoading ? <CircularProgress size={24} /> : 'Matricular'}
           </Button>
@@ -917,7 +1021,7 @@ export default function People() {
         onClose={() => setEditDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: "20px" } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="h5" fontWeight="bold">Editar Alumno</Typography>
@@ -981,7 +1085,7 @@ export default function People() {
             variant="contained"
             onClick={handleEditStudent}
             disabled={editLoading}
-            sx={{ borderRadius: 2, minWidth: 120 }}
+            sx={{ borderRadius: "16px", minWidth: 120 }}
           >
             {editLoading ? <CircularProgress size={24} /> : 'Guardar Cambios'}
           </Button>
@@ -993,14 +1097,14 @@ export default function People() {
         onClose={() => setUnenrollDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: "20px" } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Typography variant="h5" fontWeight="bold">Desmatricular Alumno</Typography>
         </DialogTitle>
         <DialogContent>
           {studentToUnenroll && (
-            <Alert severity="warning" sx={{ mt: 1, borderRadius: 2 }}>
+            <Alert severity="warning" sx={{ mt: 1, borderRadius: "16px" }}>
               ¿Estás seguro de que deseas desmatricular a <strong>{studentToUnenroll.display_name}</strong> del curso "{selectedCourse.name}"?
               <Typography variant="body2" sx={{ mt: 1 }}>
                 Esta acción no se puede deshacer fácilmente.
@@ -1017,7 +1121,7 @@ export default function People() {
             color="error"
             onClick={handleUnenroll}
             disabled={enrollLoading}
-            sx={{ borderRadius: 2, minWidth: 120 }}
+            sx={{ borderRadius: "16px", minWidth: 120 }}
           >
             {enrollLoading ? <CircularProgress size={24} /> : 'Desmatricular'}
           </Button>
@@ -1033,7 +1137,7 @@ export default function People() {
         }}
         maxWidth="lg"
         fullWidth
-        PaperProps={{ sx: { borderRadius: 3 } }}
+        PaperProps={{ sx: { borderRadius: "20px" } }}
       >
         <DialogTitle sx={{ pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Box display="flex" alignItems="center" gap={2}>
@@ -1240,12 +1344,13 @@ export default function People() {
               setSelectedStudentProgress(null);
             }}
             variant="contained"
-            sx={{ borderRadius: 2 }}
+            sx={{ borderRadius: "16px" }}
           >
             Cerrar
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 }
+

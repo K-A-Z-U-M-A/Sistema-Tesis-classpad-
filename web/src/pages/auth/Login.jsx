@@ -34,6 +34,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import api from '../../services/api';
 import toast, { Toaster } from 'react-hot-toast';
+import ThemeToggle from '../../components/ui/ThemeToggle';
 
 // ============================================================================
 // TOAST STYLES - Apple/iOS Inspired Glassmorphic Design
@@ -86,6 +87,7 @@ const toastStyles = {
 
 export default function Login() {
   const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -103,6 +105,8 @@ export default function Login() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [showQR, setShowQR] = useState(false);
   const [qrHost, setQrHost] = useState(window.location.hostname);
+  const [qrMode, setQrMode] = useState('local'); // 'local' | 'ngrok'
+  const [ngrokUrl, setNgrokUrl] = useState('');
 
   // ============================================================================
   // EFFECT: Load failed attempts from localStorage on mount
@@ -139,18 +143,19 @@ export default function Login() {
     }
   }, [formData.email]);
 
-  // Load Network Config for Bonjour
+  // Auto-detectar ngrok al abrir el modal
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         const config = await api.get('/config');
-        if (config && config.bonjurHostname) {
-          setQrHost(config.bonjurHostname);
-          console.log('📡 Bonjour Hostname detected:', config.bonjurHostname);
+        if (config?.ipv4) setQrHost(config.ipv4);
+        if (config?.ngrokUrl) {
+          setNgrokUrl(config.ngrokUrl);
+          setQrMode('ngrok'); // Si hay ngrok activo, abrimos en modo ngrok
+          console.log('🌐 ngrok detectado:', config.ngrokUrl);
         }
       } catch (e) {
-        console.log('⚠️ Could not auto-detect network config:', e);
-        // Fallback is already window.location.hostname
+        console.log('⚠️ No se pudo detectar la config de red');
       }
     };
     fetchConfig();
@@ -331,8 +336,7 @@ export default function Login() {
   // ============================================================================
 
   const handleGoogleLogin = () => {
-    const backendUrl = 'http://localhost:3001';
-    window.location.href = `${backendUrl}/api/auth/google?flow=redirect`;
+    window.location.href = '/api/auth/google?flow=redirect';
   };
 
   // ============================================================================
@@ -352,10 +356,18 @@ export default function Login() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #F2F2F7 0%, #E5E5EA 100%)',
+        background: isDark
+          ? 'linear-gradient(135deg, #121118 0%, #1e1b29 50%, #131119 100%)'
+          : 'linear-gradient(135deg, #F2F2F7 0%, #E5E5EA 100%)',
         p: 2,
+        position: 'relative',
       }}
     >
+      {/* Botón flotante para alternar tema */}
+      <Box sx={{ position: 'absolute', top: { xs: 12, sm: 20 }, right: { xs: 12, sm: 20 }, zIndex: 10 }}>
+        <ThemeToggle />
+      </Box>
+
       {/* Toast Container - Renders toasts in a Portal */}
       <Toaster
         position="top-center"
@@ -377,14 +389,21 @@ export default function Login() {
         transition={{ duration: 0.6 }}
       >
         <Paper
-          elevation={0}
+          elevation={isDark ? 8 : 0}
           sx={{
             p: 4,
-            borderRadius: 4,
+            borderRadius: "28px",
             width: { xs: '100%', sm: 400 },
-            background: 'rgba(255, 255, 255, 0.9)',
+            background: isDark
+              ? 'rgba(30, 27, 38, 0.92)'
+              : 'rgba(255, 255, 255, 0.92)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
+            border: isDark
+              ? '1px solid rgba(255, 255, 255, 0.1)'
+              : '1px solid rgba(255, 255, 255, 0.4)',
+            boxShadow: isDark
+              ? '0 20px 50px rgba(0, 0, 0, 0.6)'
+              : '0 20px 50px rgba(0, 0, 0, 0.08)',
           }}
         >
           {/* ================================================================ */}
@@ -529,7 +548,7 @@ export default function Login() {
                 sx={{
                   py: 1.5,
                   mb: 3,
-                  borderRadius: 2,
+                  borderRadius: "16px",
                   fontSize: '1.1rem',
                   fontWeight: 600,
                   background: 'linear-gradient(135deg, #FF9500 0%, #FF6B00 100%)',
@@ -552,9 +571,10 @@ export default function Login() {
                 sx={{
                   py: { xs: 2, sm: 1.5 },
                   mb: 3,
-                  borderRadius: 2,
+                  borderRadius: "16px",
                   fontSize: { xs: '1.1rem', sm: '1.1rem' },
                   fontWeight: 600,
+                  color: '#ffffff !important',
                   background: 'linear-gradient(135deg, #007AFF 0%, #0056CC 100%)',
                   '&:hover': {
                     background: 'linear-gradient(135deg, #0056CC 0%, #004499 100%)',
@@ -563,6 +583,7 @@ export default function Login() {
                   },
                   '&:disabled': {
                     background: 'rgba(0, 122, 255, 0.3)',
+                    color: 'rgba(255, 255, 255, 0.6) !important',
                   },
                   transition: 'all 0.3s ease',
                 }}
@@ -601,12 +622,13 @@ export default function Login() {
               disabled={loading}
               sx={{
                 py: 1.5,
-                borderRadius: 2,
-                borderColor: 'rgba(0, 0, 0, 0.23)',
+                borderRadius: "16px",
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.23)',
                 color: 'text.primary',
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
                 '&:hover': {
                   borderColor: 'primary.main',
-                  backgroundColor: 'rgba(0, 122, 255, 0.04)',
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 122, 255, 0.04)',
                 },
               }}
             >
@@ -680,40 +702,91 @@ export default function Login() {
         open={showQR}
         onClose={() => setShowQR(false)}
         PaperProps={{
-          sx: { borderRadius: 3, maxWidth: 350 }
+          sx: { borderRadius: "20px", maxWidth: 380 }
         }}
       >
-        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold' }}>
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 'bold', pb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
             <DevicesIcon color="primary" /> Acceso Móvil
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            Escanea este código QR para acceder a ClassPad desde tu celular o tablet en la misma red Wi-Fi.
-          </Typography>
-
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
-            <QRCodeSVG
-              value={`https://${qrHost}:${window.location.port || '5173'}/login`}
-              size={200}
-              level="M"
-              includeMargin={true}
-            />
+          {/* Mode selector */}
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <Button
+              fullWidth
+              size="small"
+              variant={qrMode === 'local' ? 'contained' : 'outlined'}
+              onClick={() => setQrMode('local')}
+              sx={{ borderRadius: 20, textTransform: 'none', fontSize: '0.75rem' }}
+            >
+              📶 Red local (Wi-Fi)
+            </Button>
+            <Button
+              fullWidth
+              size="small"
+              variant={qrMode === 'ngrok' ? 'contained' : 'outlined'}
+              onClick={() => setQrMode('ngrok')}
+              sx={{ borderRadius: 20, textTransform: 'none', fontSize: '0.75rem' }}
+            >
+              🌐 ngrok (cualquier red)
+            </Button>
           </Box>
 
-          <TextField
-            fullWidth
-            size="small"
-            label="IP o Nombre del PC"
-            value={qrHost}
-            onChange={(e) => setQrHost(e.target.value)}
-            helperText={`URL: https://${qrHost}:${window.location.port || '5173'}`}
-            sx={{ mt: 1 }}
-          />
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2, textAlign: 'center', fontStyle: 'italic' }}>
-            Asegúrate de que ambos dispositivos estén conectados a la misma red Wi-Fi.
-          </Typography>
+          {qrMode === 'local' ? (
+            <>
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                Escanea el QR desde la misma red Wi-Fi.
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: "16px" }}>
+                <QRCodeSVG
+                  value={`https://${qrHost}:${window.location.port || '5173'}/login`}
+                  size={190}
+                  level="M"
+                  includeMargin={true}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                size="small"
+                label="IP o Nombre del PC"
+                value={qrHost}
+                onChange={(e) => setQrHost(e.target.value)}
+                helperText={`URL: https://${qrHost}:${window.location.port || '5173'}`}
+                sx={{ mt: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, textAlign: 'center', fontStyle: 'italic' }}>
+                Ambos dispositivos deben estar en la misma red Wi-Fi.
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 2 }}>
+                Usá la URL de ngrok para acceder desde cualquier red sin advertencias de seguridad.
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: "16px" }}>
+                <QRCodeSVG
+                  value={ngrokUrl ? `${ngrokUrl.replace(/\/$/, '')}/login` : 'https://ngrok-url-aqui'}
+                  size={190}
+                  level="M"
+                  includeMargin={true}
+                />
+              </Box>
+              <TextField
+                fullWidth
+                size="small"
+                label="URL de ngrok"
+                placeholder="https://xxxx.ngrok-free.app"
+                value={ngrokUrl}
+                onChange={(e) => setNgrokUrl(e.target.value)}
+                helperText={ngrokUrl ? `URL: ${ngrokUrl.replace(/\/$/, '')}/login` : 'Pegá la URL que te da ngrok'}
+                sx={{ mt: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, textAlign: 'center', fontStyle: 'italic' }}>
+                Funciona desde cualquier red. La URL cambia cada vez que reiniciás ngrok.
+              </Typography>
+            </>
+          )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
           <Button onClick={() => setShowQR(false)} variant="outlined" sx={{ borderRadius: 20 }}>
