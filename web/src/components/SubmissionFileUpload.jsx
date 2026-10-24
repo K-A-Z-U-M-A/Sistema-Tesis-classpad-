@@ -280,7 +280,7 @@ const SubmissionFileUpload = ({ submissionId, files = [], onFileAdded, onFileDel
             border: '2px dashed',
             borderColor: 'divider',
             borderRadius: 2,
-            backgroundColor: 'grey.50'
+            backgroundColor: 'action.hover'
           }}
         >
           <AttachFile sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />

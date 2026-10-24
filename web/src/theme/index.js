@@ -4,7 +4,7 @@ import { createTheme } from "@mui/material/styles";
 // Based on: https://m3.material.io/styles/color/the-color-system/key-colors-tones
 // Primary: Violet #6750A4 (M3 canonical)
 // Secondary: #625B71 | Tertiary: #7D5260
-const m3 = {
+const m3Light = {
   // Primary
   primary:            "#6750A4",
   onPrimary:          "#FFFFFF",
@@ -58,6 +58,58 @@ const m3 = {
   onWarningContainer: "#2B1700",
 };
 
+const m3Dark = {
+  // Primary
+  primary:            "#D0BCFF",
+  onPrimary:          "#381E72",
+  primaryContainer:   "#4F378B",
+  onPrimaryContainer: "#EADDFF",
+
+  // Secondary
+  secondary:            "#CCC2DC",
+  onSecondary:          "#332D41",
+  secondaryContainer:   "#4A4458",
+  onSecondaryContainer: "#E8DEF8",
+
+  // Tertiary
+  tertiary:            "#EFB8C8",
+  onTertiary:          "#492532",
+  tertiaryContainer:   "#633B48",
+  onTertiaryContainer: "#FFD8E4",
+
+  // Surface & Background
+  background:          "#141218",
+  onBackground:        "#E6E0E9",
+  surface:             "#1E1B24",
+  onSurface:           "#E6E0E9",
+  surfaceVariant:      "#49454F",
+  onSurfaceVariant:    "#CAC4D0",
+  surfaceContainer:    "#211F26",
+  surfaceContainerHigh:"#2B2930",
+  surfaceContainerLow: "#1D1B20",
+  inverseSurface:      "#E6E0E9",
+  inverseOnSurface:    "#313033",
+  inversePrimary:      "#6750A4",
+
+  // Outline
+  outline:        "#938F99",
+  outlineVariant: "#36323D",
+
+  // Semantic
+  error:            "#F2B8B5",
+  onError:          "#601410",
+  errorContainer:   "#8C1D18",
+  onErrorContainer: "#F9DEDC",
+
+  success:            "#7BD993",
+  successContainer:   "#0F5223",
+  onSuccessContainer: "#C6EFD1",
+
+  warning:            "#FFB951",
+  warningContainer:   "#5F4100",
+  onWarningContainer: "#FFDDB0",
+};
+
 const fontStack = [
   '"Plus Jakarta Sans"',
   '"Google Sans"',
@@ -69,54 +121,60 @@ const fontStack = [
   "sans-serif",
 ].join(",");
 
-export const theme = createTheme({
-  palette: {
-    mode: "light",
+export const createClasspadTheme = (mode = 'light') => {
+  const m3 = mode === 'dark' ? m3Dark : m3Light;
+  const isDark = mode === 'dark';
+  const m3Hover = isDark ? "rgba(208, 188, 255, 0.08)" : "rgba(103, 80, 164, 0.08)";
+  const m3RowHover = isDark ? "rgba(208, 188, 255, 0.04)" : "rgba(103, 80, 164, 0.04)";
 
-    primary:   { main: m3.primary,   light: "#9A82DB", dark: "#4A3980", contrastText: m3.onPrimary },
-    secondary: { main: m3.secondary, light: "#8E849E", dark: "#3D3750", contrastText: m3.onSecondary },
-    error:     { main: m3.error,     light: "#D9534F", dark: "#8C1D18", contrastText: m3.onError },
-    warning:   { main: m3.warning,   light: "#C98A00", dark: "#5A3D00", contrastText: "#FFFFFF" },
-    success:   { main: m3.success,   light: "#2DA050", dark: "#0A4A1A", contrastText: "#FFFFFF" },
-    info:      { main: m3.primary,   light: "#9A82DB", dark: "#4A3980", contrastText: m3.onPrimary },
+  return createTheme({
+    palette: {
+      mode,
 
-    background: { default: m3.background, paper: m3.surface },
-    text: {
-      primary:   m3.onSurface,
-      secondary: m3.onSurfaceVariant,
-      disabled:  "#B0AABC",
+      primary:   { main: m3.primary,   light: isDark ? "#EADDFF" : "#9A82DB", dark: isDark ? "#4F378B" : "#4A3980", contrastText: m3.onPrimary },
+      secondary: { main: m3.secondary, light: isDark ? "#E8DEF8" : "#8E849E", dark: isDark ? "#4A4458" : "#3D3750", contrastText: m3.onSecondary },
+      error:     { main: m3.error,     light: "#D9534F", dark: "#8C1D18", contrastText: m3.onError },
+      warning:   { main: m3.warning,   light: "#C98A00", dark: "#5A3D00", contrastText: isDark ? "#1C1B1F" : "#FFFFFF" },
+      success:   { main: m3.success,   light: "#2DA050", dark: "#0A4A1A", contrastText: isDark ? "#1C1B1F" : "#FFFFFF" },
+      info:      { main: m3.primary,   light: isDark ? "#EADDFF" : "#9A82DB", dark: isDark ? "#4F378B" : "#4A3980", contrastText: m3.onPrimary },
+
+      background: { default: m3.background, paper: m3.surface },
+      text: {
+        primary:   m3.onSurface,
+        secondary: m3.onSurfaceVariant,
+        disabled:  isDark ? "#79747E" : "#B0AABC",
+      },
+      divider: m3.outlineVariant,
+
+      action: {
+        hover:             isDark ? "rgba(208,188,255,0.08)" : "rgba(103,80,164,0.08)",
+        selected:          m3.secondaryContainer,
+        focus:             isDark ? "rgba(208,188,255,0.12)" : "rgba(103,80,164,0.12)",
+        disabledBackground: m3.surfaceVariant,
+        disabled:          isDark ? "#79747E" : "#B0AABC",
+      },
+
+      // Custom M3 tokens exposed for sx prop usage
+      primaryContainer:        m3.primaryContainer,
+      onPrimaryContainer:      m3.onPrimaryContainer,
+      secondaryContainer:      m3.secondaryContainer,
+      onSecondaryContainer:    m3.onSecondaryContainer,
+      tertiaryContainer:       m3.tertiaryContainer,
+      onTertiaryContainer:     m3.onTertiaryContainer,
+      surfaceVariant:          m3.surfaceVariant,
+      onSurfaceVariant:        m3.onSurfaceVariant,
+      surfaceContainer:        m3.surfaceContainer,
+      surfaceContainerHigh:    m3.surfaceContainerHigh,
+      surfaceContainerLow:     m3.surfaceContainerLow,
+      outline:                 m3.outline,
+      outlineVariant:          m3.outlineVariant,
+      successContainer:        m3.successContainer,
+      onSuccessContainer:      m3.onSuccessContainer,
+      warningContainer:        m3.warningContainer,
+      onWarningContainer:      m3.onWarningContainer,
+      errorContainer:          m3.errorContainer,
+      onErrorContainer:        m3.onErrorContainer,
     },
-    divider: m3.outlineVariant,
-
-    action: {
-      hover:             "rgba(103,80,164,0.08)",
-      selected:          m3.secondaryContainer,
-      focus:             "rgba(103,80,164,0.12)",
-      disabledBackground: m3.surfaceVariant,
-      disabled:          "#B0AABC",
-    },
-
-    // Custom M3 tokens exposed for sx prop usage
-    primaryContainer:        m3.primaryContainer,
-    onPrimaryContainer:      m3.onPrimaryContainer,
-    secondaryContainer:      m3.secondaryContainer,
-    onSecondaryContainer:    m3.onSecondaryContainer,
-    tertiaryContainer:       m3.tertiaryContainer,
-    onTertiaryContainer:     m3.onTertiaryContainer,
-    surfaceVariant:          m3.surfaceVariant,
-    onSurfaceVariant:        m3.onSurfaceVariant,
-    surfaceContainer:        m3.surfaceContainer,
-    surfaceContainerHigh:    m3.surfaceContainerHigh,
-    surfaceContainerLow:     m3.surfaceContainerLow,
-    outline:                 m3.outline,
-    outlineVariant:          m3.outlineVariant,
-    successContainer:        m3.successContainer,
-    onSuccessContainer:      m3.onSuccessContainer,
-    warningContainer:        m3.warningContainer,
-    onWarningContainer:      m3.onWarningContainer,
-    errorContainer:          m3.errorContainer,
-    onErrorContainer:        m3.onErrorContainer,
-  },
 
   typography: {
     fontFamily: fontStack,
@@ -218,17 +276,17 @@ export const theme = createTheme({
           borderColor: m3.outline,
           borderWidth: "1px",
           color: m3.primary,
-          "&:hover": { borderWidth: "1px", backgroundColor: "rgba(103,80,164,0.08)" },
+          "&:hover": { borderWidth: "1px", backgroundColor: m3Hover },
         },
         text: {
           color: m3.primary,
-          "&:hover": { backgroundColor: "rgba(103,80,164,0.08)" },
+          "&:hover": { backgroundColor: m3Hover },
         },
         // M3 Tonal Button (secondary variant)
         containedSecondary: {
           backgroundColor: m3.secondaryContainer,
           color: m3.onSecondaryContainer,
-          "&:hover": { backgroundColor: "#D5C8F0", boxShadow: "0px 1px 2px rgba(0,0,0,0.30), 0px 1px 3px 1px rgba(0,0,0,0.15)" },
+          "&:hover": { backgroundColor: isDark ? "#5C556B" : "#D5C8F0", boxShadow: "0px 1px 2px rgba(0,0,0,0.30), 0px 1px 3px 1px rgba(0,0,0,0.15)" },
         },
         containedError: {
           backgroundColor: m3.error,
@@ -244,7 +302,7 @@ export const theme = createTheme({
         root: {
           borderRadius: "50%",
           transition: "background-color 200ms",
-          "&:hover": { backgroundColor: "rgba(103,80,164,0.08)" },
+          "&:hover": { backgroundColor: m3Hover },
           "&:focus-visible": { outline: `3px solid ${m3.primaryContainer}`, outlineOffset: 2 },
         },
         sizeSmall: { borderRadius: "50%", padding: 6 },
@@ -518,7 +576,7 @@ export const theme = createTheme({
           minHeight: 40,
           transition: "background-color 200ms",
           color: m3.onSurface,
-          "&:hover":    { backgroundColor: `rgba(103,80,164,0.08)` },
+          "&:hover":    { backgroundColor: m3Hover },
           "&.Mui-selected": {
             backgroundColor: m3.secondaryContainer,
             color: m3.onSecondaryContainer,
@@ -619,7 +677,7 @@ export const theme = createTheme({
     },
     MuiTableRow: {
       styleOverrides: {
-        root: { "&:hover": { backgroundColor: `rgba(103,80,164,0.04)` } },
+        root: { "&:hover": { backgroundColor: m3RowHover } },
       },
     },
 
@@ -705,5 +763,9 @@ export const theme = createTheme({
     },
   },
 });
+};
+
+export const createDarkTheme = () => createClasspadTheme('dark');
+export const theme = createClasspadTheme('light');
 
 export default theme;

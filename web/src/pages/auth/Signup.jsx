@@ -26,9 +26,11 @@ import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import ThemeToggle from '../../components/ui/ThemeToggle';
 
 export default function Signup() {
   const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const navigate = useNavigate();
   const { register, loginWithGoogle } = useAuth();
 
@@ -134,24 +136,39 @@ export default function Signup() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #F2F2F7 0%, #E5E5EA 100%)',
+        background: isDark
+          ? 'linear-gradient(135deg, #121118 0%, #1e1b29 50%, #131119 100%)'
+          : 'linear-gradient(135deg, #F2F2F7 0%, #E5E5EA 100%)',
         p: 2,
+        position: 'relative',
       }}
     >
+      {/* Botón flotante para alternar tema */}
+      <Box sx={{ position: 'absolute', top: { xs: 12, sm: 20 }, right: { xs: 12, sm: 20 }, zIndex: 10 }}>
+        <ThemeToggle />
+      </Box>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
         <Paper
-          elevation={0}
+          elevation={isDark ? 8 : 0}
           sx={{
             p: 4,
             borderRadius: "28px",
             width: { xs: '100%', sm: 450 },
-            background: 'rgba(255, 255, 255, 0.9)',
+            background: isDark
+              ? 'rgba(30, 27, 38, 0.92)'
+              : 'rgba(255, 255, 255, 0.92)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
+            border: isDark
+              ? '1px solid rgba(255, 255, 255, 0.1)'
+              : '1px solid rgba(255, 255, 255, 0.4)',
+            boxShadow: isDark
+              ? '0 20px 50px rgba(0, 0, 0, 0.6)'
+              : '0 20px 50px rgba(0, 0, 0, 0.08)',
           }}
         >
           {/* Header */}
@@ -326,11 +343,16 @@ export default function Signup() {
                 borderRadius: "16px",
                 fontSize: '1.1rem',
                 fontWeight: 600,
+                color: '#ffffff !important',
                 background: 'linear-gradient(135deg, #007AFF 0%, #0056CC 100%)',
                 '&:hover': {
                   background: 'linear-gradient(135deg, #0056CC 0%, #004499 100%)',
                   transform: 'translateY(-2px)',
                   boxShadow: '0px 8px 25px rgba(0, 122, 255, 0.3)',
+                },
+                '&:disabled': {
+                  background: 'rgba(0, 122, 255, 0.3)',
+                  color: 'rgba(255, 255, 255, 0.6) !important',
                 },
                 transition: 'all 0.3s ease',
               }}
@@ -364,13 +386,15 @@ export default function Signup() {
                 py: 1.5,
                 mb: 3,
                 borderRadius: "16px",
-                borderWidth: 2,
                 fontSize: '1rem',
                 fontWeight: 600,
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.23)',
+                color: 'text.primary',
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
                 '&:hover': {
-                  borderWidth: 2,
+                  borderColor: 'primary.main',
+                  backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 122, 255, 0.04)',
                   transform: 'translateY(-2px)',
-                  boxShadow: '0px 8px 25px rgba(0, 0, 0, 0.1)',
                 },
                 transition: 'all 0.3s ease',
               }}

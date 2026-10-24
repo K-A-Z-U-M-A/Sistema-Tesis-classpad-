@@ -2267,7 +2267,7 @@ export default function Attendance() {
 
           {/* Resumen de asistencia */}
           {students.length > 0 && (
-            <Box sx={{ mt: 3, p: 2, backgroundColor: 'grey.50', borderRadius: "16px" }}>
+            <Box sx={{ mt: 3, p: 2, backgroundColor: 'surfaceContainerLow', border: '1px solid', borderColor: 'divider', borderRadius: "16px" }}>
               <Typography variant="subtitle2" gutterBottom>
                 Resumen:
               </Typography>

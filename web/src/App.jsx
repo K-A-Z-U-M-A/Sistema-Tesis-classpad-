@@ -5,11 +5,9 @@ import { CssBaseline, CircularProgress, Box } from '@mui/material';
 import { Toaster } from 'react-hot-toast';
 
 // Providers
+import { ThemeContextProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import { DemoDataProvider } from './contexts/DemoDataContext';
-
-// Theme
-import { theme } from './theme';
 
 // Layout (cargado de manera síncrona — se usa en casi todas las rutas)
 import AppLayout from './components/layout/AppLayout.jsx';
@@ -64,7 +62,7 @@ const PageLoader = () => (
     justifyContent="center"
     alignItems="center"
     height="100vh"
-    sx={{ background: theme.palette.background.default }}
+    sx={{ bgcolor: 'background.default' }}
   >
     <CircularProgress size={48} thickness={4} />
   </Box>
@@ -389,7 +387,7 @@ function AppRoutes() {
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeContextProvider>
       <CssBaseline />
       <Router
         future={{
@@ -425,7 +423,7 @@ function App() {
           </DemoDataProvider>
         </AuthProvider>
       </Router>
-    </ThemeProvider>
+    </ThemeContextProvider>
   );
 }
 

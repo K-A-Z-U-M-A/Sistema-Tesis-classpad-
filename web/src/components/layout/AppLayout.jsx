@@ -5,6 +5,8 @@ import {
   Avatar, Menu, MenuItem, Divider, Badge, Chip, Tooltip, useTheme,
   useMediaQuery,
 } from "@mui/material";
+
+import ThemeToggle from "../ui/ThemeToggle";
 // Imports específicos para tree-shaking correcto (evitan el barrel de 6.4MB)
 import MenuIcon from "@mui/icons-material/Menu";
 import Home from "@mui/icons-material/Home";
@@ -396,6 +398,9 @@ export default function AppLayout({ children }) {
           <Suspense fallback={null}>
             <NotificationBell />
           </Suspense>
+
+          {/* Theme toggle - dark mode button */}
+          <ThemeToggle />
 
           {/* Avatar → profile menu */}
           <Tooltip title="Mi cuenta">

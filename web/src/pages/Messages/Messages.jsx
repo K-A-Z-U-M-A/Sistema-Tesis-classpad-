@@ -443,8 +443,8 @@ export default function Messages() {
           mb: 3.5,
           borderRadius: '24px',
           border: '1px solid',
-          borderColor: 'rgba(103,80,164,0.12)',
-          bgcolor: '#FFFFFF',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
           boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
         }}
       >
@@ -467,13 +467,13 @@ export default function Messages() {
                   sx={{
                     borderRadius: '100px',
                     fontWeight: selectedType === typeItem.id ? 700 : 500,
-                    bgcolor: selectedType === typeItem.id ? '#EADDFF' : '#F7F2FA',
-                    color: selectedType === typeItem.id ? '#21005D' : '#49454F',
+                    bgcolor: selectedType === typeItem.id ? 'primaryContainer' : 'surfaceVariant',
+                    color: selectedType === typeItem.id ? 'onPrimaryContainer' : 'text.secondary',
                     border: '1px solid',
-                    borderColor: selectedType === typeItem.id ? '#6750A4' : 'transparent',
-                    '&:hover': { bgcolor: '#E8DEF8' },
+                    borderColor: selectedType === typeItem.id ? 'primary.main' : 'transparent',
+                    '&:hover': { bgcolor: 'secondaryContainer' },
                     '& .MuiChip-icon': {
-                      color: selectedType === typeItem.id ? '#6750A4' : '#79747E'
+                      color: selectedType === typeItem.id ? 'primary.main' : 'text.secondary'
                     }
                   }}
                 />

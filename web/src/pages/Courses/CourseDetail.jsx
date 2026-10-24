@@ -940,6 +940,7 @@ const CourseDetail = () => {
                         border: '1px solid',
                         borderColor: 'divider',
                         borderRadius: "20px",
+                        backgroundColor: 'background.paper',
                         '&:before': { display: 'none' },
                         boxShadow: 'none',
                         '&:hover': {
@@ -951,10 +952,10 @@ const CourseDetail = () => {
                       <AccordionSummary
                         expandIcon={<ExpandMore />}
                         sx={{
-                          backgroundColor: 'grey.50',
-                          borderRadius: '12px 12px 0 0',
+                          backgroundColor: 'surfaceContainerLow',
+                          borderRadius: '20px',
                           '&.Mui-expanded': {
-                            borderRadius: '12px 12px 0 0'
+                            borderRadius: '20px 20px 0 0'
                           },
                           px: { xs: 1, sm: 2 },
                           py: { xs: 1, sm: 1.5 }
@@ -1054,7 +1055,7 @@ const CourseDetail = () => {
                           <Paper elevation={0} sx={{
                             p: { xs: 1.5, sm: 2 },
                             mb: 2,
-                            backgroundColor: 'grey.25',
+                            backgroundColor: 'action.hover',
                             borderRadius: 2
                           }}>
                             <Box
@@ -1099,7 +1100,7 @@ const CourseDetail = () => {
                           </Paper>
 
                           {/* Tareas de la unidad */}
-                          <Paper elevation={0} sx={{ p: 2, backgroundColor: 'grey.25', borderRadius: "16px" }}>
+                          <Paper elevation={0} sx={{ p: 2, backgroundColor: 'action.hover', borderRadius: "16px" }}>
                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                               <Typography variant="subtitle1" fontWeight="bold" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Assignment color="primary" />

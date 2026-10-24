@@ -593,7 +593,7 @@ const Backups = () => {
               <TableContainer>
                 <Table sx={{ minWidth: 650 }}>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: 'grey.50' }}>
+                    <TableRow sx={{ bgcolor: 'surfaceContainer' }}>
                       <TableCell sx={{ fontWeight: 700 }}>Archivo de Respaldo</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Fecha y Hora</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Tamaño</TableCell>
@@ -772,7 +772,7 @@ const Backups = () => {
 
                       {/* Si el preset es 1 vez al día: Selector de Hora */}
                       {scheduleForm.schedulePreset === '1time' && (
-                        <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: '8px', mb: 2, border: '1px solid #e0e0e0' }}>
+                        <Box sx={{ p: 2, bgcolor: 'surfaceContainerLow', borderRadius: '8px', mb: 2, border: '1px solid', borderColor: 'divider' }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                             <AccessTimeIcon fontSize="small" color="primary" /> Selecciona la hora exacta del respaldo diario:
                           </Typography>
@@ -790,7 +790,7 @@ const Backups = () => {
 
                       {/* Si el preset es personalizado: Selector de 24 horas */}
                       {scheduleForm.schedulePreset === 'custom' && (
-                        <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: '8px', mb: 2, border: '1px solid #e0e0e0' }}>
+                        <Box sx={{ p: 2, bgcolor: 'surfaceContainerLow', borderRadius: '8px', mb: 2, border: '1px solid', borderColor: 'divider' }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                             <AccessTimeIcon fontSize="small" color="primary" /> Haz clic en las horas del día en que deseas generar respaldos:
                           </Typography>
@@ -900,7 +900,7 @@ const Backups = () => {
                       borderRadius: '12px',
                       bgcolor: config?.googleDrive?.authType === 'oauth2' ? 'success.50' : '#f8fafd',
                       border: '1px solid',
-                      borderColor: config?.googleDrive?.authType === 'oauth2' ? 'success.main' : '#e2e8f0',
+                      borderColor: config?.googleDrive?.authType === 'oauth2' ? 'success.main' : 'divider',
                     }}
                   >
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>

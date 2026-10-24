@@ -23,16 +23,21 @@ import {
   ExpandMore,
   LockReset,
   Email,
-  NotificationsActive as NotificationsActiveIcon
+  NotificationsActive as NotificationsActiveIcon,
+  Palette as PaletteIcon,
+  LightModeOutlined,
+  DarkModeOutlined
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import ChangePassword from '../../components/profile/ChangePassword';
 import RecoveryEmailSettings from '../../components/settings/RecoveryEmailSettings';
 import NotificationEmailPreferences from '../../components/Notifications/NotificationEmailPreferences';
 import { useAuth } from '../../contexts/AuthContext';
+import { useThemeMode } from '../../contexts/ThemeContext';
 
 export default function Settings() {
   const { user, mustChangePassword, clearMustChangePassword } = useAuth();
+  const { mode, setMode } = useThemeMode();
   const [expandedPanel, setExpandedPanel] = React.useState('password');
   const [recoveryEmail, setRecoveryEmail] = React.useState(user?.recovery_email || '');
 
@@ -286,6 +291,154 @@ export default function Settings() {
               </AccordionSummary>
               <AccordionDetails sx={{ p: 3, pt: 2 }}>
                 <NotificationEmailPreferences />
+              </AccordionDetails>
+            </Accordion>
+
+            {/* Accordion: Apariencia y Tema */}
+            <Accordion
+              expanded={expandedPanel === 'appearance'}
+              onChange={handleAccordionChange('appearance')}
+              sx={{
+                borderRadius: '12px !important',
+                overflow: 'hidden',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                border: '1px solid',
+                borderColor: 'divider',
+                '&:before': { display: 'none' },
+                '&.Mui-expanded': {
+                  margin: '0 !important',
+                  boxShadow: '0 4px 16px rgba(102, 126, 234, 0.15)'
+                }
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMore sx={{ color: '#667eea' }} />}
+                sx={{
+                  minHeight: 72,
+                  '&.Mui-expanded': {
+                    minHeight: 72,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider'
+                  },
+                  '& .MuiAccordionSummary-content': { my: 2 }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    sx={{
+                      p: 1.25,
+                      borderRadius: "16px",
+                      background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15))',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    <PaletteIcon sx={{ fontSize: 24, color: '#667eea' }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" fontWeight="600" sx={{ fontSize: '1.1rem' }}>
+                      Apariencia y Tema
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Personaliza el aspecto visual del sistema (Modo Claro / Modo Oscuro)
+                    </Typography>
+                  </Box>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 3, pt: 2.5 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+                  Selecciona tu preferencia de visualización. El cambio se aplicará de inmediato a toda la aplicación.
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  {/* Tarjeta Modo Claro */}
+                  <Box
+                    onClick={() => setMode('light')}
+                    sx={{
+                      p: 2.5,
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: mode === 'light' ? 'primary.main' : 'divider',
+                      backgroundColor: mode === 'light' ? 'action.selected' : 'background.paper',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        transform: 'translateY(-2px)',
+                      }
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '12px',
+                        backgroundColor: '#FFFBFE',
+                        border: '1px solid #CAC4D0',
+                        color: '#FDB813',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <LightModeOutlined sx={{ fontSize: 28 }} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        Modo Claro
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Fondo blanco y tonos suaves para mayor luminosidad
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Tarjeta Modo Oscuro */}
+                  <Box
+                    onClick={() => setMode('dark')}
+                    sx={{
+                      p: 2.5,
+                      borderRadius: '16px',
+                      cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: mode === 'dark' ? 'primary.main' : 'divider',
+                      backgroundColor: mode === 'dark' ? 'action.selected' : 'background.paper',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        borderColor: 'primary.main',
+                        transform: 'translateY(-2px)',
+                      }
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '12px',
+                        backgroundColor: '#1E1B24',
+                        border: '1px solid #49454F',
+                        color: '#D0BCFF',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <DarkModeOutlined sx={{ fontSize: 28 }} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        Modo Oscuro
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Colores oscuros para menor fatiga visual en entornos con poca luz
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
               </AccordionDetails>
             </Accordion>
           </Box>

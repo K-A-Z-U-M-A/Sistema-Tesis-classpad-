@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+
   // Inicializar autenticación al montar el componente
   // IMPORTANTE: Solo se ejecuta una vez al montar, no reacciona a cambios externos
   useEffect(() => {
@@ -48,7 +49,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     authStore.initializeAuth();
 
     // NO escuchar eventos de storage - cada pestaña es independiente
-    // Esto previene que cambios en otras pestañas afecten esta
+    // Esto previene que cambios en otras pestañas afecte esta
 
     return () => {
       // Cleanup si es necesario

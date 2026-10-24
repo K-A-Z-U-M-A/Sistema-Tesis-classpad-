@@ -1,4 +1,4 @@
-﻿/* ─── ClassPad Global Styles ───────────────────────────────────────────────── */
+/* ─── ClassPad Global Styles ───────────────────────────────────────────────── */
 
 /* Reset */
 *, *::before, *::after {
@@ -13,14 +13,31 @@ html {
   scroll-behavior: smooth;
 }
 
+:root {
+  --bg-default: #F5F6FA;
+  --text-primary: #1C1B1F;
+  --scrollbar-thumb: #D9DCE3;
+  --scrollbar-thumb-hover: #98979D;
+}
+
+[data-theme="dark"],
+html.dark,
+.dark {
+  --bg-default: #141218;
+  --text-primary: #E6E0E9;
+  --scrollbar-thumb: #49454F;
+  --scrollbar-thumb-hover: #79747E;
+}
+
 body {
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #F5F6FA;
-  color: #1C1B1F;
+  background-color: var(--bg-default);
+  color: var(--text-primary);
   line-height: 1.6;
   overscroll-behavior-y: contain;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
 #root {
@@ -53,8 +70,8 @@ input, textarea, select, button {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #D9DCE3; border-radius: 100px; }
-::-webkit-scrollbar-thumb:hover { background: #98979D; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 100px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
 /* Focus ring */
 :focus-visible {

@@ -323,7 +323,7 @@ const TeacherSubmissions = ({ assignmentId, courseId }) => {
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     Comentarios del estudiante:
                   </Typography>
-                  <Paper sx={{ p: 2, backgroundColor: 'grey.50' }}>
+                  <Paper sx={{ p: 2, backgroundColor: 'surfaceContainerLow', border: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="body2">
                       {submission.content}
                     </Typography>
